@@ -22,7 +22,13 @@ At the beginning of every session, run `bash scripts/check-upstream.sh`.
 
 Before any file-changing work, run `bash scripts/sync-upstream.sh`.
 
-If synchronization cannot complete safely, stop and report the blocker. Do not bypass the script with reset, force, stash, clean, remote changes, manual conflict guessing, or destructive commands.
+If synchronization cannot complete safely, stop and report the blocker. A dirty worktree may pass only
+when fresh validation proves synchronization is already complete and the script performs no branch,
+index, or worktree mutation. Dirtiness blocks before any required switch, fast-forward, or merge, and
+interrupted Git state always blocks. A successful dirty no-op neither infers change ownership nor grants
+authority over unrelated files. Preserve all user changes and task-specific path limits. Do not bypass
+the script with reset, force, stash, clean, remote changes, manual conflict guessing, or destructive
+commands.
 
 Read-only analysis may continue after a successful check. File-changing work may not begin until safe synchronization passes. During the documented first-session bootstrap, follow the bootstrap checks in the Phase 1 build prompt because these scripts do not exist yet.
 
@@ -38,7 +44,7 @@ Read-only analysis may continue after a successful check. File-changing work may
 
 ## Phase control
 
-Phase 1 includes local JSON contracts, deterministic utilities, fixtures, tests, skill instructions, reports, installation, governance, and documentation. Do not implement Phase 2 or later: no Unreal OS or Supabase integration, scheduler, runner, creative generation, real-person likeness, outreach, external write, or autonomous loop.
+Phase 1 remains frozen at checkpoint `f77236a`. Phase 2 design is independently reviewed and finalized in the three `docs/specs/UNREAL_OS_PROSPECTING_*.md` contract documents. Phase 3 and executable contract implementation remain unauthorized until explicitly requested. The existing no-SQL, no-migration-execution, no-Unreal-OS-or-Supabase-connection, no-API, no-UI, no-service, no-worker, no-scheduler, no-runner, no-creative-generation, no-real-person-likeness, no-advertisement, no-outreach, no-external-write, and no-autonomous-loop boundaries remain in force.
 
 ## Planning and editing
 
@@ -85,7 +91,10 @@ Run targeted tests first, then the complete Phase 1 test suite when shared behav
 
 ## Escalation and stop rules
 
-Stop and report the exact blocker when history is unavailable, configuration is contradictory, identity is ambiguous, evidence cannot be verified, rights or brand-safety risk is unresolved, synchronization is unsafe, a secret is encountered, or the task would cross Phase 1 or affect an external system. Do not improvise around the boundary.
+Stop and report the exact blocker when history is unavailable, configuration is contradictory, identity
+is ambiguous, evidence cannot be verified, rights or brand-safety risk is unresolved, synchronization
+is unsafe, a secret is encountered, or the task would exceed the currently authorized phase or boundary
+or affect an external system. Do not improvise around the boundary.
 
 ## Parallel agents and worktrees
 

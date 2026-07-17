@@ -3,8 +3,12 @@
 **Program:** Unreal Media Group and Unreal Talent prospecting system  
 **Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`  
 **Integration target:** Unreal OS  
-**Current authorized implementation:** Phase 1 only  
+**Current program state:** Phase 2 complete and independently finalized; Phase 3 is not yet authorized
+
 **Operating principle:** Skills define repeatable research behavior; deterministic scripts validate and normalize data; Unreal OS later stores, schedules, observes, and approves the work.
+
+**Phase 1 checkpoint:** Completed and verified at commit `f77236a`. Phase 1 remains the frozen JSON and
+local-skill compatibility baseline for Phase 2 design.
 
 ---
 
@@ -303,6 +307,10 @@ The skill can:
 
 # Phase 2: Unreal OS Data Contracts
 
+**Current status:** Phase 2 contract design is complete and independently finalized on 2026-07-17. This
+closes design only. No SQL, migration, Supabase connection, Unreal OS implementation, service, UI,
+runner, schedule, creative, advertisement, likeness use, or outreach is authorized by finalization.
+
 ## Objective
 
 Design, but do not yet schedule, durable prospecting state inside Unreal OS.
@@ -335,6 +343,8 @@ A company account, a contact, a discovery event, a public signal, and an outreac
 - RLS is reviewed.
 - No live production migration occurs without the correct phase approval.
 - Phase 1 JSON maps cleanly to the proposed data model.
+- Independent review findings are resolved and the three Phase 2 contract documents are explicitly
+  finalized; authored drafts alone do not close the phase.
 
 ---
 
