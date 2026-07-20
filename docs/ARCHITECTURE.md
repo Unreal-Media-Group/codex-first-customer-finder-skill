@@ -1,4 +1,4 @@
-# Phase 1 architecture
+# Prospecting repository architecture
 
 ## Boundary
 
@@ -29,6 +29,36 @@ Campaign JSON + local history JSON
           human review only
 ```
 
+Phase 3 adds a separate local review surface without changing that frozen Phase 1 pipeline:
+
+```text
+ordinary loopback POST form
+           |
+           v
+bounded parser + CSRF + fixture actor/BU policy
+           |
+           v
+existing Phase 1 campaign validator
+           |
+           v
+MissionControl application service
+           |
+           v
+FixtureRepository interface implementation
+  | immutable campaign versions
+  | append-only manual run facts
+  | deterministic BU projections
+  | append-only governed review events
+           |
+           v
+escaped server-rendered HTML on 127.0.0.1
+```
+
+The UI depends on the repository boundary rather than fixture arrays. A later governed adapter can
+implement the same boundary, but Phase 3 contains no database client, migration, network client,
+worker, scheduler, or fallback from fixtures to production. Fixture actor selection is a policy
+simulation for local review, not authentication.
+
 ## Ownership
 
 | Concern | Canonical location |
@@ -38,6 +68,8 @@ Campaign JSON + local history JSON
 | Deterministic contracts and code | `shared/prospecting-core/` |
 | Synthetic evaluation data | `fixtures/prospecting/` |
 | Regression and safety checks | `tests/prospecting/` |
+| Phase 3 local application | `apps/prospecting-mission-control/` |
+| Phase 3 synthetic review catalog | `fixtures/prospecting/phase3/` |
 | Original upstream skill | `first-customer-finder/` |
 
 Skill report scripts are thin delegates. The installer places the shared core once at `unreal-prospecting-core`, preventing two business skills from drifting.

@@ -44,7 +44,7 @@ Read-only analysis may continue after a successful check. File-changing work may
 
 ## Phase control
 
-Phase 1 remains frozen at checkpoint `f77236a`. Phase 2 design is independently reviewed and finalized in the three `docs/specs/UNREAL_OS_PROSPECTING_*.md` contract documents. Phase 3 and executable contract implementation remain unauthorized until explicitly requested. The existing no-SQL, no-migration-execution, no-Unreal-OS-or-Supabase-connection, no-API, no-UI, no-service, no-worker, no-scheduler, no-runner, no-creative-generation, no-real-person-likeness, no-advertisement, no-outreach, no-external-write, and no-autonomous-loop boundaries remain in force.
+Phase 1 remains frozen at checkpoint `f77236a`. Phase 2 design is independently reviewed and finalized in the three `docs/specs/UNREAL_OS_PROSPECTING_*.md` contract documents. Phase 3 repository-local application work is authorized only under `apps/prospecting-mission-control/`, `fixtures/prospecting/phase3/`, the focused Phase 3 tests, and the associated documentation. The implementation is synthetic, deterministic, fixture-only, process-local, loopback-only, manually initiated, and pending independent review/finalization. It is not production authentication or authorization. SQL, migration application, database or external-system connections, real records, executable workers, schedulers, runners, autonomous loops, creative generation, real-person likeness, advertisements, outreach, deployment, and Phase 4 remain unauthorized.
 
 ## Planning and editing
 
