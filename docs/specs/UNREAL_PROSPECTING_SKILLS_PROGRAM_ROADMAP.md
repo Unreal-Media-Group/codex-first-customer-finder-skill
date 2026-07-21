@@ -3,7 +3,7 @@
 **Program:** Unreal Media Group and Unreal Talent prospecting system  
 **Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`  
 **Integration target:** Unreal OS  
-**Current program state:** Phase 4 independently reviewed and finalized at commit `b340b2c013b2fd026cd0be3aff24429196bd9be8`. Phase 5 is explicitly authorized and implemented locally, pending independent review/finalization. Phase 6 is not authorized.
+**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6 is not authorized.
 
 **Operating principle:** Skills define repeatable research behavior; deterministic scripts validate and normalize data; Unreal OS later stores, schedules, observes, and approves the work.
 
@@ -398,7 +398,7 @@ A human can create a campaign, inspect dry-run results, resolve duplicates, and 
 # Phase 4: Registered Prospecting Agent
 
 **Status:** Independently reviewed and finalized at commit
-`b340b2c013b2fd026cd0be3aff24429196bd9be8` (see `docs/PHASE_4_REGISTERED_AGENT.md`). The local
+`b7892aed5ad9ab0dcb9d900d95d6971332582ef8` (see `docs/PHASE_4_REGISTERED_AGENT.md`). The local
 worker remains synthetic, fixture-only, loopback-only, zero-cost, and durable. Phase 5 extends its
 control plane without changing this historical acceptance gate.
 
@@ -434,8 +434,8 @@ Move skill execution behind a governed Unreal OS worker.
 
 # Phase 5: Scheduled Loop in Shadow Mode
 
-**Status:** Explicitly authorized and implemented locally, pending independent review/finalization
-(see `docs/PHASE_5_SHADOW_LOOP.md`). The implementation is synthetic, fixture-only, loopback-only,
+**Status:** Independently reviewed and finalized at commit
+`1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d` (see `docs/PHASE_5_SHADOW_LOOP.md`). The implementation is synthetic, fixture-only, loopback-only,
 zero-cost, shadow-only, and disabled by default. Phase 6 remains unauthorized.
 
 ## Objective

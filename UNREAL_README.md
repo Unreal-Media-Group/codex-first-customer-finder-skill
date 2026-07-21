@@ -10,13 +10,13 @@ They share deterministic identity, history, deduplication, validation, scoring, 
 Phase 2 contains independently reviewed and finalized design contracts for a future Unreal OS
 prospecting data model. Phase 3 (finalized at `8ea7c16`) adds a synthetic, loopback-only Manual
 Mission Control review app with deterministic fixtures; it is not production authentication.
-Phase 4 (independently reviewed and finalized at `b340b2c013b2fd026cd0be3aff24429196bd9be8`) registers one fixture-only
+Phase 4 (independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`) registers one fixture-only
 `brand-prospecting-agent` worker with durable local gitignored SQLite run/attempt/output/audit and
 human-review-task state, a zero cost cap, timeout, retry cap, cancellation, idempotency, and
 startup recovery. Phase 5 adds a disabled-by-default, explicitly human-configured, weekly UTC local
 shadow loop with immutable campaign rotation, durable occurrences, history-aware deduplication,
-health and local alerts, pause/disable controls, and pending human review. Phase 5 is implemented
-locally and pending independent review/finalization. No external-system connection or migration,
+health and local alerts, pause/disable controls, and pending human review. Phase 5 is independently
+reviewed and finalized at `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. No external-system connection or migration,
 real-data API, production scheduler, generic cron, live research, creative, likeness use,
 advertisement, or outreach has been built or authorized; Phase 6 remains unauthorized.
 

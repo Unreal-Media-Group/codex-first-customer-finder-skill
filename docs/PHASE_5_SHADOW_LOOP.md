@@ -1,6 +1,6 @@
 # Phase 5 Scheduled Loop in Shadow Mode
 
-**Status:** Explicitly authorized and implemented locally, pending independent review/finalization
+**Status:** Independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`
 
 Phase 5 adds one repository-local weekly UTC scheduler to the independently finalized Phase 4
 registered-agent control plane. It remains synthetic, deterministic, fixture-only, loopback-only,
@@ -146,4 +146,5 @@ PYTHONPATH=/tmp/unreal-prospecting-pyyaml bash tests/prospecting/run_all.sh
 The Phase 5 suite covers exact UTC boundaries, controls, rotation, history failure, durable
 deduplication, caps, retries/idempotency boundaries, concurrency, recovery, additive upgrade,
 business-unit isolation, CSRF, safe rendering, local alerts, and joined shutdown without sleeps or
-external access. This implementation remains pending independent review/finalization.
+external access. This implementation is independently reviewed and finalized at commit
+`1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`.
