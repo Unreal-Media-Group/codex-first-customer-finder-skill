@@ -1,8 +1,10 @@
-"""Phase 4 registered prospecting agent.
+"""Phase 4 registered prospecting agent with Phase 5 control-plane reuse.
 
-One locally registered, manually triggered worker executes the existing Phase 3
-deterministic fixture adapter behind a durable, bounded control plane. There is
-no scheduler, loop, network client, creative, likeness, or outreach capability.
+One locally registered worker executes the existing Phase 3 deterministic
+fixture adapter behind a durable, bounded control plane. Direct worker control
+remains manual; Phase 5 may submit one occurrence from an explicitly enabled
+local schedule. The worker itself has no scheduler, network client, creative,
+likeness, or outreach capability.
 """
 
 from __future__ import annotations
@@ -20,7 +22,13 @@ from .application import (
     MissionControlError,
     Repository,
 )
-from .store import IdempotencyKeyExists, SqliteStore, canonical_json, MAX_SNAPSHOT_BYTES
+from .store import (
+    IdempotencyKeyExists,
+    MAX_SNAPSHOT_BYTES,
+    SqliteStore,
+    canonical_json,
+    worker_request_fingerprint,
+)
 
 # application.py placed the shared deterministic core on sys.path at import.
 from common import ValidationError  # noqa: E402
@@ -37,6 +45,7 @@ COST_CAP_USD = 0
 MAX_ATTEMPTS = 3  # one initial execution plus at most two manual retries
 MAX_CONCURRENCY = 1
 SQLITE_MAX_INTEGER = 2**63 - 1
+SCHEDULE_MANAGER = "noah"
 
 # Server-owned business-unit routing. The client can never supply a skill name,
 # import path, executable, file path, command, or version.
@@ -99,9 +108,15 @@ class FixtureWorkerExecutor:
     state. Corrupted or mismatched durable input fails closed.
     """
 
-    def __init__(self, repository: Repository, integrity: Callable[[str], str] | None = None):
+    def __init__(
+        self,
+        repository: Repository,
+        integrity: Callable[[str], str] | None = None,
+        scheduled_context: Callable[[str], dict[str, Any] | None] | None = None,
+    ):
         self.repository = repository
         self.integrity = integrity or skill_integrity_hash
+        self.scheduled_context = scheduled_context
 
     def _validate_durable_input(self, run: dict[str, Any]) -> dict[str, Any]:
         config = run["configuration"]
@@ -149,9 +164,20 @@ class FixtureWorkerExecutor:
             run["created_at"],
         )
         checkpoint("execute_fixture_adapter")
-        prepared = self.repository.prepare_run(
-            actor, run["campaign_family_id"], run["campaign_version"], run["idempotency_key"]
-        )
+        context = self.scheduled_context(run["run_id"]) if self.scheduled_context else None
+        if context:
+            history = context.get("history")
+            serialized_history = json.dumps(history, sort_keys=True, separators=(",", ":"))
+            if hashlib.sha256(serialized_history.encode("utf-8")).hexdigest() != context.get("history_hash"):
+                raise WorkerInputError(409, "The scheduled history snapshot failed its integrity check.")
+            prepared = self.repository.prepare_run(
+                actor, run["campaign_family_id"], run["campaign_version"], run["idempotency_key"],
+                history=history, prospect_cap=context.get("prospect_cap"),
+            )
+        else:
+            prepared = self.repository.prepare_run(
+                actor, run["campaign_family_id"], run["campaign_version"], run["idempotency_key"]
+            )
         checkpoint("assemble_result_snapshot")
         fixture_run = prepared.get("existing_run", prepared.get("fixture_run"))
         results = prepared.get("results")
@@ -207,7 +233,11 @@ class RegisteredAgentService:
         self.clock = clock
         self.timeout_seconds = timeout_seconds
         self._execution_slot = threading.Semaphore(MAX_CONCURRENCY)
-        self.executor = executor or FixtureWorkerExecutor(repository, integrity=self._integrity)
+        self.executor = executor or FixtureWorkerExecutor(
+            repository,
+            integrity=self._integrity,
+            scheduled_context=self.store.shadow_context_for_run,
+        )
         self.recovered_run_ids = self.store.recover_interrupted(now=self._now())
 
     def _now(self) -> str:
@@ -235,6 +265,7 @@ class RegisteredAgentService:
             "input_schema": INPUT_SCHEMA,
             "output_schema": OUTPUT_SCHEMA,
             "trigger": "manual human form only",
+            "scheduled_shadow_trigger": "explicitly enabled local weekly schedule occurrence only",
             "max_concurrency": MAX_CONCURRENCY,
             "timeout_seconds": self.timeout_seconds,
             "cost_cap_usd": COST_CAP_USD,
@@ -257,7 +288,8 @@ class RegisteredAgentService:
             raise MissionControlError(403, "Business-unit access denied.")
 
     def create_manual_run(
-        self, actor: str, family_id: str, version: int, idempotency_key: str
+        self, actor: str, family_id: str, version: int, idempotency_key: str,
+        *, request_kind: str = "manual", shadow_occurrence_id: str | None = None,
     ) -> tuple[dict[str, Any], bool]:
         """Create (or idempotently replay) the durable logical run. Returns
         (run, created) where created is False for an idempotent replay."""
@@ -270,10 +302,22 @@ class RegisteredAgentService:
                 raise MissionControlError(409, "No reviewed skill is bound to this business unit.")
             if not _valid_idempotency_key(idempotency_key):
                 raise MissionControlError(400, "A bounded alphanumeric idempotency key is required.")
+            if request_kind not in {"manual", "scheduled_shadow"}:
+                raise MissionControlError(400, "Unknown registered-agent request kind.")
+            if request_kind == "scheduled_shadow" and not shadow_occurrence_id:
+                raise MissionControlError(409, "A scheduled request requires its claimed occurrence.")
+            if request_kind == "scheduled_shadow" and actor != SCHEDULE_MANAGER:
+                raise MissionControlError(403, "Noah must create a scheduled shadow run.")
+            if request_kind == "manual" and shadow_occurrence_id is not None:
+                raise MissionControlError(409, "A manual request cannot link a shadow occurrence.")
         except MissionControlError as exc:
             self.store.record_audit(
                 run_id=None,
-                event_type="manual_request_rejected",
+                event_type=(
+                    "shadow_occurrence_rejected"
+                    if request_kind == "scheduled_shadow"
+                    else "manual_request_rejected"
+                ),
                 actor=actor if actor in ACTOR_SCOPE else "unknown-actor",
                 business_unit=None,
                 correlation_id="request-validation",
@@ -281,7 +325,7 @@ class RegisteredAgentService:
                 recorded_at=self._now(),
             )
             raise
-        fingerprint = hashlib.sha256(json.dumps({
+        fingerprint = worker_request_fingerprint({
             "agent_id": AGENT_ID,
             "campaign_family_id": family_id,
             "campaign_version": version,
@@ -290,7 +334,7 @@ class RegisteredAgentService:
             "configuration_hash": campaign["configuration_hash"],
             "skill_id": binding["skill_id"],
             "skill_version": binding["skill_version"],
-        }, sort_keys=True).encode("utf-8")).hexdigest()
+        }, scheduled=request_kind == "scheduled_shadow")
         existing = self.store.find_run_by_key(idempotency_key)
         if existing is not None:
             return self._resolve_existing_key(actor, business_unit, fingerprint, existing), False
@@ -313,8 +357,14 @@ class RegisteredAgentService:
                     "max_attempts": MAX_ATTEMPTS,
                     "timeout_seconds": self.timeout_seconds,
                     "cost_cap_usd": COST_CAP_USD,
+                    "request_event": (
+                        "shadow_occurrence_accepted"
+                        if request_kind == "scheduled_shadow"
+                        else "manual_request_accepted"
+                    ),
                 },
                 now=self._now(),
+                shadow_occurrence_id=shadow_occurrence_id,
             )
         except IdempotencyKeyExists:
             # A concurrent identical or conflicting submission won the durable
@@ -324,6 +374,19 @@ class RegisteredAgentService:
                 raise MissionControlError(500, "The durable store is briefly inconsistent; retry the request.")
             return self._resolve_existing_key(actor, business_unit, fingerprint, existing), False
         return run, True
+
+    def create_shadow_run(
+        self, actor: str, family_id: str, version: int, idempotency_key: str,
+        *, occurrence_id: str,
+    ) -> tuple[dict[str, Any], bool]:
+        """Create a scheduler-owned shadow run through the same governed control plane."""
+        run, created = self.create_manual_run(
+            actor, family_id, version, idempotency_key,
+            request_kind="scheduled_shadow", shadow_occurrence_id=occurrence_id,
+        )
+        if not created:
+            self.store.link_shadow_run(occurrence_id, run["run_id"])
+        return run, created
 
     def _resolve_existing_key(
         self, actor: str, business_unit: str, fingerprint: str, existing: dict[str, Any]
@@ -375,9 +438,21 @@ class RegisteredAgentService:
             self.store.get_review_task(run["review_task_id"]) if run["review_task_id"] else None
         )
         run["retry_budget_remaining"] = max(0, run["max_attempts"] - run["attempt_count"])
+        occurrence = self.store.shadow_occurrence_for_run(run_id)
+        run["retry_block_reason"] = (
+            "scheduled_run"
+            if occurrence is not None
+            else None
+        )
+        if occurrence is not None and run["state"] in {"failed_retryable", "timed_out"}:
+            run["retryable"] = False
+            run["remediation"] = (
+                "The linked occurrence owns final settlement; no manual retry is available."
+            )
         run["retry_allowed"] = (
             run["state"] in {"failed_retryable", "timed_out"}
             and run["retry_budget_remaining"] > 0
+            and occurrence is None
         )
         run["cancel_allowed"] = run["state"] in {"queued", "running"}
         return run
@@ -439,6 +514,14 @@ class RegisteredAgentService:
         self, actor: str, run: dict[str, Any], *, expected_states: tuple[str, ...], retry: bool = False
     ) -> dict[str, Any]:
         run_id = run["run_id"]
+        occurrence = self.store.shadow_occurrence_for_run(run_id)
+        if retry and occurrence is not None:
+            raise MissionControlError(409, "A scheduled shadow run cannot be retried manually.")
+        if occurrence is not None and occurrence["state"] != "claimed":
+            raise MissionControlError(
+                409,
+                "The scheduled occurrence is terminal; its linked worker run cannot execute or retry.",
+            )
         if not self._execution_slot.acquire(blocking=False):
             raise MissionControlError(409, "concurrency_conflict: another worker attempt is executing.")
         try:

@@ -1,11 +1,12 @@
 # Phase 4 Registered Prospecting Agent
 
-**Status:** Implemented locally and pending independent review/finalization
+**Status:** Independently reviewed and finalized at commit `b340b2c013b2fd026cd0be3aff24429196bd9be8`
 
 Phase 4 moves manual fixture execution behind one locally registered, governed worker:
 `brand-prospecting-agent`. Execution remains manual, synthetic, fixture-only, and loopback-only.
 There is no scheduler, recurring loop, network client, credential, creative, likeness, or outreach
-capability, and no external system is touched. Phase 5 shadow mode is not authorized.
+capability, and no external system is touched. Phase 5 subsequently adds a separate, human-enabled
+local shadow-loop control plane without changing this finalized Phase 4 worker contract.
 
 ## Start locally
 
@@ -26,7 +27,8 @@ SQLite file.
 - The operator may select another explicitly local file with `--state-path PATH`; path selection is
   server-owned and never accepted from a browser client.
 - Tests always inject temporary paths; no runtime state file may ever be committed.
-- Initialization is additive and idempotent with an explicit `schema_version` (currently 1). There
+- The finalized Phase 4 schema used `schema_version` 1. Phase 5 upgrades the same file additively to
+  version 2 without altering or deleting these Phase 4 tables or rows. There
   is no destructive reset, `DROP`, `TRUNCATE`, or delete-and-recreate path.
 - Every governed multi-record change (run creation, attempt claim, success commit, failure commit,
   cancellation, startup recovery) is one serialized `BEGIN IMMEDIATE` transaction with foreign keys
@@ -164,6 +166,8 @@ exactly one winner. Terminal states never silently return to running, and `succe
   discloses the foreign run or its audit history. Creation is concurrency-safe at the SQLite
   boundary: two simultaneous identical submissions produce one logical run and one idempotent
   replay (never a 500), and simultaneous conflicting reuse produces one run plus one safe conflict.
+  Phase 5 preserves this finalized manual fingerprint exactly; its separate scheduled-shadow
+  identity does not add a field to, or invalidate, an existing version-1 manual fingerprint.
 
 ## Failure recovery
 
@@ -176,7 +180,12 @@ stored only for a positive SQLite-representable integer. On startup, any run lef
 attempt is marked `interrupted`, the run becomes a visible `failed_retryable`, the recovery is
 audited, and nothing re-executes without a manual human retry. Because attempts replay from the
 durable validated input, that manual retry succeeds in the fresh process even though every Phase 3
-in-memory collection is empty.
+in-memory collection is empty. This remains the Phase 4 manual-run contract. Phase 5 scheduled runs
+are additionally linked to one occurrence and never permit manual retry, even while the occurrence
+is claimed; the service fails with 409 before another attempt claim so occurrence settlement remains
+the only terminal authority. If a scheduled output later fails its integrity manifest, Phase 5 marks
+that linked run `failed_terminal` and invalidates its pending review task. These scheduled-only rules
+do not change retry behavior for an unlinked Phase 4 manual run.
 
 ## Security and business-unit boundaries
 

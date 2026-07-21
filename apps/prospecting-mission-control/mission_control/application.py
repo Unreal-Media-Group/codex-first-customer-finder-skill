@@ -21,6 +21,7 @@ if str(CORE_SCRIPTS) not in sys.path:
 
 from common import ValidationError  # noqa: E402
 from validate_campaign import validate_campaign  # noqa: E402
+from classify_duplicate import classify_duplicate, validate_history  # noqa: E402
 
 BUSINESS_UNITS = {"unreal-media-group", "unreal-talent"}
 ACTOR_SCOPE = {
@@ -73,7 +74,10 @@ class Repository(Protocol):
 
     def get_run(self, actor: str, run_id: str) -> dict[str, Any]: ...
 
-    def prepare_run(self, actor: str, family_id: str, version: int, idempotency_key: str) -> dict[str, Any]: ...
+    def prepare_run(
+        self, actor: str, family_id: str, version: int, idempotency_key: str,
+        *, history: dict[str, Any] | None = None, prospect_cap: int | None = None,
+    ) -> dict[str, Any]: ...
 
     def validate_prepared_run(
         self,
@@ -358,11 +362,33 @@ class FixtureRepository:
             return True
         return self.clock().astimezone(timezone.utc) < until.astimezone(timezone.utc)
 
-    def _queue(self, candidate: dict[str, Any], config: dict[str, Any]) -> tuple[str, str]:
+    def _queue(
+        self, candidate: dict[str, Any], config: dict[str, Any],
+        history: dict[str, Any] | None = None,
+    ) -> tuple[str, str, str | None]:
+        if history is not None:
+            decision = classify_duplicate(
+                {
+                    "company_name": candidate["account_name"],
+                    "domain": candidate["domain"],
+                    "company_type": "agency" if candidate.get("relationship") == "agency" else "brand",
+                },
+                history,
+                config,
+                today=self.clock().astimezone(timezone.utc).date(),
+            )
+            status = decision["status"]
+            if status != "new_prospect":
+                if status in {
+                    "existing_new_trigger", "possible_duplicate_needs_review", "distinct_subbrand",
+                    "parent_company_relationship", "agency_brand_overlap",
+                }:
+                    return "duplicate_reengagement", status, status
+                return "rejections", status, status
         if candidate.get("duplicate_state") in {"possible_duplicate", "exact_duplicate", "reengagement"}:
             if candidate["duplicate_state"] == "reengagement" and not config["reengagement_enabled"]:
-                return "duplicate_reengagement", "reengagement_disabled"
-            return "duplicate_reengagement", candidate["duplicate_state"]
+                return "duplicate_reengagement", "reengagement_disabled", candidate["duplicate_state"]
+            return "duplicate_reengagement", candidate["duplicate_state"], candidate["duplicate_state"]
         rejection = candidate.get("rejection_reason")
         if candidate.get("relationship") in {"client", "partner", "active_outreach"}:
             rejection = f"existing_{candidate['relationship']}"
@@ -380,13 +406,20 @@ class FixtureRepository:
             rejection = "rights_conflict"
         elif candidate.get("brand_safety_state") == "conflict":
             rejection = "brand_safety_conflict"
-        return ("rejections", rejection) if rejection else ("new", "")
+        return ("rejections", rejection, None) if rejection else ("new", "", None)
 
     @_synchronized
-    def prepare_run(self, actor: str, family_id: str, version: int, idempotency_key: str) -> dict[str, Any]:
+    def prepare_run(
+        self, actor: str, family_id: str, version: int, idempotency_key: str,
+        *, history: dict[str, Any] | None = None, prospect_cap: int | None = None,
+    ) -> dict[str, Any]:
         """Compute a fixture run without exposing it in process-local state."""
         campaign = self.get_campaign(actor, family_id, version)
         self._authorize(actor, campaign["business_unit"])
+        if history is not None:
+            validate_history(history)
+        if prospect_cap is not None and (type(prospect_cap) is not int or not 1 <= prospect_cap <= 15):
+            raise MissionControlError(400, "The shadow prospect cap is outside its reviewed bounds.")
         if not idempotency_key or len(idempotency_key) > 100 or any(not (character.isalnum() or character in "_-") for character in idempotency_key):
             raise MissionControlError(400, "A bounded alphanumeric idempotency key is required.")
         fingerprint = hashlib.sha256(json.dumps({
@@ -409,9 +442,15 @@ class FixtureRepository:
         errors: list[str] = []
         eligible_count = 0
         for candidate in candidates:
-            queue, rejection = self._queue(candidate, campaign["configuration"])
+            queue, rejection, duplicate_classification = self._queue(
+                candidate, campaign["configuration"], history
+            )
             if queue == "new":
-                if eligible_count >= campaign["configuration"]["target_prospect_count"]:
+                effective_cap = min(
+                    campaign["configuration"]["target_prospect_count"],
+                    prospect_cap if prospect_cap is not None else campaign["configuration"]["target_prospect_count"],
+                )
+                if eligible_count >= effective_cap:
                     queue, rejection = "rejections", "target_cap"
                 else:
                     eligible_count += 1
@@ -426,6 +465,8 @@ class FixtureRepository:
                 "current_decision": "pending" if queue == "new" else rejection or candidate.get("duplicate_state"),
                 "effective_cooldown": self._cooldown_active(candidate),
             })
+            if history is not None:
+                record["duplicate_classification"] = duplicate_classification
             projections.append(record)
             if candidate.get("source_error"):
                 errors.append(candidate["source_error"][:MAX_TEXT])

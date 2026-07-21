@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .application import ACTOR_SCOPE, BUSINESS_UNITS, MissionControl, MissionControlError, safe_evidence_url, state_domain, utc_now
 from .agent import AGENT_ID, RegisteredAgentService, default_state_path
+from .shadow import SCHEDULE_MANAGER, ShadowLoopService, ShadowScheduler
 from .store import SqliteStore
 
 MAX_BODY = 32_768
@@ -48,12 +49,12 @@ table{{width:100%;border-collapse:collapse;background:var(--panel)}} th,td{{padd
 @media(max-width:640px){{table,thead,tbody,tr,th,td{{display:block}} thead{{position:absolute;left:-9999px}} td{{border-top:0}} nav{{flex-direction:column}}}}
 </style></head><body>
 <header><p><strong>Prospecting Manual Mission Control</strong></p>
-<p class="notice"><strong>Synthetic local review surface.</strong> Campaign and prospect review state resets on restart; registered worker-run state is durable in a local, gitignored SQLite file. The worker executes local synthetic fixtures only. Actor selection simulates policy; it is not production authentication. No external research, creative, likeness, or outreach action exists.</p>
-<nav aria-label="Primary"><a href="/campaigns?{query}">Campaigns</a><a href="/runs?{query}">Run history</a><a href="/worker-runs?{query}">Worker runs</a><a href="/review-tasks?{query}">Review tasks</a><a href="/prospects?{query}&amp;queue=new">Prospect queues</a><a href="/registry?{query}">Agent registry</a></nav>
+<p class="notice"><strong>Synthetic local review surface.</strong> Campaign and governed prospect-review state resets on restart; registered worker runs and Phase 5 shadow schedules are durable in a local, gitignored SQLite file. The worker executes local synthetic fixtures only. Actor selection simulates policy; it is not production authentication. No external research, creative, likeness, or outbound capability exists.</p>
+<nav aria-label="Primary"><a href="/campaigns?{query}">Campaigns</a><a href="/runs?{query}">Run history</a><a href="/worker-runs?{query}">Worker runs</a><a href="/review-tasks?{query}">Review tasks</a><a href="/prospects?{query}&amp;queue=new">Prospect queues</a><a href="/registry?{query}">Agent registry</a><a href="/shadow-schedules?{query}">Shadow schedules</a></nav>
 <form method="get" action="/campaigns"><label for="scope_actor">Fixture review actor (not authentication)</label><select id="scope_actor" name="actor">{''.join(f'<option value="{e(name)}"{" selected" if name == actor else ""}>{e(name)}</option>' for name in ACTOR_SCOPE)}</select><label for="scope_unit">Business-unit scope</label><select id="scope_unit" name="business_unit">{''.join(f'<option value="{e(unit)}"{" selected" if unit == business_unit else ""}>{e(unit)}</option>' for unit in sorted(BUSINESS_UNITS))}</select><button type="submit">Change local review scope</button></form>
 <p>Review actor: <strong>{e(actor)}</strong> · Business unit: <strong>{e(business_unit)}</strong></p></header>
 <main id="main"><h1>{e(title)}</h1>{status_html}{body}</main>
-<footer><small>Local synthetic registered worker · fixture-only execution · durable local state · zero cost cap · no credentials, network client, schedule, recurring loop, creative, likeness, or outreach.</small></footer></body></html>"""
+<footer><small>Local synthetic registered worker · fixture-only shadow execution · durable local state · zero cost cap · no credentials, external network client, creative, likeness, approval, or outreach.</small></footer></body></html>"""
 
 
 class WebApplication:
@@ -63,12 +64,18 @@ class WebApplication:
         csrf_token: str | None = None,
         agent_service: RegisteredAgentService | None = None,
         state_path: Path | None = None,
+        shadow_service: ShadowLoopService | None = None,
     ):
         self.control = mission_control or MissionControl()
         self.csrf_token = csrf_token or secrets.token_urlsafe(32)
         self.agent = agent_service or RegisteredAgentService(
             self.control.repository,
             SqliteStore(state_path or default_state_path()),
+            clock=getattr(self.control.repository, "clock", utc_now),
+        )
+        self.shadow = shadow_service or ShadowLoopService(
+            self.agent.store,
+            self.agent,
             clock=getattr(self.control.repository, "clock", utc_now),
         )
 
@@ -119,6 +126,12 @@ class WebApplication:
             return 200, self.review_tasks(actor, business_unit)
         if len(parts) == 2 and parts[0] == "review-tasks" and IDENTIFIER.fullmatch(parts[1]):
             return 200, self.review_task_detail(actor, business_unit, parts[1])
+        if path == "/shadow-schedules":
+            return 200, self.shadow_schedules(actor, business_unit)
+        if path == "/shadow-schedules/new":
+            return 200, self.shadow_schedule_form(actor, business_unit)
+        if len(parts) == 2 and parts[0] == "shadow-schedules" and IDENTIFIER.fullmatch(parts[1]):
+            return 200, self.shadow_schedule_detail(actor, business_unit, parts[1])
         raise MissionControlError(404, "Page not found.")
 
     def post(self, path: str, form: dict[str, str]) -> tuple[int, str]:
@@ -164,6 +177,44 @@ class WebApplication:
         if len(parts) == 3 and parts[0] == "prospects" and IDENTIFIER.fullmatch(parts[1]) and parts[2] == "actions":
             self.control.repository.act(actor, business_unit, parts[1], form.get("action", ""), form)
             return 200, self.prospect_detail(actor, business_unit, parts[1], "Append-only governed event recorded.")
+        if path == "/shadow-schedules":
+            refs = []
+            for raw in form.get("campaign_refs", "").split(","):
+                raw = raw.strip()
+                if not raw:
+                    continue
+                family_id, separator, version = raw.partition(":")
+                if not separator or not IDENTIFIER.fullmatch(family_id) or not version.isdigit():
+                    raise MissionControlError(400, "Campaign versions must use family_id:version format.")
+                refs.append((family_id, int(version)))
+            schedule = self.shadow.create_schedule(
+                actor=actor,
+                business_unit=business_unit,
+                name=form.get("name", ""),
+                campaign_refs=refs,
+                weekday=int(form.get("weekday", "")),
+                utc_hour=int(form.get("utc_hour", "")),
+                utc_minute=int(form.get("utc_minute", "")),
+                prospect_cap=int(form.get("prospect_cap", "")),
+                open_discovery_every=int(form.get("open_discovery_every", "0")),
+            )
+            return 201, self.shadow_schedule_detail(
+                actor, business_unit, schedule["schedule_id"],
+                "Synthetic local shadow schedule created disabled by default.",
+            )
+        if len(parts) == 3 and parts[0] == "shadow-schedules" and IDENTIFIER.fullmatch(parts[1]) and parts[2] in {"enable", "pause", "resume", "disable"}:
+            schedule = self.shadow.get_schedule(actor, parts[1])
+            if schedule["business_unit"] != business_unit:
+                raise MissionControlError(403, "Business-unit access denied.")
+            try:
+                row_version = int(form.get("row_version", ""))
+            except ValueError as exc:
+                raise MissionControlError(400, "A valid schedule row version is required.") from exc
+            transition = getattr(self.shadow, parts[2])
+            transition(actor, parts[1], row_version)
+            return 200, self.shadow_schedule_detail(
+                actor, business_unit, parts[1], f"Shadow schedule {parts[2]} action recorded atomically.",
+            )
         raise MissionControlError(404, "Action not found.")
 
     def campaigns(self, actor: str, business_unit: str) -> str:
@@ -282,7 +333,7 @@ class WebApplication:
     def registry(self, actor: str, business_unit: str) -> str:
         registration = self.agent.registration()
         query = urlencode({"actor": actor, "business_unit": business_unit})
-        body = f"""<p class="notice">One local agent is registered for manual synthetic execution only. It has no credentials, scheduler, recurring loop, network, creative, likeness, or outreach capability.</p>
+        body = f"""<p class="notice">One local agent is registered for manual synthetic execution. Phase 5 may submit one bounded occurrence from an explicitly enabled local weekly schedule. The worker itself has no credentials, scheduler, generic recurring loop, external network, creative, likeness, approval, or outreach capability.</p>
 <table><thead><tr><th>Agent</th><th>Version</th><th>Registration state</th><th>Trigger</th><th>Detail</th></tr></thead><tbody>
 <tr><td>{e(registration['agent_id'])}</td><td>{e(registration['agent_contract_version'])}</td><td>{e(registration['registration_state'])}</td><td>{e(registration['trigger'])}</td><td><a href="/registry/{e(registration['agent_id'])}?{query}">Capabilities</a></td></tr>
 </tbody></table>"""
@@ -298,7 +349,7 @@ class WebApplication:
         )
         fields = [
             "agent_id", "agent_contract_version", "worker_runtime_version", "registration_state",
-            "input_schema", "output_schema", "trigger", "max_concurrency", "timeout_seconds",
+            "input_schema", "output_schema", "trigger", "scheduled_shadow_trigger", "max_concurrency", "timeout_seconds",
             "cost_cap_usd", "max_attempts", "cancellation", "durable_store_adapter",
             "credentials", "scheduler", "recurring_loop", "network", "creative", "likeness", "outreach",
         ]
@@ -306,7 +357,7 @@ class WebApplication:
 <dl>{''.join(f'<dt>{e(key.replace("_", " ").title())}</dt><dd>{e(registration[key])}</dd>' for key in fields)}</dl>
 <h2>Server-owned business-unit skill bindings</h2>
 <table><thead><tr><th>Business unit</th><th>Skill</th><th>Exact version</th><th>Integrity manifest</th></tr></thead><tbody>{bindings}</tbody></table>
-<p>Runs start only from a campaign detail page through the manual human form.</p>"""
+<p>Direct runs start only from a campaign detail page through the manual human form. A separately governed, explicitly enabled Phase 5 schedule may submit one weekly shadow occurrence through the same bounded service.</p>"""
         return page(f"Registered agent {agent_id}", body, actor=actor, business_unit=business_unit)
 
     def worker_runs(self, actor: str, business_unit: str) -> str:
@@ -415,7 +466,10 @@ class WebApplication:
         if run["retry_allowed"]:
             body += f'<form method="post" action="/worker-runs/{e(run_id)}/retry">{hidden}<button type="submit">Retry manually (attempt {run["attempt_count"] + 1} of {run["max_attempts"]})</button></form>'
         elif run["state"] in {"failed_retryable", "timed_out"}:
-            body += '<p class="warning">The retry budget is exhausted; no further attempts are allowed.</p>'
+            if run["retry_block_reason"] == "scheduled_run":
+                body += '<p class="warning">Scheduled shadow runs are not manually retryable; the linked occurrence owns final settlement.</p>'
+            else:
+                body += '<p class="warning">The retry budget is exhausted; no further attempts are allowed.</p>'
         audits = "".join(
             f'<tr><td>{e(item["audit_id"])}</td><td>{e(item["event_type"])}</td><td>{e(item["actor"])}</td><td>{e(item["safe_status"])}</td><td>{e(item["recorded_at"])}</td></tr>'
             for item in run["audit_events"]
@@ -461,6 +515,115 @@ class WebApplication:
 {self._durable_results_section(output)}
 <p><a href="/prospects?{query}&amp;queue=new">Open the process-local prospect queues (populated only by runs executed in this server process)</a></p>"""
         return page(f"Review task {task_id}", body, actor=actor, business_unit=business_unit)
+
+    def shadow_schedules(self, actor: str, business_unit: str) -> str:
+        items = self.shadow.schedules(actor, business_unit)
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        rows = "".join(
+            f'<tr><td>{e(item["name"])}</td><td>{e(item["state"])}</td>'
+            f'<td>{e(item["next_due_at"] or "Not enabled")}</td><td>{e(item["health"])}</td>'
+            f'<td>{e("Not available" if item.get("duplicate_rate") is None else item["duplicate_rate"])}</td>'
+            f'<td><a href="/shadow-schedules/{e(item["schedule_id"])}?{query}">Inspect</a></td></tr>'
+            for item in items
+        )
+        body = f"""<p class="notice">Phase 5 schedules are disabled by default and remain local, synthetic,
+fixture-only, weekly UTC, zero-cost, and shadow-only. Creating a schedule never enables it.</p>"""
+        if actor == SCHEDULE_MANAGER:
+            body += f'<p><a href="/shadow-schedules/new?{query}">Configure a disabled shadow schedule</a></p>'
+        else:
+            body += '<p class="notice">This is read-only schedule state. Only Noah may configure or control a shadow schedule.</p>'
+        body += (
+            '<p class="notice">No shadow schedules exist for this business unit.</p>'
+            if not rows
+            else '<table><thead><tr><th>Schedule</th><th>State</th><th>Next UTC due</th><th>Health</th><th>Duplicate rate</th><th>View</th></tr></thead>'
+                 f'<tbody>{rows}</tbody></table>'
+        )
+        alerts = self.shadow.alerts(actor, business_unit)
+        if alerts:
+            alert_rows = "".join(
+                f'<tr><td>{e(item["created_at"])}</td><td>{e(item["failure_class"])}</td><td>{e(item["safe_message"])}</td></tr>'
+                for item in alerts
+            )
+            body += f'<h2>Local alerts</h2><table><thead><tr><th>Time</th><th>Class</th><th>Safe message</th></tr></thead><tbody>{alert_rows}</tbody></table>'
+        else:
+            body += '<h2>Local alerts</h2><p class="notice">No local shadow-loop alerts exist.</p>'
+        return page("Shadow schedules", body, actor=actor, business_unit=business_unit)
+
+    def shadow_schedule_form(self, actor: str, business_unit: str) -> str:
+        self.shadow.schedules(actor, business_unit)
+        if actor != SCHEDULE_MANAGER:
+            return page(
+                "Shadow schedule access",
+                '<p class="notice">This is read-only schedule state. Only Noah may configure or control a shadow schedule.</p>',
+                actor=actor,
+                business_unit=business_unit,
+            )
+        campaigns = [
+            item for item in self.control.repository.campaigns(actor)
+            if item["business_unit"] == business_unit
+        ]
+        choices = ", ".join(f'{item["family_id"]}:{item["version"]}' for item in campaigns)
+        body = f"""<p class="notice">Configuration is immutable and disabled by default. Use approved campaign
+versions from this business unit. The cadence is one bounded weekly UTC boundary, not generic cron.</p>
+<form method="post" action="/shadow-schedules">
+{self.hidden(actor, business_unit)}
+<label for="schedule_name">Schedule name</label><input id="schedule_name" name="name" maxlength="120" required>
+<label for="campaign_refs">Campaign rotation (comma-separated family_id:version)</label>
+<input id="campaign_refs" name="campaign_refs" maxlength="1200" required aria-describedby="campaign_choices">
+<p id="campaign_choices">Available immutable versions: {e(choices or 'None. Create a campaign first.')}</p>
+<label for="weekday">UTC weekday (Monday 0 through Sunday 6)</label><input id="weekday" name="weekday" type="number" min="0" max="6" required value="0">
+<label for="utc_hour">UTC hour</label><input id="utc_hour" name="utc_hour" type="number" min="0" max="23" required value="9">
+<label for="utc_minute">UTC minute</label><input id="utc_minute" name="utc_minute" type="number" min="0" max="59" required value="0">
+<label for="prospect_cap">Prospect cap</label><input id="prospect_cap" name="prospect_cap" type="number" min="1" max="15" required value="5">
+<label for="open_discovery_every">Open-discovery week interval (0 disables)</label><input id="open_discovery_every" name="open_discovery_every" type="number" min="0" max="52" required value="0">
+<button type="submit">Create disabled shadow schedule</button></form>"""
+        return page("Configure shadow schedule", body, actor=actor, business_unit=business_unit)
+
+    def shadow_schedule_detail(
+        self, actor: str, business_unit: str, schedule_id: str, status: str = ""
+    ) -> str:
+        item = self.shadow.schedule_detail(actor, schedule_id)
+        if item["business_unit"] != business_unit:
+            raise MissionControlError(403, "Business-unit access denied.")
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        if actor == SCHEDULE_MANAGER:
+            allowed = {
+                "disabled": ("enable",),
+                "enabled": ("pause", "disable"),
+                "paused": ("resume", "disable"),
+            }[item["state"]]
+            controls = "".join(
+                f'<form method="post" action="/shadow-schedules/{e(schedule_id)}/{action}">{self.hidden(actor, business_unit)}'
+                f'<input type="hidden" name="row_version" value="{item["row_version"]}"><button type="submit">{e(action.title())} schedule</button></form>'
+                for action in allowed
+            )
+        else:
+            controls = '<p class="notice">This is read-only schedule state. Only Noah may control a shadow schedule.</p>'
+        campaign_rows = "".join(
+            f'<tr><td>{row["position"]}</td><td>{e(row["campaign_family_id"])}</td><td>{row["campaign_version"]}</td><td>{e(row["discovery_scope"])}</td></tr>'
+            for row in item["campaigns"]
+        )
+        occurrence_rows = "".join(
+            f'<tr><td>{e(row["scheduled_for"])}</td><td>{e(row["state"])}</td><td>{e(row["worker_run_id"] or "None")}</td><td>{e(row["stop_reason"] or "None")}</td><td>{e("Not available" if row["duplicate_rate"] is None else row["duplicate_rate"])}</td></tr>'
+            for row in item["occurrences"]
+        )
+        body = f"""<p class="notice">Synthetic local shadow schedule. It can discover fixture candidates only;
+every successful output remains pending human review. It cannot approve, enrich, generate, contact, or send.</p>
+<dl><dt>Schedule</dt><dd>{e(item['name'])}</dd><dt>Business unit</dt><dd>{e(item['business_unit'])}</dd>
+<dt>State</dt><dd>{e(item['state'])}</dd><dt>UTC cadence</dt><dd>weekday {item['weekday']} at {item['utc_hour']:02d}:{item['utc_minute']:02d} UTC</dd>
+<dt>Next due</dt><dd>{e(item['next_due_at'] or 'Not enabled')}</dd><dt>Health</dt><dd>{e(item['health'])}</dd>
+<dt>Last stop reason</dt><dd>{e(item['last_stop_reason'] or 'None')}</dd><dt>Prospect cap</dt><dd>{item['prospect_cap']}</dd>
+<dt>Cost cap</dt><dd>$0 exactly</dd><dt>Duplicate rate</dt><dd>{e('Not available' if item.get('duplicate_rate') is None else item['duplicate_rate'])}</dd></dl>
+<h2>Controls</h2>{controls}
+<p class="notice">Pause or disable prevents an unclaimed occurrence. An occurrence whose claim already committed finishes under its immutable snapshot and remains shadow-only.</p>
+<h2>Immutable campaign rotation</h2><table><thead><tr><th>Position</th><th>Family</th><th>Version</th><th>Scope</th></tr></thead><tbody>{campaign_rows}</tbody></table>
+<h2>Occurrences</h2>"""
+        body += (
+            f'<table><thead><tr><th>Scheduled UTC</th><th>State</th><th>Run</th><th>Stop reason</th><th>Duplicate rate</th></tr></thead><tbody>{occurrence_rows}</tbody></table>'
+            if occurrence_rows else '<p class="notice">No occurrence has been claimed.</p>'
+        )
+        body += f'<p><a href="/shadow-schedules?{query}">Back to shadow schedules and local alerts</a></p>'
+        return page(f"Shadow schedule {schedule_id}", body, actor=actor, business_unit=business_unit, status=status)
 
 
 def make_handler(app: WebApplication) -> type[BaseHTTPRequestHandler]:
@@ -553,10 +716,9 @@ class LoopbackServer(ThreadingHTTPServer):
     """Loopback-only server with one bounded thread per request.
 
     Threads exist so a human can inspect or cancel a running bounded attempt;
-    there is no scheduler, poller, or background worker. daemon_threads stays
-    False so server_close joins every request thread before returning — no
-    worker survives the server, because attempts terminate cooperatively by
-    success, failure, timeout, or cancellation.
+    daemon_threads stays False so server_close joins every request thread.
+    The separately owned Phase 5 weekly scheduler is also non-daemon and is
+    explicitly stopped and joined by run_server.
     """
 
     daemon_threads = False
@@ -579,14 +741,21 @@ def run_server() -> None:
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         raise SystemExit("Port must be from 1024 to 65535.")
-    server = build_server(WebApplication(state_path=args.state_path), port=args.port)
+    app = WebApplication(state_path=args.state_path)
+    server = build_server(app, port=args.port)
+    scheduler = ShadowScheduler(app.shadow)
+    scheduler.start()
     print(f"Synthetic Prospecting Mission Control: http://127.0.0.1:{args.port}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:
         pass
     finally:
+        scheduler.stop()
+        scheduler.join(timeout=5)
         server.server_close()
+        if scheduler.is_alive():
+            raise RuntimeError("The local shadow scheduler did not stop cleanly.")
 
 
 if __name__ == "__main__":

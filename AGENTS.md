@@ -44,7 +44,7 @@ Read-only analysis may continue after a successful check. File-changing work may
 
 ## Phase control
 
-Phase 1 remains frozen at checkpoint `f77236a`. Phase 2 design is independently reviewed and finalized in the three `docs/specs/UNREAL_OS_PROSPECTING_*.md` contract documents. Phase 3 is independently reviewed and finalized at commit `8ea7c16`; it is synthetic, deterministic, fixture-only, loopback-only, manually initiated, and not production authentication or authorization. Phase 4 repository-local implementation is explicitly authorized and implemented locally, pending independent review/finalization: one locally registered, manually triggered `brand-prospecting-agent` worker executes the Phase 3 fixture adapter behind a durable local gitignored SQLite control plane with timeout, zero cost cap, retry cap, cancellation, idempotency, audit transactions, and startup recovery (`docs/PHASE_4_REGISTERED_AGENT.md`). Phase 5 remains unauthorized. External-system connections or migrations, real records, credentials, schedulers, recurring loops, watchers, autonomous execution, creative generation, real-person likeness, advertisements, outreach, and deployment remain prohibited.
+Phase 1 remains frozen at checkpoint `f77236a`. Phase 2 design is independently reviewed and finalized in the three `docs/specs/UNREAL_OS_PROSPECTING_*.md` contract documents. Phase 3 is independently reviewed and finalized at commit `8ea7c16`; it is synthetic, deterministic, fixture-only, loopback-only, manually initiated, and not production authentication or authorization. Phase 4 is independently reviewed and finalized at commit `b340b2c013b2fd026cd0be3aff24429196bd9be8`: one locally registered `brand-prospecting-agent` worker executes the Phase 3 fixture adapter behind a durable local gitignored SQLite control plane with timeout, zero cost cap, retry cap, cancellation, idempotency, audit transactions, and startup recovery (`docs/PHASE_4_REGISTERED_AGENT.md`). Phase 5 is explicitly authorized and implemented locally, pending independent review/finalization: one disabled-by-default, human-configured, weekly UTC shadow loop reuses that worker with durable schedule/occurrence/audit state, bounded history-aware fixture execution, and pending human review (`docs/PHASE_5_SHADOW_LOOP.md`). Phase 6 remains unauthorized. External-system connections or migrations, real records, credentials, generic cron, live research, scraping, creative generation, real-person likeness, advertisements, outreach, deployment, and other autonomous execution remain prohibited.
 
 ## Planning and editing
 
@@ -87,7 +87,8 @@ Run targeted tests first, then the complete Phase 1 test suite when shared behav
 
 - Never send, post, submit a form, create a CRM record, or autonomously contact anyone.
 - Without an approved roster, recommend only a category or archetype. Never name real talent, imply availability, generate a likeness, or imply approval.
-- Do not build or start a loop, watcher, cron job, scheduler, runner, or background campaign.
+- Phase 5 permits only the repository-local scheduler described in `docs/PHASE_5_SHADOW_LOOP.md`: disabled by default, explicitly human-enabled, one weekly UTC cadence, synthetic fixtures, zero cost, shadow-only output, and joined shutdown.
+- Do not build or start any other loop, watcher, generic cron job, runner, daemon, background campaign, external scheduler, or Phase 6 worker.
 
 ## Escalation and stop rules
 

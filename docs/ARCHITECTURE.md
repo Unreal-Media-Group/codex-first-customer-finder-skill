@@ -115,6 +115,64 @@ HTTP; the process-local fixture repository is serialized behind a reentrant lock
 contains no database server, external migration, network client, credential, creative, likeness, or
 outreach capability, and no fallback from fixtures to production.
 
+Phase 5 adds one deliberately narrow scheduler around the finalized Phase 4 service. It is not a
+parallel runner framework and does not change the Phase 1 schemas or Phase 2 contracts:
+
+```text
+human configures immutable campaign rotation (disabled)
+           |
+           v
+explicit enable / pause / resume / disable (conditional SQLite transition + audit)
+           |
+           v
+one joined non-daemon scheduler thread evaluates one weekly UTC boundary
+           |
+           v
+atomic occurrence claim (stable schedule+occurrence idempotency; no catch-up storm)
+           |
+           v
+load + validate synthetic seed history and durable same-BU Phase 4 output history
+           |
+           v
+RegisteredAgentService (manual fingerprint preserved; scheduled run/link/audit atomic)
+           |
+           v
+durable shadow occurrence + health + local alert + duplicate rate
+           |
+           v
+pending human-review task only
+```
+
+The scheduler starts with the loopback process but schedules default to `disabled`; only Noah's
+explicit local fixture action can enable one. Cadence is fixed to one weekday/hour/minute in UTC,
+not generic cron. Each evaluation claims at most one due occurrence and advances directly to a
+future weekly boundary, preventing catch-up storms. Campaign configurations are copied into an
+immutable schedule-version snapshot and hash-checked again by the registered agent before execution.
+History is validated before each attempt and then applied by the existing Phase 1 duplicate
+classifier so a durable prior identity cannot return to the new queue. Missing, corrupt, ambiguous,
+directory-valued, unreadable, or inconsistent history blocks before worker execution and settles
+the claim with a local alert without terminating the scheduler. Durable history outputs share one
+aggregate snapshot-byte budget, and transient settlement/output-read failures are reconciled before
+new work. The local prospect cap is at most
+15 and the inherited cost cap remains exactly zero. Duplicate rate counts only rows carrying a
+governed identity/history classification over all output rows; ordinary qualification, protection,
+and cap rejections are not duplicates merely because they are not new.
+
+SQLite schema version 2 adds schedule versions, campaign rotation snapshots, schedule state,
+occurrence claims, schedule audits, and local alerts without altering or deleting a Phase 4 table or
+row. Run creation and occurrence linking share one transaction. Startup recovery closes an
+interrupted occurrence: a previously committed successful output is preserved only after the normal
+length, SHA-256, JSON, result-shape, and duplicate-metric validation; otherwise the occurrence fails
+closed with an audit and local alert, the linked run becomes terminally failed, and its pending review
+task is invalidated. Scheduled linking is Noah-only and requires an exact business-unit, campaign,
+and idempotency match. Every linked scheduled run rejects manual retry before another attempt claim,
+including while its occurrence is still claimed; only unlinked Phase 4 manual runs retain manual
+retry. Noah alone sees
+schedule mutation controls; Rob and Dan receive truthful business-unit-scoped read-only pages. The one
+scheduler thread uses an injected clock and stop event, and is stopped and joined before server
+shutdown completes. It performs no live research, network request, approval, enrichment, creative,
+likeness, advertising, outreach, or Phase 6 action.
+
 ## Ownership
 
 | Concern | Canonical location |
@@ -129,6 +187,8 @@ outreach capability, and no fallback from fixtures to production.
 | Phase 4 registered worker + durable store | `apps/prospecting-mission-control/mission_control/agent.py`, `store.py` |
 | Phase 4 synthetic worker scenarios | `fixtures/prospecting/phase4/` |
 | Phase 4 local runtime state (gitignored) | `apps/prospecting-mission-control/local_state/` |
+| Phase 5 weekly shadow control plane | `apps/prospecting-mission-control/mission_control/shadow.py`, `store.py` |
+| Phase 5 synthetic history seeds | `fixtures/prospecting/phase5/` |
 | Original upstream skill | `first-customer-finder/` |
 
 Skill report scripts are thin delegates. The installer places the shared core once at `unreal-prospecting-core`, preventing two business skills from drifting.
