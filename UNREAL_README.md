@@ -26,12 +26,14 @@ shadow loop with immutable campaign rotation, durable occurrences, history-aware
 health and local alerts, pause/disable controls, and pending human review. Phase 5 is independently
 reviewed and finalized at `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. No external-system connection or migration,
 real-data API, production scheduler, generic cron, live research, creative, likeness use,
-advertisement, or outreach has been built or authorized. Phase 6A adds a pending-review, manually
-approved, one-shot, zero-cost synthetic `.example` fixture enrichment and source-linked campaign
-brief as the narrow foundation for the customer dossier. Phase 6B will, if separately authorized,
-add comprehensive public-source research and a graph-ready handoff package. It is not implemented
-or authorized. Creative generation, outreach, external persistence, orchestration, and outcome
-optimization are downstream responsibilities outside this repository rather than later phases here.
+advertisement, or outreach has been built or authorized. Phase 6A is independently reviewed and
+finalized at `e8d2546647603905c0b97a21f335535b3a98cc17`; it adds a manually approved, one-shot,
+zero-cost synthetic `.example` fixture enrichment and source-linked campaign brief as the narrow
+foundation for the customer dossier. Phase 6B contract-first work is authorized but not implemented:
+repository-local schemas, documentation, synthetic fixtures, deterministic validation, and tests may
+define comprehensive dossiers, pre-search filters, durable history, and a graph-ready handoff. Live
+public-source research remains separately gated. Creative generation, outreach, external persistence,
+orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 ## Local installation
 

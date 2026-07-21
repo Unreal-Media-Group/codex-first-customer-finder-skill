@@ -4,7 +4,7 @@
 **Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`
 **Downstream compatibility target:** A governed agent graph, including a possible future Unreal OS
 consumer. This repository does not implement or modify Unreal OS.
-**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is implemented locally and pending independent review. Phase 6B comprehensive public-source research and graph handoff remain unauthorized and unimplemented. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
+**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is authorized but unimplemented; live public-source research remains unauthorized. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 **Operating principle:** The skills find, qualify, deduplicate, and comprehensively research potential
 customers. Deterministic code validates the evidence and emits a versioned, graph-ready lead-
@@ -508,9 +508,10 @@ These are starting caps, not permanent performance targets.
 
 # Phase 6: Comprehensive Customer Intelligence and Graph Handoff
 
-**Status:** Phase 6A's synthetic fixture brief foundation is implemented locally and pending
-independent review. Phase 6B comprehensive public-source research and the graph-ready handoff are
-not implemented or authorized.
+**Status:** Phase 6A's synthetic fixture brief foundation is independently reviewed and finalized at
+commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first schemas,
+documentation, synthetic fixtures, deterministic validation, and tests are authorized but not
+implemented; live public-source research remains unauthorized.
 
 ## Objective
 
@@ -649,9 +650,9 @@ is information, not permission to generate, contact, send, store externally, or 
 ## 4. Recommended Development Order
 
 1. Preserve the finalized Phase 0–5 foundations and frozen Phase 1/2 contracts.
-2. Finish independent review and any required correction of the existing Phase 6A synthetic brief
-   foundation.
-3. Define the comprehensive dossier and graph-handoff schema, including category gap states,
+2. Preserve the independently finalized Phase 6A synthetic brief foundation at
+   `e8d2546647603905c0b97a21f335535b3a98cc17`.
+3. Under the authorized contract-first Phase 6B boundary, define the comprehensive dossier and graph-handoff schema, including category gap states,
    claim-level provenance, stable identities, and public-business-contact restrictions.
 4. Prove the expanded contract with synthetic fixtures, deterministic validation, and both business
    units before enabling any live source.

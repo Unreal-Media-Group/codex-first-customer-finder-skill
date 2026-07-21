@@ -248,7 +248,9 @@ likeness, advertisement, outreach, deployment, or downstream-agent capability. B
 explicitly research-quality status only. The full contract and independent-review checks are in
 `docs/PHASE_6_ENRICHMENT_BRIEF.md`.
 
-The planned Phase 6B extends that governed research boundary; it does not add a downstream worker:
+The authorized contract-first portion of Phase 6B defines and validates the dossier and graph-package
+shapes without live reads. A later, separately authorized live-research extension would follow this
+governed boundary; neither portion adds a downstream worker:
 
 ```text
 exact human-approved lead + validated identity/history/protection state
@@ -295,8 +297,9 @@ relationships. The general package carries public contact identities and referen
 contact values; any separately authorized business email, business phone, or equivalent point stays
 in a restricted projection that creative and analytics consumers cannot read. The package contains
 stable identities and versioning, not executable downstream instructions. Phase 6B is not
-implemented or authorized. A future consumer may store or route the released package, but that is
-separate work in its own repository and authority boundary.
+implemented; only repository-local contract, documentation, synthetic-fixture, deterministic-
+validation, and test work is authorized. Live reads and any future consumer that stores or routes the
+released package remain separate work with separate authority.
 
 ## Ownership
 

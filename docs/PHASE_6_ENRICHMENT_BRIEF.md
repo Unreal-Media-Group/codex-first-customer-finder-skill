@@ -1,7 +1,8 @@
 # Phase 6A Synthetic Lead-Intelligence Brief Foundation
 
-**Status:** Implemented locally from finalized Phase 5 commit
-`1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`; pending independent review and finalization.
+**Status:** Independently reviewed and finalized at commit
+`e8d2546647603905c0b97a21f335535b3a98cc17` from finalized Phase 5 base
+`29edc735ae442154393f2266a3c7b6c04b537e8e`.
 
 Phase 6A adds a manual, one-shot, zero-cost enrichment step for an exact result from a successful
 fixture worker output. It uses only repository-owned synthetic metadata and `.example` source URLs.
@@ -9,14 +10,15 @@ Its source-linked UMG and Talent campaign briefs are a narrow governance, integr
 lineage foundation for the comprehensive customer dossier mapped in Phase 6B; Phase 6A does not
 claim to research the whole customer. It performs no official-site read, live research, scraping,
 external API call, external database or CRM write, generation, likeness use, advertisement,
-outreach, deployment, downstream-agent invocation, or recurring work. Phase 6B remains unauthorized,
-and downstream graph consumers are outside this repository.
+outreach, deployment, downstream-agent invocation, or recurring work. Phase 6B is authorized only
+for contract-first repository work with schemas, documentation, synthetic fixtures, deterministic
+validation, and tests; live research and downstream graph consumers remain outside this authority.
 
 ## Relationship to the lead-intelligence program
 
 This repository's final product boundary is discovery, history filtering, comprehensive research,
 and a reviewed graph-ready data handoff. Contact identification is only one research category.
-Subject to separate Phase 6B authorization, the full dossier will also cover identity and business
+The authorized Phase 6B contract-first work will define how the full dossier covers identity and business
 relationships, commercial context, products and services, audiences and markets, brand and campaign
 evidence, public visual-asset references, activity and change signals, opportunities, competitors,
 risks, rights, governance state, evidence coverage, and explicit knowledge gaps.
