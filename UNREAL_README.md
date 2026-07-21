@@ -8,11 +8,14 @@ The `unreal` branch preserves the upstream `first-customer-finder` skill and add
 They share deterministic identity, history, deduplication, validation, scoring, and report utilities. They do not connect to Unreal OS or Supabase, schedule work, generate creative or likenesses, or send outreach.
 
 Phase 2 contains independently reviewed and finalized design contracts for a future Unreal OS
-prospecting data model. Phase 3 adds a synthetic, loopback-only Manual Mission Control review app
-that uses deterministic fixtures and process-local state. It is pending independent review and is not
-production authentication, durable storage, or a worker. No SQL, migration, database or external-system
-connection, real-data API, executable worker, runner, schedule, creative, likeness use, advertisement,
-or outreach has been built or authorized.
+prospecting data model. Phase 3 (finalized at `8ea7c16`) adds a synthetic, loopback-only Manual
+Mission Control review app with deterministic fixtures; it is not production authentication.
+Phase 4 (implemented locally, pending independent review) registers one manual, fixture-only
+`brand-prospecting-agent` worker with durable local gitignored SQLite run/attempt/output/audit and
+human-review-task state, a zero cost cap, timeout, retry cap, cancellation, idempotency, and
+startup recovery. No external-system connection or migration, real-data API, schedule, recurring
+loop, creative, likeness use, advertisement, or outreach has been built or authorized; Phase 5
+remains unauthorized.
 
 ## Local installation
 
@@ -32,6 +35,7 @@ Use `--skills-dir PATH` for an isolated location. The original `scripts/install.
 
 - [Phase 1 usage](docs/PHASE_1_USAGE.md)
 - [Phase 3 Manual Mission Control](docs/PHASE_3_MISSION_CONTROL.md)
+- [Phase 4 Registered Agent](docs/PHASE_4_REGISTERED_AGENT.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Safe upstream synchronization](docs/UPSTREAM_SYNC.md)
 - [Program roadmap](docs/specs/UNREAL_PROSPECTING_SKILLS_PROGRAM_ROADMAP.md)

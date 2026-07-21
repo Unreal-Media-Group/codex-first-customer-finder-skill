@@ -3,7 +3,7 @@
 **Program:** Unreal Media Group and Unreal Talent prospecting system  
 **Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`  
 **Integration target:** Unreal OS  
-**Current program state:** Phase 3 implemented locally and pending independent review/finalization; Phase 4 is not authorized
+**Current program state:** Phase 3 independently reviewed and finalized at commit `8ea7c16`. Phase 4 repository-local implementation is explicitly authorized and implemented locally, pending independent review/finalization. Phase 5 is not authorized.
 
 **Operating principle:** Skills define repeatable research behavior; deterministic scripts validate and normalize data; Unreal OS later stores, schedules, observes, and approves the work.
 
@@ -350,9 +350,9 @@ A company account, a contact, a discovery event, a public signal, and an outreac
 
 # Phase 3: Manual Mission Control Feature
 
-**Status:** Implemented locally with deterministic synthetic fixtures and pending independent
-review/finalization. This status does not authorize durable storage, external connections, an
-executable worker, scheduling, creative or likeness generation, outreach, deployment, or Phase 4.
+**Status:** Independently reviewed and finalized at commit `8ea7c16` with deterministic synthetic
+fixtures. This status does not authorize external connections, scheduling, creative or likeness
+generation, outreach, or deployment.
 
 ## Objective
 
@@ -397,6 +397,12 @@ A human can create a campaign, inspect dry-run results, resolve duplicates, and 
 
 # Phase 4: Registered Prospecting Agent
 
+**Status:** Repository-local implementation explicitly authorized and implemented locally, pending
+independent review/finalization (see `docs/PHASE_4_REGISTERED_AGENT.md`). The local worker is
+manual, synthetic, fixture-only, and loopback-only with durable local SQLite state. External
+systems, real data, schedules, recurring loops, creative, likeness, advertisements, outreach, and
+Phase 5 remain prohibited.
+
 ## Objective
 
 Move skill execution behind a governed Unreal OS worker.
@@ -428,6 +434,8 @@ Move skill execution behind a governed Unreal OS worker.
 ---
 
 # Phase 5: Scheduled Loop in Shadow Mode
+
+**Status:** Not authorized.
 
 ## Objective
 

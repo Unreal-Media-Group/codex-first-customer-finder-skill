@@ -9,11 +9,15 @@ import json
 import re
 import secrets
 from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, HTTPServer
+from http.server import BaseHTTPRequestHandler, HTTPServer, ThreadingHTTPServer
 from typing import Any, Callable
 from urllib.parse import parse_qs, urlencode, urlsplit
 
-from .application import ACTOR_SCOPE, BUSINESS_UNITS, MissionControl, MissionControlError, safe_evidence_url, state_domain
+from pathlib import Path
+
+from .application import ACTOR_SCOPE, BUSINESS_UNITS, MissionControl, MissionControlError, safe_evidence_url, state_domain, utc_now
+from .agent import AGENT_ID, RegisteredAgentService, default_state_path
+from .store import SqliteStore
 
 MAX_BODY = 32_768
 MAX_FIELDS = 40
@@ -39,23 +43,34 @@ nav{{display:flex;flex-wrap:wrap;gap:.8rem}} a{{color:var(--accent)}} a:focus,bu
 .grid{{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem}} .card{{padding:1rem;border:1px solid var(--line);background:var(--panel)}}
 label{{display:block;font-weight:650;margin-top:.7rem}} input,select,textarea{{width:100%;max-width:42rem;padding:.55rem;border:1px solid #7b7d7d;background:white}} input[type=checkbox]{{width:auto}}
 button{{margin-top:1rem;padding:.65rem 1rem;border:0;background:var(--accent);color:white;font-weight:700;cursor:pointer}} button[disabled]{{opacity:.55;cursor:not-allowed}}
-table{{width:100%;border-collapse:collapse;background:var(--panel)}} th,td{{padding:.55rem;text-align:left;border:1px solid var(--line);vertical-align:top}} pre{{white-space:pre-wrap;overflow-wrap:anywhere}}
+table{{width:100%;border-collapse:collapse;background:var(--panel)}} th,td{{padding:.55rem;text-align:left;border:1px solid var(--line);vertical-align:top}} pre{{white-space:pre-wrap;overflow-wrap:anywhere}} dd,code,td{{overflow-wrap:anywhere}}
 .tag{{display:inline-block;padding:.1rem .4rem;border:1px solid var(--line);margin:.1rem}} .warning{{color:var(--warn);font-weight:700}}
 @media(max-width:640px){{table,thead,tbody,tr,th,td{{display:block}} thead{{position:absolute;left:-9999px}} td{{border-top:0}} nav{{flex-direction:column}}}}
 </style></head><body>
 <header><p><strong>Prospecting Manual Mission Control</strong></p>
-<p class="notice"><strong>Synthetic local Phase 3 review surface.</strong> Fixture state resets on restart. Actor selection simulates policy; it is not authentication. No outbound action exists.</p>
-<nav aria-label="Primary"><a href="/campaigns?{query}">Campaigns</a><a href="/runs?{query}">Run history</a><a href="/prospects?{query}&amp;queue=new">Prospect queues</a><a href="/registry?{query}">Agent registry</a></nav>
+<p class="notice"><strong>Synthetic local review surface.</strong> Campaign and prospect review state resets on restart; registered worker-run state is durable in a local, gitignored SQLite file. The worker executes local synthetic fixtures only. Actor selection simulates policy; it is not production authentication. No external research, creative, likeness, or outreach action exists.</p>
+<nav aria-label="Primary"><a href="/campaigns?{query}">Campaigns</a><a href="/runs?{query}">Run history</a><a href="/worker-runs?{query}">Worker runs</a><a href="/review-tasks?{query}">Review tasks</a><a href="/prospects?{query}&amp;queue=new">Prospect queues</a><a href="/registry?{query}">Agent registry</a></nav>
 <form method="get" action="/campaigns"><label for="scope_actor">Fixture review actor (not authentication)</label><select id="scope_actor" name="actor">{''.join(f'<option value="{e(name)}"{" selected" if name == actor else ""}>{e(name)}</option>' for name in ACTOR_SCOPE)}</select><label for="scope_unit">Business-unit scope</label><select id="scope_unit" name="business_unit">{''.join(f'<option value="{e(unit)}"{" selected" if unit == business_unit else ""}>{e(unit)}</option>' for unit in sorted(BUSINESS_UNITS))}</select><button type="submit">Change local review scope</button></form>
 <p>Review actor: <strong>{e(actor)}</strong> · Business unit: <strong>{e(business_unit)}</strong></p></header>
 <main id="main"><h1>{e(title)}</h1>{status_html}{body}</main>
-<footer><small>Local fixture adapter · zero estimated cost · no credentials, network client, worker, schedule, creative, likeness, or outreach.</small></footer></body></html>"""
+<footer><small>Local synthetic registered worker · fixture-only execution · durable local state · zero cost cap · no credentials, network client, schedule, recurring loop, creative, likeness, or outreach.</small></footer></body></html>"""
 
 
 class WebApplication:
-    def __init__(self, mission_control: MissionControl | None = None, csrf_token: str | None = None):
+    def __init__(
+        self,
+        mission_control: MissionControl | None = None,
+        csrf_token: str | None = None,
+        agent_service: RegisteredAgentService | None = None,
+        state_path: Path | None = None,
+    ):
         self.control = mission_control or MissionControl()
         self.csrf_token = csrf_token or secrets.token_urlsafe(32)
+        self.agent = agent_service or RegisteredAgentService(
+            self.control.repository,
+            SqliteStore(state_path or default_state_path()),
+            clock=getattr(self.control.repository, "clock", utc_now),
+        )
 
     @staticmethod
     def context(query: dict[str, list[str]]) -> tuple[str, str]:
@@ -94,6 +109,16 @@ class WebApplication:
             return 200, self.prospect_detail(actor, business_unit, parts[1])
         if path == "/registry":
             return 200, self.registry(actor, business_unit)
+        if len(parts) == 2 and parts[0] == "registry" and IDENTIFIER.fullmatch(parts[1]):
+            return 200, self.registry_detail(actor, business_unit, parts[1])
+        if path == "/worker-runs":
+            return 200, self.worker_runs(actor, business_unit)
+        if len(parts) == 2 and parts[0] == "worker-runs" and IDENTIFIER.fullmatch(parts[1]):
+            return 200, self.worker_run_detail(actor, business_unit, parts[1])
+        if path == "/review-tasks":
+            return 200, self.review_tasks(actor, business_unit)
+        if len(parts) == 2 and parts[0] == "review-tasks" and IDENTIFIER.fullmatch(parts[1]):
+            return 200, self.review_task_detail(actor, business_unit, parts[1])
         raise MissionControlError(404, "Page not found.")
 
     def post(self, path: str, form: dict[str, str]) -> tuple[int, str]:
@@ -116,8 +141,26 @@ class WebApplication:
             campaign = self.control.repository.get_campaign(actor, parts[1], int(parts[2]))
             if campaign["business_unit"] != business_unit:
                 raise MissionControlError(403, "Business-unit access denied.")
-            run = self.control.repository.start_run(actor, parts[1], int(parts[2]), form.get("idempotency_key", ""))
-            return 200, self.run_detail(actor, business_unit, run["run_id"], "Fixture-backed manual dry run recorded.")
+            run, created = self.agent.create_manual_run(actor, parts[1], int(parts[2]), form.get("idempotency_key", ""))
+            if run["state"] == "queued":
+                run = self.agent.execute_run(actor, run["run_id"])
+            message = (
+                "Registered-agent manual run executed."
+                if created
+                else "Idempotent replay: the existing logical run was returned without duplicate execution."
+            )
+            return 200, self.worker_run_detail(actor, business_unit, run["run_id"], message)
+        if len(parts) == 3 and parts[0] == "worker-runs" and IDENTIFIER.fullmatch(parts[1]) and parts[2] in {"cancel", "retry"}:
+            run = self.agent.get_run(actor, parts[1])
+            if run["business_unit"] != business_unit:
+                raise MissionControlError(403, "Business-unit access denied.")
+            if parts[2] == "cancel":
+                self.agent.cancel_run(actor, parts[1])
+                message = "Cancellation recorded for the worker run."
+            else:
+                self.agent.retry_run(actor, parts[1])
+                message = "Manual retry attempt executed under the same logical run."
+            return 200, self.worker_run_detail(actor, business_unit, parts[1], message)
         if len(parts) == 3 and parts[0] == "prospects" and IDENTIFIER.fullmatch(parts[1]) and parts[2] == "actions":
             self.control.repository.act(actor, business_unit, parts[1], form.get("action", ""), form)
             return 200, self.prospect_detail(actor, business_unit, parts[1], "Append-only governed event recorded.")
@@ -237,9 +280,187 @@ class WebApplication:
         return page(item["account_name"],body,actor=actor,business_unit=business_unit,status=status)
 
     def registry(self, actor: str, business_unit: str) -> str:
-        worker = self.control.worker_record()
-        body = '<p class="warning">This is an inert placeholder, not an executable or registered worker.</p><dl>' + ''.join(f'<dt>{e(key.replace("_"," ").title())}</dt><dd>{e(value)}</dd>' for key,value in worker.items()) + '</dl>'
-        return page("Agent registry",body,actor=actor,business_unit=business_unit)
+        registration = self.agent.registration()
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        body = f"""<p class="notice">One local agent is registered for manual synthetic execution only. It has no credentials, scheduler, recurring loop, network, creative, likeness, or outreach capability.</p>
+<table><thead><tr><th>Agent</th><th>Version</th><th>Registration state</th><th>Trigger</th><th>Detail</th></tr></thead><tbody>
+<tr><td>{e(registration['agent_id'])}</td><td>{e(registration['agent_contract_version'])}</td><td>{e(registration['registration_state'])}</td><td>{e(registration['trigger'])}</td><td><a href="/registry/{e(registration['agent_id'])}?{query}">Capabilities</a></td></tr>
+</tbody></table>"""
+        return page("Agent registry", body, actor=actor, business_unit=business_unit)
+
+    def registry_detail(self, actor: str, business_unit: str, agent_id: str) -> str:
+        if agent_id != AGENT_ID:
+            raise MissionControlError(404, "Registered agent not found.")
+        registration = self.agent.registration()
+        bindings = "".join(
+            f'<tr><td>{e(unit)}</td><td>{e(binding["skill_id"])}</td><td>{e(binding["skill_version"])}</td><td><code>{e(binding["skill_integrity_sha256"][:16])}…</code></td></tr>'
+            for unit, binding in registration["skill_bindings"].items()
+        )
+        fields = [
+            "agent_id", "agent_contract_version", "worker_runtime_version", "registration_state",
+            "input_schema", "output_schema", "trigger", "max_concurrency", "timeout_seconds",
+            "cost_cap_usd", "max_attempts", "cancellation", "durable_store_adapter",
+            "credentials", "scheduler", "recurring_loop", "network", "creative", "likeness", "outreach",
+        ]
+        body = f"""<p class="notice">Manual, fixture-only, locally registered worker. Business-unit skill routing is server-owned; a client can never select a skill, executable, or version.</p>
+<dl>{''.join(f'<dt>{e(key.replace("_", " ").title())}</dt><dd>{e(registration[key])}</dd>' for key in fields)}</dl>
+<h2>Server-owned business-unit skill bindings</h2>
+<table><thead><tr><th>Business unit</th><th>Skill</th><th>Exact version</th><th>Integrity manifest</th></tr></thead><tbody>{bindings}</tbody></table>
+<p>Runs start only from a campaign detail page through the manual human form.</p>"""
+        return page(f"Registered agent {agent_id}", body, actor=actor, business_unit=business_unit)
+
+    def worker_runs(self, actor: str, business_unit: str) -> str:
+        items = self.agent.list_runs(actor, business_unit)
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        rows = "".join(
+            f'<tr><td><a href="/worker-runs/{e(item["run_id"])}?{query}">{e(item["run_id"])}</a></td>'
+            f'<td>{e(self._run_state_label(item))}</td><td>{item["attempt_count"]}/{item["max_attempts"]}</td>'
+            f'<td>${item["cost_cap_usd"]}</td><td>{e(item["failure_class"] or "none")}</td></tr>'
+            for item in items
+        )
+        body = (
+            '<p class="notice">No registered-agent runs exist for this business unit. Start one from a campaign detail page.</p>'
+            if not rows
+            else f'<table><thead><tr><th>Logical run</th><th>State</th><th>Attempts</th><th>Cost cap</th><th>Failure class</th></tr></thead><tbody>{rows}</tbody></table>'
+        )
+        return page("Worker runs", body, actor=actor, business_unit=business_unit)
+
+    @staticmethod
+    def _durable_results_section(output: dict[str, Any] | None) -> str:
+        """Read-only, business-unit-scoped review projection rendered from the
+        durable validated result snapshot. It stays inspectable after a process
+        restart, unlike the Phase 3 process-local queues."""
+        if output is None:
+            return ""
+
+        def disposition(item: dict[str, Any]) -> Any:
+            if item.get("effective_suppressed") is True:
+                return "suppressed"
+            decision = item.get("current_decision")
+            if decision in {"rejected", "approved_for_deeper_research"}:
+                return decision
+            return item.get("effective_rejection") or decision or "eligible review"
+
+        rows = "".join(
+            f'<tr><td>{e(item.get("prospect_id", ""))}</td><td>{e(item.get("account_name", ""))}</td>'
+            f'<td>{e(item.get("domain", ""))}</td><td>{e(item.get("score", ""))}</td>'
+            f'<td>{e(item.get("queue", ""))}</td><td>{e(disposition(item))}</td>'
+            f'<td>{e(item.get("uncertainty", ""))}</td></tr>'
+            for item in output["result_snapshot"]
+            if isinstance(item, dict)
+        )
+        table = (
+            '<p class="notice">This run recorded a visible empty result set.</p>'
+            if not rows
+            else f'<table><thead><tr><th>Result</th><th>Account</th><th>Domain</th><th>Score</th><th>Queue</th><th>Disposition</th><th>Uncertainty</th></tr></thead><tbody>{rows}</tbody></table>'
+        )
+        return f"""<h2>Durable validated result snapshot</h2>
+<p class="notice">Read-only durable review data; it remains inspectable after an application restart. Governed review actions (identity resolution, suppression, deeper-research approval, rejection, assignment, notes) operate on the process-local Phase 3 prospect queue populated by the server process that executed the run; after a restart those actions are unavailable for this run's results, and this snapshot remains the review record.</p>
+{table}"""
+
+    @staticmethod
+    def _run_state_label(run: dict[str, Any]) -> str:
+        if run["state"] == "succeeded" and run.get("review_task_id"):
+            return "succeeded · review pending"
+        if run["state"] in {"failed_retryable", "timed_out"} and run["attempt_count"] >= run["max_attempts"]:
+            return f'{run["state"]} · retry budget exhausted'
+        return run["state"]
+
+    def worker_run_detail(self, actor: str, business_unit: str, run_id: str, status: str = "") -> str:
+        run = self.agent.run_detail(actor, run_id)
+        if run["business_unit"] != business_unit:
+            raise MissionControlError(403, "Business-unit access denied.")
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        fields = [
+            "run_id", "agent_id", "agent_version", "campaign_family_id", "campaign_version",
+            "business_unit", "initiating_actor", "skill_id", "skill_version", "skill_integrity",
+            "configuration_hash", "idempotency_key", "state", "attempt_count", "max_attempts",
+            "retry_budget_remaining", "timeout_seconds", "cost_cap_usd", "actual_cost_usd",
+            "cancel_requested", "created_at", "started_at", "completed_at", "failure_class",
+            "retryable", "remediation",
+        ]
+        body = f'<p><span class="tag">{e(self._run_state_label(run))}</span></p><dl>' + "".join(
+            f'<dt>{e(key.replace("_", " ").title())}</dt><dd>{e(run[key] if run[key] is not None else "none")}</dd>'
+            for key in fields
+        ) + "</dl>"
+        attempts = "".join(
+            f'<tr><td>{item["attempt_number"]}</td><td>{e(item["started_at"])}</td><td>{e(item["completed_at"] or "in progress")}</td>'
+            f'<td>{e(item["terminal_state"] or "running")}</td><td>{e(item["outcome"] or "pending")}</td>'
+            f'<td>{e(item["worker_version"])}</td><td>{e(item["estimated_cost_usd"] if item["estimated_cost_usd"] is not None else "none")}</td></tr>'
+            for item in run["attempts"]
+        )
+        body += "<h2>Append-only attempt history</h2>" + (
+            '<p class="notice">No attempt has started.</p>'
+            if not attempts
+            else f'<table><thead><tr><th>#</th><th>Started</th><th>Completed</th><th>Terminal state</th><th>Outcome</th><th>Worker version</th><th>Cost</th></tr></thead><tbody>{attempts}</tbody></table>'
+        )
+        output = run["output"]
+        if output:
+            body += f"""<h2>Output manifest</h2><dl>
+<dt>Output Id</dt><dd>{e(output['output_id'])}</dd>
+<dt>Output Schema</dt><dd>{e(output['output_schema'])}</dd>
+<dt>Content Hash</dt><dd><code>{e(output['content_hash'])}</code></dd>
+<dt>Byte Length</dt><dd>{output['byte_length']}</dd>
+<dt>Fixture Source Ids</dt><dd>{e(', '.join(output['fixture_source_ids']))}</dd>
+<dt>Result Ids</dt><dd>{e(', '.join(output['result_ids']) or 'none (visible empty result)')}</dd>
+<dt>Estimated Cost Usd</dt><dd>{output['estimated_cost_usd']}</dd>
+<dt>Errors</dt><dd>{e('; '.join(output['errors']) or 'none')}</dd>
+<dt>Stop Reason</dt><dd>{e(output['stop_reason'])}</dd>
+</dl>{self._durable_results_section(output)}<p><a href="/prospects?{query}&amp;queue=new">Open the process-local prospect queues (populated only by runs executed in this server process)</a></p>"""
+        if run["review_task"]:
+            body += f'<h2>Human review task</h2><p><a href="/review-tasks/{e(run["review_task"]["task_id"])}?{query}">{e(run["review_task"]["task_id"])}</a> · state: {e(run["review_task"]["state"])} · the worker cannot approve or complete it.</p>'
+        hidden = self.hidden(actor, business_unit)
+        if run["cancel_allowed"]:
+            body += f'<form method="post" action="/worker-runs/{e(run_id)}/cancel">{hidden}<button type="submit">Cancel this run</button></form>'
+        if run["retry_allowed"]:
+            body += f'<form method="post" action="/worker-runs/{e(run_id)}/retry">{hidden}<button type="submit">Retry manually (attempt {run["attempt_count"] + 1} of {run["max_attempts"]})</button></form>'
+        elif run["state"] in {"failed_retryable", "timed_out"}:
+            body += '<p class="warning">The retry budget is exhausted; no further attempts are allowed.</p>'
+        audits = "".join(
+            f'<tr><td>{e(item["audit_id"])}</td><td>{e(item["event_type"])}</td><td>{e(item["actor"])}</td><td>{e(item["safe_status"])}</td><td>{e(item["recorded_at"])}</td></tr>'
+            for item in run["audit_events"]
+        )
+        body += "<h2>Bounded audit history</h2>" + (
+            '<p class="notice">No audit events.</p>'
+            if not audits
+            else f'<table><thead><tr><th>ID</th><th>Event</th><th>Actor</th><th>Safe status</th><th>Recorded</th></tr></thead><tbody>{audits}</tbody></table>'
+        )
+        return page(f"Worker run {run_id}", body, actor=actor, business_unit=business_unit, status=status)
+
+    def review_tasks(self, actor: str, business_unit: str) -> str:
+        items = self.agent.review_tasks(actor, business_unit)
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        rows = "".join(
+            f'<tr><td><a href="/review-tasks/{e(item["task_id"])}?{query}">{e(item["task_id"])}</a></td>'
+            f'<td>{e(item["run_id"])}</td><td>{e(item["state"])}</td><td>{e(item["created_at"])}</td></tr>'
+            for item in items
+        )
+        body = (
+            '<p class="notice">No human review tasks exist for this business unit.</p>'
+            if not rows
+            else f'<table><thead><tr><th>Task</th><th>Logical run</th><th>State</th><th>Created</th></tr></thead><tbody>{rows}</tbody></table>'
+        )
+        return page("Human review tasks", body, actor=actor, business_unit=business_unit)
+
+    def review_task_detail(self, actor: str, business_unit: str, task_id: str) -> str:
+        task = self.agent.get_review_task(actor, task_id)
+        if task["business_unit"] != business_unit:
+            raise MissionControlError(403, "Business-unit access denied.")
+        output = self.agent.run_detail(actor, task["run_id"])["output"]
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        body = f"""<dl>
+<dt>Task Id</dt><dd>{e(task['task_id'])}</dd>
+<dt>Logical Run</dt><dd><a href="/worker-runs/{e(task['run_id'])}?{query}">{e(task['run_id'])}</a></dd>
+<dt>Output Reference</dt><dd>{e(task['output_id'])}</dd>
+<dt>Business Unit</dt><dd>{e(task['business_unit'])}</dd>
+<dt>State</dt><dd>{e(task['state'])}</dd>
+<dt>Allowed Human Reviewers</dt><dd>{e(', '.join(task['allowed_reviewers']))}</dd>
+<dt>Created</dt><dd>{e(task['created_at'])}</dd>
+</dl>
+<p class="notice">The worker created this task and cannot approve, complete, or impersonate the human reviewer. No automatic approval or standing permission exists.</p>
+{self._durable_results_section(output)}
+<p><a href="/prospects?{query}&amp;queue=new">Open the process-local prospect queues (populated only by runs executed in this server process)</a></p>"""
+        return page(f"Review task {task_id}", body, actor=actor, business_unit=business_unit)
 
 
 def make_handler(app: WebApplication) -> type[BaseHTTPRequestHandler]:
@@ -328,17 +549,37 @@ def make_handler(app: WebApplication) -> type[BaseHTTPRequestHandler]:
     return Handler
 
 
+class LoopbackServer(ThreadingHTTPServer):
+    """Loopback-only server with one bounded thread per request.
+
+    Threads exist so a human can inspect or cancel a running bounded attempt;
+    there is no scheduler, poller, or background worker. daemon_threads stays
+    False so server_close joins every request thread before returning — no
+    worker survives the server, because attempts terminate cooperatively by
+    success, failure, timeout, or cancellation.
+    """
+
+    daemon_threads = False
+
+
 def build_server(app: WebApplication | None = None, port: int = 8765) -> HTTPServer:
-    return HTTPServer(("127.0.0.1", port), make_handler(app or WebApplication()))
+    return LoopbackServer(("127.0.0.1", port), make_handler(app or WebApplication()))
 
 
 def run_server() -> None:
     parser = argparse.ArgumentParser(description="Run synthetic Prospecting Mission Control on loopback only.")
     parser.add_argument("--port", type=int, default=8765)
+    parser.add_argument(
+        "--state-path",
+        type=Path,
+        default=None,
+        help="Operator-selected local SQLite state file for durable worker runs"
+        " (default: the gitignored apps/prospecting-mission-control/local_state directory).",
+    )
     args = parser.parse_args()
     if not 1024 <= args.port <= 65535:
         raise SystemExit("Port must be from 1024 to 65535.")
-    server = build_server(port=args.port)
+    server = build_server(WebApplication(state_path=args.state_path), port=args.port)
     print(f"Synthetic Prospecting Mission Control: http://127.0.0.1:{args.port}")
     try:
         server.serve_forever()

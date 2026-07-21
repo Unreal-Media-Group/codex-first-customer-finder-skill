@@ -4,6 +4,7 @@ import http.client
 import json
 import ast
 import sys
+import tempfile
 import threading
 import unittest
 from datetime import datetime, timezone
@@ -22,6 +23,8 @@ from mission_control.application import (  # noqa: E402
     MissionControlError,
     safe_evidence_url,
 )
+from mission_control.agent import RegisteredAgentService  # noqa: E402
+from mission_control.store import SqliteStore  # noqa: E402
 from mission_control.web import MAX_BODY, WebApplication, build_server  # noqa: E402
 
 
@@ -337,11 +340,19 @@ class DomainTests(unittest.TestCase):
             self.control.repository.act("rob", "unreal-media-group", "umg-new-orbit", "note", {"text": "Must not persist"})
         self.assertEqual(len(self.control.repository.review_events), before)
 
-    def test_worker_is_inert_and_no_outbound_capability(self) -> None:
-        worker = self.control.worker_record()
-        self.assertEqual(worker["execution_status"], "inactive and unregistered")
-        for key in ["credentials", "scheduler", "network", "creative", "likeness", "outreach"]:
-            self.assertFalse(worker[key])
+    def test_worker_registration_is_manual_only_with_no_outbound_capability(self) -> None:
+        # Phase 4 replaced the inert placeholder with a locally registered,
+        # manual-only synthetic worker. It still has no outbound capability.
+        with tempfile.TemporaryDirectory() as state_dir:
+            service = RegisteredAgentService(
+                self.control.repository,
+                SqliteStore(Path(state_dir) / "state.sqlite3"),
+                clock=lambda: FIXED_TIME,
+            )
+            registration = service.registration()
+        self.assertEqual(registration["trigger"], "manual human form only")
+        for key in ["credentials", "scheduler", "recurring_loop", "network", "creative", "likeness", "outreach"]:
+            self.assertFalse(registration[key])
 
     def test_fixture_catalog_is_obviously_synthetic_and_example_only(self) -> None:
         for candidate in self.control.repository.fixture_candidates:
@@ -375,7 +386,13 @@ class DomainTests(unittest.TestCase):
 class HttpTests(unittest.TestCase):
     def setUp(self) -> None:
         self.control = make_control()
-        self.app = WebApplication(self.control, csrf_token="deterministic-csrf")
+        self.state_dir = tempfile.TemporaryDirectory()
+        self.addCleanup(self.state_dir.cleanup)
+        self.app = WebApplication(
+            self.control,
+            csrf_token="deterministic-csrf",
+            state_path=Path(self.state_dir.name) / "state.sqlite3",
+        )
         self.server = build_server(self.app, port=0)
         self.thread = threading.Thread(target=self.server.serve_forever, daemon=True)
         self.thread.start()
@@ -410,7 +427,7 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
         status, body, headers = self.request("GET", "/campaigns?actor=noah&business_unit=unreal-media-group")
         self.assertEqual(status, 200)
-        self.assertIn("Synthetic local Phase 3 review surface", body)
+        self.assertIn("Synthetic local review surface", body)
         self.assertIn("No campaigns exist", body)
         self.assertIn('aria-label="Primary"', body)
         self.assertIn("Content-Security-Policy", headers)
@@ -425,7 +442,7 @@ class HttpTests(unittest.TestCase):
         run_fields = {"csrf_token": "deterministic-csrf", "actor": "noah", "business_unit": "unreal-media-group", "idempotency_key": "http-run"}
         status, body, _ = self.request("POST", f'/campaigns/{campaign["family_id"]}/1/run', run_fields)
         self.assertEqual(status, 200)
-        for value in ["Input Schema Version", "Skill Version", "Fixture Source Ids", "Estimated Cost Usd", "Errors", "Stop Reason"]:
+        for value in ["Skill Version", "Skill Integrity", "Fixture Source Ids", "Estimated Cost Usd", "Cost Cap Usd", "Errors", "Stop Reason", "review pending"]:
             self.assertIn(value, body)
         status, queue_body, _ = self.request("GET", "/prospects?actor=noah&business_unit=unreal-media-group&queue=duplicate_reengagement")
         self.assertEqual(status, 200)
@@ -558,12 +575,17 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("resolved_duplicate", queue_body)
 
-    def test_registry_is_explicitly_non_executable(self) -> None:
+    def test_registry_is_manual_only_and_offers_no_direct_worker_start(self) -> None:
         status, body, _ = self.request("GET", "/registry?actor=noah&business_unit=unreal-media-group")
         self.assertEqual(status, 200)
-        self.assertIn("inactive and unregistered", body)
+        self.assertIn("registered and enabled for manual synthetic execution", body)
         self.assertIn("manual human form only", body)
         self.assertNotIn("Start worker", body)
+        status, detail, _ = self.request("GET", "/registry/brand-prospecting-agent?actor=noah&business_unit=unreal-media-group")
+        self.assertEqual(status, 200)
+        self.assertIn("unreal-media-brand-prospector", detail)
+        self.assertIn("unreal-talent-campaign-prospector", detail)
+        self.assertNotIn("Start worker", detail)
 
 
 if __name__ == "__main__":

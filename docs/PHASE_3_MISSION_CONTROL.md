@@ -1,10 +1,17 @@
 # Phase 3 Manual Mission Control
 
-**Status:** Implemented locally and pending independent review/finalization
+**Status:** Independently reviewed and finalized at commit `8ea7c16`
 
 This is a synthetic review application for the finalized Phase 2 contract behavior. It is not an
-Unreal OS connection, production authentication system, database, registered worker, scheduler, or
-outbound tool.
+Unreal OS connection, production authentication system, database, scheduler, or outbound tool.
+
+**Phase 4 transition note:** the authoritative manual-run path now goes through the locally
+registered `brand-prospecting-agent` worker described in
+[Phase 4 Registered Agent](PHASE_4_REGISTERED_AGENT.md). The campaign detail form delegates to that
+registered agent, which executes the same deterministic fixture adapter and durably records worker
+runs, attempts, outputs, audits, and human-review tasks in a local gitignored SQLite file. The
+inert Phase 3 registry placeholder was replaced by that registration. Everything else in this
+document still describes the review model.
 
 ## Start locally
 
@@ -30,8 +37,9 @@ run, projection, and review-event state is held in memory and resets when the pr
 - Governed identity, suppression, deeper-research, rejection, assignment, and note actions append
   history. Corrections explicitly supersede an existing event without deleting it.
 - Current state is selected by effective time, recorded time, and stable event ID.
-- The worker shown in Agent Registry is inert and unregistered, with a zero cost cap and no credentials,
-  network, schedule, creative, likeness, or outreach capability.
+- The Agent Registry shows the Phase 4 `brand-prospecting-agent`, registered for manual synthetic
+  execution only, with a zero cost cap and no credentials, network, schedule, recurring loop,
+  creative, likeness, or outreach capability.
 
 The Noah, Rob, and Dan selector is an allowlisted fixture mechanism for exercising business-unit scope
 and separation of duty. It is deliberately labeled as **not authentication**. Noah can review both
@@ -48,7 +56,9 @@ work.
 | `/runs` and `/runs/{id}` | Inspect versions, sources, outputs, zero cost, errors, and stop reason |
 | `/prospects?queue=...` | Review new, duplicate/re-engagement, or rejection queues |
 | `/prospects/{id}` | Inspect evidence and append governed review events |
-| `/registry` | Inspect the inert future-worker placeholder |
+| `/registry` and `/registry/{agent}` | Inspect the registered manual-only agent and capabilities |
+| `/worker-runs` and `/worker-runs/{id}` | Inspect durable worker runs, attempts, outputs, audits |
+| `/review-tasks` and `/review-tasks/{id}` | Inspect pending human-review tasks |
 
 Recommended local review sequence:
 
@@ -84,7 +94,9 @@ migration file is required because the sole active Phase 3 adapter is process-lo
 
 ## Later-phase non-goals
 
-Phase 3 does not provide live research, scraping, external APIs, database access, migration execution,
-real authentication, production authorization, registered worker execution, schedules, loops,
-watchers, retries, creative briefs, asset generation, advertisements, likeness use, outreach drafting,
-outreach sending, telemetry, deployment, or Phase 4 behavior.
+Phase 3 does not provide live research, scraping, external APIs, external database access, migration
+execution, real authentication, production authorization, schedules, loops, watchers, creative
+briefs, asset generation, advertisements, likeness use, outreach drafting, outreach sending,
+telemetry, or deployment. Registered manual worker execution and durable local worker state are
+Phase 4 behavior, documented separately and pending independent review; Phase 5 remains
+unauthorized.

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 import copy
+import functools
 import hashlib
 import json
 import sys
+import threading
 from dataclasses import asdict, dataclass, field
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -65,9 +67,24 @@ class Repository(Protocol):
 
     def add_campaign(self, actor: str, config: dict[str, Any], family_id: str | None = None) -> dict[str, Any]: ...
 
+    def ensure_campaign_version(self, actor: str, family_id: str, version: int, configuration: dict[str, Any], configuration_hash: str, created_at: str) -> dict[str, Any]: ...
+
     def runs(self, actor: str) -> list[dict[str, Any]]: ...
 
     def get_run(self, actor: str, run_id: str) -> dict[str, Any]: ...
+
+    def prepare_run(self, actor: str, family_id: str, version: int, idempotency_key: str) -> dict[str, Any]: ...
+
+    def validate_prepared_run(
+        self,
+        actor: str,
+        prepared: dict[str, Any],
+        *,
+        fixture_run: dict[str, Any] | None = None,
+        results: list[dict[str, Any]] | None = None,
+    ) -> None: ...
+
+    def commit_prepared_run(self, actor: str, prepared: dict[str, Any]) -> dict[str, Any]: ...
 
     def start_run(self, actor: str, family_id: str, version: int, idempotency_key: str) -> dict[str, Any]: ...
 
@@ -136,6 +153,22 @@ def projection_order(event: dict[str, Any]) -> tuple[str, str, str]:
     return (event["effective_at"], event["recorded_at"], event["event_id"])
 
 
+def _synchronized(method):
+    """Serialize access to the process-local fixture state.
+
+    The Phase 4 loopback server handles requests on bounded threads so a human
+    can cancel a running attempt; the reentrant lock keeps this repository's
+    in-memory collections consistent under that limited concurrency.
+    """
+
+    @functools.wraps(method)
+    def wrapper(self, *args, **kwargs):
+        with self._lock:
+            return method(self, *args, **kwargs)
+
+    return wrapper
+
+
 @dataclass
 class FixtureRepository:
     """Process-local adapter. State intentionally disappears on restart."""
@@ -156,6 +189,7 @@ class FixtureRepository:
         fixture = json.loads(self.fixture_path.read_text(encoding="utf-8"))
         self.sources = tuple(fixture["sources"])
         self.fixture_candidates = tuple(fixture["prospects"])
+        self._lock = threading.RLock()
 
     def _now(self) -> str:
         return self.clock().astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
@@ -179,10 +213,12 @@ class FixtureRepository:
             "recorded_at": self._now(),
         })
 
+    @_synchronized
     def campaigns(self, actor: str) -> list[dict[str, Any]]:
         allowed = ACTOR_SCOPE.get(actor, set())
         return [asdict(item) for item in self.campaign_versions if item.business_unit in allowed]
 
+    @_synchronized
     def get_campaign(self, actor: str, family_id: str, version: int) -> dict[str, Any]:
         for item in self.campaign_versions:
             if item.family_id == family_id and item.version == version:
@@ -190,6 +226,7 @@ class FixtureRepository:
                 return asdict(item)
         raise MissionControlError(404, "Campaign version not found.")
 
+    @_synchronized
     def add_campaign(self, actor: str, config: dict[str, Any], family_id: str | None = None) -> dict[str, Any]:
         self._authorize(actor, config.get("business_unit", ""))
         try:
@@ -225,10 +262,61 @@ class FixtureRepository:
             raise
         return asdict(item)
 
+    @_synchronized
+    def ensure_campaign_version(
+        self,
+        actor: str,
+        family_id: str,
+        version: int,
+        configuration: dict[str, Any],
+        configuration_hash: str,
+        created_at: str,
+    ) -> dict[str, Any]:
+        """Rehydrate an immutable campaign version from durable Phase 4 state.
+
+        A fresh process has empty in-memory campaign collections; a durable
+        worker retry replays its persisted validated snapshot through this
+        boundary. Identity, business unit, and configuration hash must match
+        exactly, and the frozen Phase 1 validator re-runs before anything is
+        registered. No client-supplied data reaches this path.
+        """
+        self._authorize(actor, configuration.get("business_unit", ""))
+        serialized = json.dumps(configuration, sort_keys=True, separators=(",", ":"))
+        if hashlib.sha256(serialized.encode()).hexdigest() != configuration_hash:
+            raise MissionControlError(409, "The durable configuration snapshot failed its integrity check.")
+        for item in self.campaign_versions:
+            if item.family_id == family_id and item.version == version:
+                if item.configuration_hash != configuration_hash or item.business_unit != configuration["business_unit"]:
+                    raise MissionControlError(409, "The durable campaign identity conflicts with this process's campaign state.")
+                return asdict(item)
+        try:
+            validate_campaign(configuration, base_dir=REPOSITORY_ROOT)
+        except ValidationError as exc:
+            raise MissionControlError(400, str(exc)) from exc
+        item = CampaignVersion(
+            family_id=family_id,
+            version=version,
+            business_unit=configuration["business_unit"],
+            creator_actor=actor,
+            created_at=created_at,
+            configuration=copy.deepcopy(configuration),
+            configuration_hash=configuration_hash,
+        )
+        before = len(self.audit_events)
+        self._audit(actor=actor, action="campaign_version_rehydrated", business_unit=item.business_unit, record_id=family_id)
+        try:
+            self.campaign_versions.append(item)
+        except Exception:
+            del self.audit_events[before:]
+            raise
+        return asdict(item)
+
+    @_synchronized
     def runs(self, actor: str) -> list[dict[str, Any]]:
         allowed = ACTOR_SCOPE.get(actor, set())
         return [asdict(item) for item in self.run_records if item.business_unit in allowed]
 
+    @_synchronized
     def get_run(self, actor: str, run_id: str) -> dict[str, Any]:
         for item in self.run_records:
             if item.run_id == run_id:
@@ -294,7 +382,9 @@ class FixtureRepository:
             rejection = "brand_safety_conflict"
         return ("rejections", rejection) if rejection else ("new", "")
 
-    def start_run(self, actor: str, family_id: str, version: int, idempotency_key: str) -> dict[str, Any]:
+    @_synchronized
+    def prepare_run(self, actor: str, family_id: str, version: int, idempotency_key: str) -> dict[str, Any]:
+        """Compute a fixture run without exposing it in process-local state."""
         campaign = self.get_campaign(actor, family_id, version)
         self._authorize(actor, campaign["business_unit"])
         if not idempotency_key or len(idempotency_key) > 100 or any(not (character.isalnum() or character in "_-") for character in idempotency_key):
@@ -310,7 +400,7 @@ class FixtureRepository:
         if existing:
             if existing[0] != fingerprint:
                 raise MissionControlError(409, "Idempotency key was already used with different input.")
-            return self.get_run(actor, existing[1])
+            return {"existing_run": self.get_run(actor, existing[1])}
 
         candidates = self._select_candidates(campaign["configuration"])
         started_at = self._now()
@@ -369,20 +459,207 @@ class FixtureRepository:
             idempotency_key=idempotency_key,
             idempotency_fingerprint=fingerprint,
         )
+        if self.fail_next_audit:
+            self.fail_next_audit = False
+            raise MissionControlError(500, "The governed action could not be recorded.")
+        audit = {
+            "audit_id": self.next_id("audit"),
+            "actor": actor,
+            "action": "manual_fixture_run",
+            "business_unit": run.business_unit,
+            "record_id": run_id,
+            "recorded_at": self._now(),
+        }
+        return {
+            "run": run,
+            "fixture_run": asdict(run),
+            "projections": projections,
+            "results": [
+                self._project_prospect(
+                    item,
+                    self.events_for(actor, run.business_unit, item["prospect_id"]),
+                )
+                for item in projections
+            ],
+            "audit": audit,
+        }
+
+    @_synchronized
+    def validate_prepared_run(
+        self,
+        actor: str,
+        prepared: dict[str, Any],
+        *,
+        fixture_run: dict[str, Any] | None = None,
+        results: list[dict[str, Any]] | None = None,
+    ) -> None:
+        """Validate the concrete prepared shape without mutating local state."""
+
+        def invalid() -> None:
+            raise MissionControlError(500, "Prepared fixture result has an unexpected shape.")
+
+        def validate_results(
+            values: Any, output_ids: tuple[str, ...], business_unit: str
+        ) -> None:
+            if type(values) is not list or any(type(item) is not dict for item in values):
+                invalid()
+            if tuple(item.get("prospect_id") for item in values) != output_ids:
+                invalid()
+            if any(item.get("business_unit") != business_unit for item in values):
+                invalid()
+            try:
+                json.dumps(values, sort_keys=True, separators=(",", ":"))
+            except (TypeError, ValueError, RecursionError):
+                invalid()
+
+        if type(prepared) is not dict or (fixture_run is None) != (results is None):
+            invalid()
+        if "existing_run" in prepared:
+            if set(prepared) != {"existing_run"} or type(prepared["existing_run"]) is not dict:
+                invalid()
+            existing_run = prepared["existing_run"]
+            required = {
+                "run_id", "business_unit", "fixture_source_ids", "output_ids", "status",
+                "estimated_cost_usd", "errors", "stop_reason", "idempotency_key",
+                "idempotency_fingerprint",
+            }
+            if not required.issubset(existing_run):
+                invalid()
+            if (
+                not isinstance(existing_run["run_id"], str)
+                or not isinstance(existing_run["business_unit"], str)
+                or type(existing_run["fixture_source_ids"]) not in {list, tuple}
+                or type(existing_run["output_ids"]) not in {list, tuple}
+                or type(existing_run["errors"]) not in {list, tuple}
+                or any(not isinstance(value, str) for value in existing_run["fixture_source_ids"])
+                or any(not isinstance(value, str) for value in existing_run["output_ids"])
+                or any(not isinstance(value, str) for value in existing_run["errors"])
+                or not isinstance(existing_run["status"], str)
+                or type(existing_run["estimated_cost_usd"]) is not int
+                or not isinstance(existing_run["stop_reason"], str)
+                or not isinstance(existing_run["idempotency_key"], str)
+                or not isinstance(existing_run["idempotency_fingerprint"], str)
+            ):
+                invalid()
+            self._authorize(actor, existing_run["business_unit"])
+            try:
+                json.dumps(existing_run, sort_keys=True, separators=(",", ":"))
+            except (TypeError, ValueError, RecursionError):
+                invalid()
+            stored_run = next(
+                (item for item in self.run_records if item.run_id == existing_run["run_id"]),
+                None,
+            )
+            if (
+                stored_run is None
+                or asdict(stored_run) != existing_run
+                or self.idempotency.get(existing_run["idempotency_key"])
+                != (existing_run["idempotency_fingerprint"], existing_run["run_id"])
+            ):
+                invalid()
+            if fixture_run is not None:
+                if type(fixture_run) is not dict or fixture_run != existing_run:
+                    invalid()
+                validate_results(
+                    results,
+                    tuple(existing_run["output_ids"]),
+                    existing_run["business_unit"],
+                )
+            return
+
+        required = {"run", "fixture_run", "projections", "results", "audit"}
+        if not required.issubset(prepared) or not isinstance(prepared["run"], ManualRun):
+            invalid()
+        run = prepared["run"]
+        if (
+            not isinstance(run.run_id, str)
+            or not isinstance(run.business_unit, str)
+            or not isinstance(run.idempotency_key, str)
+            or not isinstance(run.idempotency_fingerprint, str)
+            or any(not isinstance(value, str) for value in run.output_ids)
+        ):
+            invalid()
+        self._authorize(actor, run.business_unit)
+        serialized_run = asdict(run)
+        projections = prepared["projections"]
+        prepared_results = prepared["results"]
+        audit = prepared["audit"]
+        if (
+            type(prepared["fixture_run"]) is not dict
+            or prepared["fixture_run"] != serialized_run
+            or type(projections) is not list
+            or any(type(item) is not dict for item in projections)
+            or type(audit) is not dict
+        ):
+            invalid()
+        if tuple(item.get("prospect_id") for item in projections) != run.output_ids:
+            invalid()
+        if any(
+            item.get("business_unit") != run.business_unit
+            or item.get("run_id") != run.run_id
+            or item.get("campaign_family_id") != run.campaign_family_id
+            or item.get("campaign_version") != run.campaign_version
+            for item in projections
+        ):
+            invalid()
+        required_audit = {"audit_id", "actor", "action", "business_unit", "record_id", "recorded_at"}
+        if (
+            set(audit) != required_audit
+            or any(not isinstance(audit[key], str) for key in required_audit)
+            or audit["actor"] != actor
+            or audit["action"] != "manual_fixture_run"
+            or audit["business_unit"] != run.business_unit
+            or audit["record_id"] != run.run_id
+        ):
+            invalid()
+        validate_results(prepared_results, run.output_ids, run.business_unit)
+        try:
+            json.dumps(
+                [serialized_run, projections, audit],
+                sort_keys=True,
+                separators=(",", ":"),
+            )
+        except (TypeError, ValueError, RecursionError):
+            invalid()
+        if fixture_run is not None and (
+            type(fixture_run) is not dict
+            or fixture_run != prepared["fixture_run"]
+            or results != prepared_results
+        ):
+            invalid()
+
+    @_synchronized
+    def commit_prepared_run(self, actor: str, prepared: dict[str, Any]) -> dict[str, Any]:
+        """Project a fully prepared run after its durable success commits."""
+        self.validate_prepared_run(actor, prepared)
+        existing_run = prepared.get("existing_run")
+        if existing_run is not None:
+            self._authorize(actor, existing_run["business_unit"])
+            return copy.deepcopy(existing_run)
+        run = prepared["run"]
+        self._authorize(actor, run.business_unit)
+        existing = self.idempotency.get(run.idempotency_key)
+        if existing:
+            if existing[0] != run.idempotency_fingerprint:
+                raise MissionControlError(409, "Idempotency key was already used with different input.")
+            return self.get_run(actor, existing[1])
         before_audit = len(self.audit_events)
         before_runs = len(self.run_records)
         before_history = len(self.prospect_history)
         records_before = copy.deepcopy(self.prospect_records)
         idempotency_before = dict(self.idempotency)
-        self._audit(actor=actor, action="manual_fixture_run", business_unit=run.business_unit, record_id=run_id)
         try:
+            self.audit_events.append(copy.deepcopy(prepared["audit"]))
             self.run_records.append(run)
-            for projection in projections:
+            for projection in prepared["projections"]:
                 key = f"{run.business_unit}:{projection['prospect_id']}"
                 preserved = copy.deepcopy(projection)
                 self.prospect_history.append(preserved)
                 self.prospect_records[key] = copy.deepcopy(preserved)
-            self.idempotency[idempotency_key] = (fingerprint, run_id)
+            self.idempotency[run.idempotency_key] = (
+                run.idempotency_fingerprint,
+                run.run_id,
+            )
         except Exception:
             del self.audit_events[before_audit:]
             del self.run_records[before_runs:]
@@ -392,21 +669,14 @@ class FixtureRepository:
             raise
         return asdict(run)
 
-    def prospects(self, actor: str, business_unit: str) -> list[dict[str, Any]]:
-        self._authorize(actor, business_unit)
-        items = [
-            self.get_prospect(actor, business_unit, item["prospect_id"])
-            for item in self.prospect_records.values() if item["business_unit"] == business_unit
-        ]
-        return sorted(items, key=lambda item: (item["queue"], item["prospect_id"]))
+    @_synchronized
+    def start_run(self, actor: str, family_id: str, version: int, idempotency_key: str) -> dict[str, Any]:
+        prepared = self.prepare_run(actor, family_id, version, idempotency_key)
+        return self.commit_prepared_run(actor, prepared)
 
-    def get_prospect(self, actor: str, business_unit: str, prospect_id: str) -> dict[str, Any]:
-        self._authorize(actor, business_unit)
-        item = self.prospect_records.get(f"{business_unit}:{prospect_id}")
-        if not item:
-            raise MissionControlError(404, "Prospect not found in this business unit.")
+    @staticmethod
+    def _project_prospect(item: dict[str, Any], events: list[dict[str, Any]]) -> dict[str, Any]:
         result = copy.deepcopy(item)
-        events = self.events_for(actor, business_unit, prospect_id)
         result["review_history"] = events
         current: dict[str, dict[str, Any]] = {}
         for event in events:
@@ -428,6 +698,24 @@ class FixtureRepository:
             result["current_decision"] = "approved_for_deeper_research" if decision["kind"] == "approve_deeper_research" else "rejected"
         return result
 
+    @_synchronized
+    def prospects(self, actor: str, business_unit: str) -> list[dict[str, Any]]:
+        self._authorize(actor, business_unit)
+        items = [
+            self.get_prospect(actor, business_unit, item["prospect_id"])
+            for item in self.prospect_records.values() if item["business_unit"] == business_unit
+        ]
+        return sorted(items, key=lambda item: (item["queue"], item["prospect_id"]))
+
+    @_synchronized
+    def get_prospect(self, actor: str, business_unit: str, prospect_id: str) -> dict[str, Any]:
+        self._authorize(actor, business_unit)
+        item = self.prospect_records.get(f"{business_unit}:{prospect_id}")
+        if not item:
+            raise MissionControlError(404, "Prospect not found in this business unit.")
+        return self._project_prospect(item, self.events_for(actor, business_unit, prospect_id))
+
+    @_synchronized
     def events_for(self, actor: str, business_unit: str, prospect_id: str) -> list[dict[str, Any]]:
         self._authorize(actor, business_unit)
         return [asdict(item) for item in sorted(
@@ -465,6 +753,7 @@ class FixtureRepository:
             raise
         return asdict(event)
 
+    @_synchronized
     def act(self, actor: str, business_unit: str, prospect_id: str, action: str, values: dict[str, str]) -> dict[str, Any]:
         self._authorize(actor, business_unit)
         prospect = self.get_prospect(actor, business_unit, prospect_id)
@@ -614,23 +903,3 @@ class MissionControl:
         except ValidationError as exc:
             raise MissionControlError(400, str(exc)) from exc
         return config
-
-    @staticmethod
-    def worker_record() -> dict[str, Any]:
-        return {
-            "worker_id": "prospecting-phase4-placeholder",
-            "business_units": sorted(BUSINESS_UNITS),
-            "skills": ["unreal-media-brand-prospector@1.0.0", "unreal-talent-campaign-prospector@1.0.0"],
-            "fixture_adapter": True,
-            "trigger": "manual human form only",
-            "allowed_inputs": ["validated campaign version", "synthetic fixture catalog"],
-            "expected_outputs": ["append-only run facts", "review projections"],
-            "cost_cap_usd": 0,
-            "credentials": False,
-            "scheduler": False,
-            "network": False,
-            "creative": False,
-            "likeness": False,
-            "outreach": False,
-            "execution_status": "inactive and unregistered",
-        }
