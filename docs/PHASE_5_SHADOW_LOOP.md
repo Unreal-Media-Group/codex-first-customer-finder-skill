@@ -4,9 +4,11 @@
 
 Phase 5 adds one repository-local weekly UTC scheduler to the independently finalized Phase 4
 registered-agent control plane. It remains synthetic, deterministic, fixture-only, loopback-only,
-zero-cost, and shadow-only. No external system, production database, live research, scraping,
-credential, real prospect record, approval, enrichment, creative, likeness, advertisement, outreach,
-deployment, or Phase 6 behavior exists.
+zero-cost, and shadow-only. Phase 5 itself has no external system, production database, live
+research, scraping, credential, real prospect record, approval, enrichment, creative, likeness,
+advertisement, outreach, deployment, or Phase 6 behavior. The separately gated, manual Phase 6A
+synthetic enrichment is documented in `docs/PHASE_6_ENRICHMENT_BRIEF.md`; this scheduler cannot
+invoke or authorize it.
 
 ## Start and stop
 

@@ -2,7 +2,14 @@
 
 ## Boundary
 
-Phase 1 is a local research and validation layer. It prepares stable JSON for later integration but contains no database, network writer, scheduler, runner, creative generator, likeness workflow, CRM, or outreach system.
+This repository owns one upstream role: find, filter, qualify, and research potential customers, then
+emit a reviewed lead-intelligence package for separately governed graph consumers. It does not
+implement or modify Unreal OS, create the larger graph, invoke downstream agents, generate creative,
+or contact anyone.
+
+Phase 1 is the local discovery, history, and validation layer. It prepares stable JSON for later
+research and integration but contains no database, network writer, scheduler, runner, creative
+generator, likeness workflow, CRM, or outreach system.
 
 ```text
 Campaign JSON + local history JSON
@@ -173,6 +180,124 @@ scheduler thread uses an injected clock and stop event, and is stopped and joine
 shutdown completes. It performs no live research, network request, approval, enrichment, creative,
 likeness, advertising, outreach, or Phase 6 action.
 
+Phase 6A adds a separate manual one-shot service; it does not extend the scheduler or worker:
+
+```text
+pending durable review task + exact fixture result
+           |
+           v
+separate human records append-only, seven-day, result-bound approval
+           |
+           v
+atomic current-leaf + task/run/output/configuration/current-protection recheck
+           |
+           v
+single-use enrichment claim (identical replay is read-only)
+           |
+           v
+validate repository-owned .example metadata (no network fallback)
+           |
+           v
+atomic immutable sources + evidence links + exact-set manifest + BU brief + audit
+           |
+           v
+separate human research-quality review (no generation authority)
+```
+
+`EnrichmentService` is the schema-v3 activation boundary. The finalized Phase 4/5 store initializes
+to version 2 when those services are used alone; every Phase 6A construction path calls the additive
+v3 initializer before its first read or write, and normal `WebApplication` construction always
+activates it. Version 3 adds append-only approval/review events, a one-run-per-approval claim,
+immutable integrity-bound source metadata, immutable brief versions, field-level evidence links,
+an exact ordered-set integrity manifest, complete canonical snapshots/hashes/lengths for every
+authority-bearing approval and review field, and immutability triggers. Earlier tables, rows,
+identifiers, snapshots, and hashes are not rewritten. A pre-correction local v3 fixture file without
+the final authority-event integrity columns is rejected unchanged and must be archived and recreated;
+unverifiable authority history is never silently trusted or backfilled.
+Reopening v3 is idempotent.
+
+The local SQLite file and the OS account that owns it are trusted. These colocated snapshots, hashes,
+and lengths, together with the immutability triggers, detect accidental corruption and inconsistent or
+partial mutation and fail closed for ordinary application access; they are not independent
+authentication of authority. A trusted database owner who disables the triggers can rewrite an event
+(or source, link, brief, or manifest) and recompute its colocated digest, and that self-consistent
+rewrite is accepted by design. Phase 6A does not defend against a malicious local database owner and
+adds no HMAC, signature, secret, key management, second ledger, or external trust service; the
+lead-finder product does not require that resistance. See the trusted local-state boundary in
+`docs/PHASE_6_ENRICHMENT_BRIEF.md`.
+
+The approval is bound to the task, logically linked worker run and output, verified configuration
+hash, exact result bytes/hash, global identity, business unit, current governed protection hash,
+reviewer separation, scope, effective time, and exact seven-day expiry. A stale or unavailable
+process-local governed projection is non-actionable and requires a new worker result. `BEGIN
+IMMEDIATE` serializes approval supersession and enrichment claiming; a process-local active-owner
+registry distinguishes a live synchronous claim from crash recovery only inside the supported single
+Python process and threaded loopback server. It is not an independent-process coordination mechanism;
+multiple processes sharing one state file are unsupported. Rejected or unknown governed decisions
+fail closed, while a valid process-local approval only removes that block and never replaces the
+durable Phase 6A approval. Every synthetic fixture profile is bound to the approved result's exact
+business unit, result ID, global identity, account name, and `.example` domain. Research-field values
+have exact list/text/null rules, and bounded unique evidence identifiers must resolve to declared
+sources before persistence. Brief families are business-unit qualified. `accepted` requires the
+latest ready, conflict-free family version; historical/conflicted versions remain readable and may
+receive non-accepting review events. Approval and review event bindings and same-brief supersession
+chains are revalidated before detail, history, claim, or rendering. Claim-first
+permits only the claimed attempt to finish; revoke-first blocks a claim. There is no automatic retry,
+recurring work, external research client, credential, real data, page-body storage, creative,
+likeness, advertisement, outreach, deployment, or downstream-agent capability. Brief acceptance is
+explicitly research-quality status only. The full contract and independent-review checks are in
+`docs/PHASE_6_ENRICHMENT_BRIEF.md`.
+
+The planned Phase 6B extends that governed research boundary; it does not add a downstream worker:
+
+```text
+exact human-approved lead + validated identity/history/protection state
+           |
+           v
+bounded reads from authorized public business source classes
+           |
+           v
+URL/content boundary + untrusted-source extraction
+           |
+           v
+claim-level observations, inferences, dates, freshness, conflicts, and gaps
+           |
+           v
+comprehensive customer dossier across the roadmap research categories
+           |
+           v
+stable graph nodes + relationships + evidence lineage
+           |
+           v
+exact-version human research-quality review
+           |
+           v
+local machine-readable lead-intelligence package; stop
+```
+
+The dossier treats public contact research as one category alongside company identity and
+relationships, commercial context, products and services, audiences and markets, brand and campaign
+evidence, public asset references, activity and change signals, opportunities, competitors, risks,
+rights, and history. Each applicable category is populated or carries an explicit gap state. Every
+material value distinguishes observation from inference and carries source lineage, confidence,
+uncertainty, and freshness.
+
+All Phase 6B source material is untrusted data. The future reader must enforce public HTTP(S)
+destinations, redirect revalidation, private/internal-address denial, and bounded time, size, content
+type, and extraction depth. It retains bounded claims and references, not raw page bodies or
+executable content. Source text cannot become a system instruction, tool call, policy override,
+review event, or downstream action.
+
+The graph-ready package is integration-neutral. It can represent organizations, brands, public
+business people or roles, public business contact points, products or services, audiences, campaign
+or asset references, signals, opportunities, restrictions, and evidence, plus their supported
+relationships. The general package carries public contact identities and references, not unrestricted
+contact values; any separately authorized business email, business phone, or equivalent point stays
+in a restricted projection that creative and analytics consumers cannot read. The package contains
+stable identities and versioning, not executable downstream instructions. Phase 6B is not
+implemented or authorized. A future consumer may store or route the released package, but that is
+separate work in its own repository and authority boundary.
+
 ## Ownership
 
 | Concern | Canonical location |
@@ -189,6 +314,8 @@ likeness, advertising, outreach, or Phase 6 action.
 | Phase 4 local runtime state (gitignored) | `apps/prospecting-mission-control/local_state/` |
 | Phase 5 weekly shadow control plane | `apps/prospecting-mission-control/mission_control/shadow.py`, `store.py` |
 | Phase 5 synthetic history seeds | `fixtures/prospecting/phase5/` |
+| Phase 6A approval, enrichment, brief, and review service | `apps/prospecting-mission-control/mission_control/enrichment.py`, `store.py` |
+| Phase 6A synthetic brief metadata | `fixtures/prospecting/phase6/` |
 | Original upstream skill | `first-customer-finder/` |
 
 Skill report scripts are thin delegates. The installer places the shared core once at `unreal-prospecting-core`, preventing two business skills from drifting.

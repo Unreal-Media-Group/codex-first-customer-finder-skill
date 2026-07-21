@@ -15,7 +15,9 @@ from typing import Any, Callable
 
 from .application import MissionControlError
 
+# Finalized Phase 5 activation version. Phase 6A opts into version 3 explicitly.
 SCHEMA_VERSION = 2
+PHASE6_SCHEMA_VERSION = 3
 BUSY_TIMEOUT_MS = 2_000
 MAX_CONFIG_BYTES = 16_384
 MAX_SNAPSHOT_BYTES = 262_144
@@ -234,6 +236,194 @@ _PHASE5_TABLES = (
         ON shadow_alerts(business_unit, created_at DESC)""",
 )
 
+_PHASE6_TABLES = (
+    """CREATE TABLE IF NOT EXISTS prospect_approval_events (
+        approval_event_id TEXT PRIMARY KEY,
+        task_id TEXT NOT NULL REFERENCES review_tasks(task_id),
+        run_id TEXT NOT NULL REFERENCES worker_runs(run_id),
+        output_id TEXT NOT NULL REFERENCES worker_outputs(output_id),
+        result_id TEXT NOT NULL,
+        result_hash TEXT NOT NULL,
+        result_byte_length INTEGER NOT NULL,
+        output_hash TEXT NOT NULL,
+        output_byte_length INTEGER NOT NULL,
+        configuration_hash TEXT NOT NULL,
+        protection_hash TEXT NOT NULL,
+        global_identity_id TEXT NOT NULL,
+        business_unit TEXT NOT NULL,
+        scope TEXT NOT NULL CHECK (scope = 'phase6a_fixture_enrichment'),
+        decision TEXT NOT NULL CHECK (decision IN ('approved','rejected','revoked','invalidated')),
+        proposer_actor TEXT NOT NULL,
+        reviewer_actor TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        effective_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        expires_at TEXT NOT NULL,
+        supersedes_id TEXT UNIQUE REFERENCES prospect_approval_events(approval_event_id),
+        audit_correlation_id TEXT NOT NULL,
+        event_snapshot TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        byte_length INTEGER NOT NULL
+    )""",
+    """CREATE UNIQUE INDEX IF NOT EXISTS prospect_approval_root_idx
+        ON prospect_approval_events(task_id, result_id, scope)
+        WHERE supersedes_id IS NULL""",
+    """CREATE INDEX IF NOT EXISTS prospect_approval_target_idx
+        ON prospect_approval_events(task_id, result_id, recorded_at)""",
+    """CREATE TABLE IF NOT EXISTS enrichment_runs (
+        enrichment_run_id TEXT PRIMARY KEY,
+        approval_event_id TEXT NOT NULL UNIQUE REFERENCES prospect_approval_events(approval_event_id),
+        idempotency_key TEXT NOT NULL UNIQUE,
+        request_fingerprint TEXT NOT NULL,
+        business_unit TEXT NOT NULL,
+        result_id TEXT NOT NULL,
+        global_identity_id TEXT NOT NULL,
+        initiating_actor TEXT NOT NULL,
+        state TEXT NOT NULL CHECK (state IN ('running','succeeded','failed')),
+        estimated_cost_usd INTEGER NOT NULL CHECK (estimated_cost_usd = 0),
+        created_at TEXT NOT NULL,
+        completed_at TEXT,
+        failure_class TEXT,
+        remediation TEXT,
+        brief_id TEXT,
+        audit_correlation_id TEXT NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS enrichment_sources (
+        source_record_id TEXT PRIMARY KEY,
+        enrichment_run_id TEXT NOT NULL REFERENCES enrichment_runs(enrichment_run_id),
+        source_key TEXT NOT NULL,
+        business_unit TEXT NOT NULL,
+        source_url TEXT NOT NULL,
+        source_type TEXT NOT NULL,
+        title TEXT NOT NULL,
+        summary TEXT NOT NULL,
+        quote TEXT NOT NULL,
+        source_date TEXT,
+        observed_at TEXT NOT NULL,
+        official_source INTEGER NOT NULL CHECK (official_source = 0),
+        source_snapshot TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        byte_length INTEGER NOT NULL,
+        UNIQUE (enrichment_run_id, source_key)
+    )""",
+    """CREATE TABLE IF NOT EXISTS campaign_brief_versions (
+        brief_id TEXT PRIMARY KEY,
+        brief_family_id TEXT NOT NULL,
+        version INTEGER NOT NULL,
+        enrichment_run_id TEXT NOT NULL UNIQUE REFERENCES enrichment_runs(enrichment_run_id),
+        approval_event_id TEXT NOT NULL REFERENCES prospect_approval_events(approval_event_id),
+        business_unit TEXT NOT NULL,
+        result_id TEXT NOT NULL,
+        global_identity_id TEXT NOT NULL,
+        brief_schema TEXT NOT NULL,
+        research_state TEXT NOT NULL,
+        brief_snapshot TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        byte_length INTEGER NOT NULL,
+        created_at TEXT NOT NULL,
+        UNIQUE (brief_family_id, version)
+    )""",
+    """CREATE TABLE IF NOT EXISTS brief_evidence_links (
+        link_id TEXT PRIMARY KEY,
+        brief_id TEXT NOT NULL REFERENCES campaign_brief_versions(brief_id),
+        field_path TEXT NOT NULL,
+        source_record_id TEXT REFERENCES enrichment_sources(source_record_id),
+        basis TEXT NOT NULL CHECK (basis IN ('source_evidence','explicit_unknown')),
+        confidence_reason TEXT NOT NULL,
+        uncertainty TEXT NOT NULL,
+        freshness TEXT NOT NULL,
+        currentness TEXT NOT NULL,
+        quote TEXT NOT NULL,
+        source_lineage TEXT NOT NULL,
+        link_snapshot TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        byte_length INTEGER NOT NULL,
+        UNIQUE (brief_id, field_path, source_record_id)
+    )""",
+    """CREATE TABLE IF NOT EXISTS brief_integrity_manifests (
+        manifest_id TEXT PRIMARY KEY,
+        brief_id TEXT NOT NULL UNIQUE REFERENCES campaign_brief_versions(brief_id),
+        enrichment_run_id TEXT NOT NULL UNIQUE REFERENCES enrichment_runs(enrichment_run_id),
+        business_unit TEXT NOT NULL,
+        manifest_snapshot TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        byte_length INTEGER NOT NULL
+    )""",
+    """CREATE TABLE IF NOT EXISTS brief_review_events (
+        review_event_id TEXT PRIMARY KEY,
+        brief_id TEXT NOT NULL REFERENCES campaign_brief_versions(brief_id),
+        brief_hash TEXT NOT NULL,
+        brief_byte_length INTEGER NOT NULL,
+        business_unit TEXT NOT NULL,
+        decision TEXT NOT NULL CHECK (decision IN ('accepted','rejected','changes_requested')),
+        proposer_actor TEXT NOT NULL,
+        reviewer_actor TEXT NOT NULL,
+        reason TEXT NOT NULL,
+        effective_at TEXT NOT NULL,
+        recorded_at TEXT NOT NULL,
+        supersedes_id TEXT UNIQUE REFERENCES brief_review_events(review_event_id),
+        authority_granted TEXT NOT NULL CHECK (authority_granted = 'research_quality_only'),
+        audit_correlation_id TEXT NOT NULL,
+        event_snapshot TEXT NOT NULL,
+        content_hash TEXT NOT NULL,
+        byte_length INTEGER NOT NULL
+    )""",
+    """CREATE UNIQUE INDEX IF NOT EXISTS brief_review_root_idx
+        ON brief_review_events(brief_id) WHERE supersedes_id IS NULL""",
+    """CREATE TRIGGER IF NOT EXISTS prospect_approval_events_no_update
+        BEFORE UPDATE ON prospect_approval_events
+        BEGIN SELECT RAISE(ABORT, 'prospect approval events are append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS prospect_approval_events_no_delete
+        BEFORE DELETE ON prospect_approval_events
+        BEGIN SELECT RAISE(ABORT, 'prospect approval events are append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS brief_review_events_no_update
+        BEFORE UPDATE ON brief_review_events
+        BEGIN SELECT RAISE(ABORT, 'brief review events are append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS brief_review_events_no_delete
+        BEFORE DELETE ON brief_review_events
+        BEGIN SELECT RAISE(ABORT, 'brief review events are append-only'); END""",
+    """CREATE TRIGGER IF NOT EXISTS enrichment_sources_no_update
+        BEFORE UPDATE ON enrichment_sources
+        BEGIN SELECT RAISE(ABORT, 'enrichment sources are immutable'); END""",
+    """CREATE TRIGGER IF NOT EXISTS enrichment_sources_no_delete
+        BEFORE DELETE ON enrichment_sources
+        BEGIN SELECT RAISE(ABORT, 'enrichment sources are immutable'); END""",
+    """CREATE TRIGGER IF NOT EXISTS campaign_brief_versions_no_update
+        BEFORE UPDATE ON campaign_brief_versions
+        BEGIN SELECT RAISE(ABORT, 'campaign brief versions are immutable'); END""",
+    """CREATE TRIGGER IF NOT EXISTS campaign_brief_versions_no_delete
+        BEFORE DELETE ON campaign_brief_versions
+        BEGIN SELECT RAISE(ABORT, 'campaign brief versions are immutable'); END""",
+    """CREATE TRIGGER IF NOT EXISTS brief_evidence_links_no_update
+        BEFORE UPDATE ON brief_evidence_links
+        BEGIN SELECT RAISE(ABORT, 'brief evidence links are immutable'); END""",
+    """CREATE TRIGGER IF NOT EXISTS brief_evidence_links_no_delete
+        BEFORE DELETE ON brief_evidence_links
+        BEGIN SELECT RAISE(ABORT, 'brief evidence links are immutable'); END""",
+    """CREATE TRIGGER IF NOT EXISTS brief_integrity_manifests_no_update
+        BEFORE UPDATE ON brief_integrity_manifests
+        BEGIN SELECT RAISE(ABORT, 'brief integrity manifests are immutable'); END""",
+    """CREATE TRIGGER IF NOT EXISTS brief_integrity_manifests_no_delete
+        BEFORE DELETE ON brief_integrity_manifests
+        BEGIN SELECT RAISE(ABORT, 'brief integrity manifests are immutable'); END""",
+)
+
+_PHASE6_INTEGRITY_COLUMNS = {
+    "prospect_approval_events": {"event_snapshot", "content_hash", "byte_length"},
+    "brief_review_events": {"event_snapshot", "content_hash", "byte_length"},
+}
+
+
+def _validate_phase6_layout(connection: sqlite3.Connection) -> None:
+    for table, required in _PHASE6_INTEGRITY_COLUMNS.items():
+        columns = {row["name"] for row in connection.execute(f"PRAGMA table_info({table})")}
+        if not required <= columns:
+            raise MissionControlError(
+                500,
+                "The local Phase 6A state predates the final schema-v3 integrity contract; "
+                "archive it and create a new local fixture state file.",
+            )
+
 
 def canonical_json(value: Any, *, limit: int, label: str) -> str:
     serialized = json.dumps(value, sort_keys=True, separators=(",", ":"))
@@ -334,7 +524,7 @@ class SqliteStore:
                     current = int(row["value"])
                 except (TypeError, ValueError) as exc:
                     raise MissionControlError(500, "The local state schema version is invalid.") from exc
-            if current > SCHEMA_VERSION:
+            if current > PHASE6_SCHEMA_VERSION:
                 raise MissionControlError(500, "The local state file uses a newer schema version.")
             if current < 1:
                 raise MissionControlError(500, "The local state schema version is invalid.")
@@ -344,6 +534,35 @@ class SqliteStore:
                 connection.execute(
                     "UPDATE schema_meta SET value = ? WHERE key = 'schema_version'",
                     (str(SCHEMA_VERSION),),
+                )
+            elif current == PHASE6_SCHEMA_VERSION:
+                for statement in _PHASE6_TABLES:
+                    connection.execute(statement)
+                _validate_phase6_layout(connection)
+
+    def initialize_phase6a(self) -> None:
+        """Add the opt-in Phase 6A tables without changing earlier service tests."""
+        with self.transaction() as connection:
+            row = connection.execute(
+                "SELECT value FROM schema_meta WHERE key = 'schema_version'"
+            ).fetchone()
+            if row is None:
+                raise MissionControlError(500, "The local state schema version is invalid.")
+            try:
+                current = int(row["value"])
+            except (TypeError, ValueError) as exc:
+                raise MissionControlError(500, "The local state schema version is invalid.") from exc
+            if current > PHASE6_SCHEMA_VERSION:
+                raise MissionControlError(500, "The local state file uses a newer schema version.")
+            if current < SCHEMA_VERSION:
+                raise MissionControlError(500, "The local state schema version is invalid.")
+            for statement in _PHASE6_TABLES:
+                connection.execute(statement)
+            _validate_phase6_layout(connection)
+            if current < PHASE6_SCHEMA_VERSION:
+                connection.execute(
+                    "UPDATE schema_meta SET value = ? WHERE key = 'schema_version'",
+                    (str(PHASE6_SCHEMA_VERSION),),
                 )
 
     class _Transaction:

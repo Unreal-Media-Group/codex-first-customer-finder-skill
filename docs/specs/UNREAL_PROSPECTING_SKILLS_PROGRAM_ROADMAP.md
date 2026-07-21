@@ -1,11 +1,15 @@
 # Unreal Prospecting Skills Program Roadmap
 
-**Program:** Unreal Media Group and Unreal Talent prospecting system  
-**Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`  
-**Integration target:** Unreal OS  
-**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6 is not authorized.
+**Program:** Unreal Media Group and Unreal Talent lead-intelligence system
+**Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`
+**Downstream compatibility target:** A governed agent graph, including a possible future Unreal OS
+consumer. This repository does not implement or modify Unreal OS.
+**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is implemented locally and pending independent review. Phase 6B comprehensive public-source research and graph handoff remain unauthorized and unimplemented. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
-**Operating principle:** Skills define repeatable research behavior; deterministic scripts validate and normalize data; Unreal OS later stores, schedules, observes, and approves the work.
+**Operating principle:** The skills find, qualify, deduplicate, and comprehensively research potential
+customers. Deterministic code validates the evidence and emits a versioned, graph-ready lead-
+intelligence package. Separately authorized downstream agents may consume that package; this
+repository does not invoke or implement them.
 
 **Phase 1 checkpoint:** Completed and verified at commit `f77236a`. Phase 1 remains the frozen JSON and
 local-skill compatibility baseline for Phase 2 design.
@@ -21,7 +25,7 @@ Build two separate but related prospecting skills:
 
 The skills will share a deterministic prospecting core, but they will not share the same ideal-customer profile, scoring model, rights rules, or qualification thresholds.
 
-The complete system will eventually:
+This repository-owned lead-intelligence producer will:
 
 1. Run manually or on an approved schedule.
 2. Find brands or agencies that fit the selected business unit.
@@ -31,39 +35,51 @@ The complete system will eventually:
 6. Avoid presenting previously discovered companies as new.
 7. Detect legitimate re-engagement opportunities when a prior company has a new trigger.
 8. Preserve source-backed evidence and uncertainty.
-9. Save results into Unreal OS.
-10. Route qualified prospects to deeper brand research.
-11. Prepare custom campaign concepts and preview assets.
-12. Require human approval before asset generation and again before outreach.
-13. Track results so the qualification system can improve over time.
+9. Research every human-approved prospect across the material public business-information
+   categories defined in Phase 6.
+10. Identify source-backed public business people, roles, and contact paths as one part of that
+    broader research.
+11. Record brand and creative evidence as factual observations and source references, without
+    generating or copying campaign assets.
+12. Emit one reviewed, versioned, machine-readable intelligence package with stable graph nodes,
+    edges, evidence lineage, confidence, freshness, and explicit unknowns.
+13. Stop at the handoff boundary so separately governed agents can perform creative, outreach,
+    storage, or learning work.
 
 ---
 
 ## 2. Architectural Principle
 
-The final system is a hybrid:
+This repository is the upstream intelligence node in a larger, separately governed graph:
 
 ```text
-Unreal OS / Mission Control
-    campaign configuration, review, approval, reporting
-
-Supabase
-    durable account identities, history, signals, scores, outreach state
-
-Registered runner agent
-    executes an approved prospecting campaign
-
-Repo-owned Codex skills
-    define UMG and Unreal Talent research behavior
-
-Deterministic scripts
-    normalize identities, validate inputs, classify duplicates, render reports
-
-Human approver
-    decides whether deeper research, preview generation, or outreach may proceed
+campaign + validated history
+             |
+             v
+repo-owned finder and qualification skills
+             |
+             v
+human-approved comprehensive public research
+             |
+             v
+validated lead-intelligence dossier
+             |
+             v
+versioned graph-ready handoff package
+             |
+             v
+human release boundary
+             |
+             +--> downstream creative/brand agent       (outside this repo)
+             +--> downstream contact/outreach agent     (outside this repo)
+             +--> downstream CRM/orchestrator           (outside this repo)
+             +--> downstream outcome-learning agent     (outside this repo)
 ```
 
-The skills are not standalone autonomous sales bots. They are governed worker playbooks that later plug into Unreal OS.
+Mission Control, the registered local worker, and the shadow loop are repository-local control and
+review surfaces for the finder. They do not make this repository an autonomous sales system. The
+handoff contract is integration-neutral: a future Unreal OS implementation may consume it, but this
+repository neither writes to Unreal OS nor builds the downstream graph.
 
 ---
 
@@ -82,6 +98,10 @@ Both skills should share:
 - Re-engagement and cooldown logic
 - Evidence quality rules
 - Observed-versus-inferred labels
+- Comprehensive research-category coverage and explicit gap states
+- Public business-person, role, and contact-path provenance
+- Brand-asset and campaign source references without asset generation
+- Versioned graph-node, graph-edge, and evidence-lineage output
 - Output schemas
 - Report rendering
 - Test fixtures
@@ -101,7 +121,7 @@ The UMG skill should focus on:
 - Creative quality gaps
 - Budget indicators
 - Reachable marketing or founder path
-- Future speculative product-ad previews
+- Public brand-system, campaign, content, and visual-asset evidence
 
 ### Unreal Talent-Specific Logic
 
@@ -115,6 +135,7 @@ The Unreal Talent skill should focus on:
 - Roster compatibility
 - Brand-safety and category conflicts
 - Agency and brand relationship mapping
+- Public business decision-maker and agency-role mapping
 - Talent archetypes when no approved roster is loaded
 - Strict prevention of unauthorized named-talent or likeness output
 
@@ -313,7 +334,8 @@ runner, schedule, creative, advertisement, likeness use, or outreach is authoriz
 
 ## Objective
 
-Design, but do not yet schedule, durable prospecting state inside Unreal OS.
+Design compatibility contracts for durable prospecting state that a future Unreal OS consumer could
+implement. The contracts do not make this repository an Unreal OS worktree or authorize OS changes.
 
 ## Deliverables
 
@@ -404,7 +426,8 @@ control plane without changing this historical acceptance gate.
 
 ## Objective
 
-Move skill execution behind a governed Unreal OS worker.
+Move skill execution behind a governed repository-local worker whose contract can later be consumed
+by a separately implemented orchestrator.
 
 ## Deliverables
 
@@ -436,7 +459,8 @@ Move skill execution behind a governed Unreal OS worker.
 
 **Status:** Independently reviewed and finalized at commit
 `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d` (see `docs/PHASE_5_SHADOW_LOOP.md`). The implementation is synthetic, fixture-only, loopback-only,
-zero-cost, shadow-only, and disabled by default. Phase 6 remains unauthorized.
+zero-cost, shadow-only, and disabled by default. It grants no Phase 6 authority; Phase 6A has a
+separate exact-result durable approval gate.
 
 ## Objective
 
@@ -464,7 +488,7 @@ Run prospecting on an approved schedule while preserving human control.
     ↓
 30 normalized and plausible candidates
     ↓
-10 to 15 deep research records
+10 to 15 candidates approved for deep research
     ↓
 5 to 10 human-approved prospects
 ```
@@ -482,173 +506,164 @@ These are starting caps, not permanent performance targets.
 
 ---
 
-# Phase 6: Brand Enrichment and Campaign Brief Agent
+# Phase 6: Comprehensive Customer Intelligence and Graph Handoff
 
-**Status:** Not authorized.
+**Status:** Phase 6A's synthetic fixture brief foundation is implemented locally and pending
+independent review. Phase 6B comprehensive public-source research and the graph-ready handoff are
+not implemented or authorized.
 
 ## Objective
 
-Research only prospects that a human approved.
+For each exact human-approved prospect, research the potential customer as completely as material,
+lawful, public business evidence permits and emit one reviewed, versioned lead-intelligence package.
+Finding a person or route to contact is one research category, not the whole product.
 
-## Deliverables
+## Meaning of Comprehensive
 
-- Official-site research
-- Product extraction
-- Current campaign extraction
-- Brand voice
-- Visual direction
-- Existing ad angles
-- Claims and restrictions
-- Target audience
-- Hero product
-- Campaign objective
-- Source-backed creative opportunity
-- UMG brief format
-- Unreal Talent brief format
-- Rights and conflict review status
-- Human approval before generation
+“Comprehensive” means pursuing every applicable category below within a declared source, time, and
+cost boundary. It does not mean claiming omniscience, collecting private or sensitive information,
+or filling gaps with guesses. Every category must be populated or explicitly marked `not_found`,
+`not_applicable`, `conflicted`, `stale`, or `unknown`. Every material statement must distinguish
+observation from inference and carry evidence, confidence, uncertainty, and freshness.
 
-## Exit Gate
+Research may use official sites and other intentionally public business sources only. It must
+respect access controls and source terms. It may not use authenticated scraping, private profiles,
+data brokers, paid enrichment, guessed contact patterns, credentials, sensitive traits, or copied
+page bodies.
 
-The agent produces a defensible brief with source lineage and does not generate assets until approval.
+All retrieved content is untrusted evidence, never an instruction to an agent or permission to use a
+tool. A Phase 6B implementation must enforce public HTTP(S) source policy, reject credential-bearing
+or private/internal destinations, revalidate redirects, bound time, bytes, content types, and
+extraction depth, and refuse executable downloads. It stores bounded extracted claims and source
+references rather than raw page bodies. Source text cannot alter system policy, tool permissions,
+the research plan, review state, or downstream authority.
+
+## Phase 6A: Synthetic Brief Foundation
+
+Phase 6A proves the durable, exact-result human-approval boundary, fixture-only evidence lineage,
+immutable business-unit brief, and separate research-quality review described in
+`docs/PHASE_6_ENRICHMENT_BRIEF.md`. Its existing campaign-brief fields are a deliberately narrow
+foundation for the broader dossier. It performs no live research and does not yet satisfy the full
+Phase 6 completion gate.
+
+## Phase 6B: Comprehensive Public-Source Dossier
+
+Phase 6B begins contract-first with synthetic coverage tests, then may add live public reads only
+after separate authorization. For each approved lead, the dossier covers all applicable categories:
+
+- **Identity and relationships:** canonical business identity, domains, aliases, public handles,
+  founding and ownership facts when public, parent company, subbrands, subsidiaries, agencies,
+  partners, locations, operating markets, and public leadership or team structure.
+- **Company and commercial context:** business model, maturity, headcount/size, funding, revenue, or
+  other financial indicators when reliably public; products, services, pricing or offer structure,
+  distribution, sales channels, customer types, procurement or agency signals, and market position.
+- **Operations and digital footprint:** official sites, public social and marketplace presence,
+  apps, ecommerce and physical channels, geographic reach, public technology/vendor indicators,
+  publishing cadence, and material customer-experience or operational signals.
+- **Audiences, market, and reputation:** target segments, customer use cases, audience behavior,
+  category trends, competitors and comparables, public reviews or sentiment, awards, material
+  controversies, and other source-backed reputation or market context.
+- **Brand and messaging:** stated value proposition, voice, themes, claims, restrictions, visual
+  system, content patterns, and credential-free references to relevant public logos, brand images,
+  campaigns, and other creative assets. The repository records observations and source references;
+  it does not copy or generate assets.
+- **Activity and signals:** launches, campaigns, ads, promotions, partnerships, sponsorships,
+  events, hiring, expansion, public business news, regulatory or litigation facts material to the
+  opportunity, and dated change signals.
+- **Opportunity and fit:** observed needs, service fit, likely objectives, gaps, buying or budget
+  indicators, competitors or comparables, risks, and recommended angles. Inferences remain labeled
+  and cannot be promoted to fact.
+- **Public people and contact paths:** intentionally public business people or decision-making
+  roles, title/function, account relationship, responsibility, public professional profile, and
+  provenance-backed business contact point or official route. Private/personal details, guessed
+  emails, private phone numbers, personal accounts, sensitive traits, and paid enrichment are
+  prohibited.
+- **Governance and history:** prior discoveries, duplicate and relationship state, re-engagement
+  basis, suppressions, cooldowns, rights, talent and brand-safety constraints, conflicts,
+  limitations, and unresolved questions.
+- **Evidence coverage:** source inventory, dates, observation times, original-source status,
+  corroboration, conflicts, freshness, research cutoff, and explicit coverage gaps.
+- **Additional material facts:** any other public business fact that could materially change
+  qualification, strategy, safety, or a downstream agent's work, represented as a typed claim under
+  the same provenance, privacy, freshness, and uncertainty rules rather than forced into prose.
+
+## Graph-Ready Lead-Intelligence Package
+
+The reviewed dossier is emitted as stable, versioned, machine-readable local data. It contains
+enough structure for downstream agents to consume facts without scraping prose:
+
+- nodes for organizations, brands, public business people or roles, public business contact points,
+  products or services, audiences or markets, campaign or asset references, signals, opportunities,
+  restrictions, and evidence;
+- edges for parent/subbrand, agency/client, partner, affiliated-with, responsible-for,
+  contact-path-for, offers, targets, campaign-for, evidence-supports, duplicate, prior-discovery,
+  and re-engagement relationships;
+- stable identities and idempotency keys, business-unit scope, dossier version, review state, and
+  source lineage; and
+- claim-level basis, confidence, uncertainty, source date, observation time, and freshness.
+
+The broadly consumable package contains public business identities, roles, and contact references,
+not unrestricted contact values. Any separately authorized business email, business phone, or
+equivalent point remains in a restricted contact projection with its own provenance, review,
+visibility, suppression, retention, and audit rules. Creative or analytics consumers do not receive
+that restricted projection. Public-person research is purpose-limited to business identity,
+responsibility, account relationship, and an approved contact route; unrelated personal biography
+is not part of the dossier.
+
+This repository emits and validates the package locally. It does not create the larger graph,
+invoke downstream agents, write to Unreal OS or a CRM, or grant any downstream action authority.
+
+## Phase 6 Exit Gate
+
+- One approved lead can produce a comprehensive dossier in which every applicable category is
+  populated or has an explicit gap state.
+- Every material fact, inference, person, contact path, asset reference, opportunity, and
+  relationship is provenance-linked and freshness-aware.
+- Identity, duplicate, history, suppression, rights, and business-unit protections remain intact.
+- The exact dossier version and graph package receive human research-quality review before release.
+- A downstream consumer can parse the package without relying on rendered prose.
+- No creative generation, likeness use, outreach, CRM/external write, deployment, or downstream
+  agent invocation occurs.
 
 ---
 
-# Phase 7: Speculative Preview Generation
+# Downstream Graph Consumers — Outside This Repository
 
-## Objective
+The former preview-generation, outreach, and outcome-optimization phases are not remaining phases
+of this lead-intelligence repository. They are separate graph consumers with separate owners,
+repositories, permissions, tests, and human approval boundaries:
 
-Create a controlled preview for approved prospects.
+- a brand or creative agent may use the dossier's brand evidence and asset references to propose or
+  generate concepts, images, or video;
+- a campaign or talent agent may use the opportunity, audience, rights, and conflict research;
+- a contact or outreach agent may use approved public business people and contact paths to verify a
+  recipient, draft a message, or request a send;
+- a CRM or orchestration layer may persist and route the released package; and
+- an outcome-learning agent may return measured results for future qualification analysis.
 
-## UMG Flow
-
-```text
-Approved brief
-    ↓
-Still-frame concepts
-    ↓
-Product-accuracy QA
-    ↓
-Human concept approval
-    ↓
-10-second preview
-    ↓
-Proof and compliance QA
-```
-
-## Unreal Talent Flow
-
-```text
-Approved campaign brief
-    ↓
-Generic or authorized talent concept
-    ↓
-Rights and conflict check
-    ↓
-Storyboard approval
-    ↓
-Preview generation
-    ↓
-Frame-by-frame human review
-```
-
-## Required Controls
-
-- Product accuracy
-- Logo accuracy
-- Packaging accuracy
-- No invented claims
-- No false endorsement
-- No unauthorized likeness
-- No implication that the brand commissioned the work
-- Concept-preview disclosure
-- Asset lineage
-- Generation cost
-- Human approval
-
-## Exit Gate
-
-No preview may enter outreach until it passes human review.
-
----
-
-# Phase 8: Outreach Drafting and Human Send
-
-## Objective
-
-Prepare personalized outreach without autonomous sending.
-
-## Deliverables
-
-- Email draft
-- DM draft
-- Brand-direct version
-- Agency version
-- Source-based opener
-- Approved preview link
-- Human approval screen
-- Manual send status
-- Reply tracking
-- Follow-up proposal
-- Suppression updates
-
-## Exit Gate
-
-- The exact recipient, message, and asset package are approved by a human.
-- Instagram cold DMs remain manual unless a permitted official mechanism is later verified.
-- Every send and reply is logged.
-
----
-
-# Phase 9: Outcome Learning and Optimization
-
-## Objective
-
-Improve targeting using real outcomes instead of model confidence alone.
-
-## Metrics
-
-- Qualified rate
-- Duplicate rate
-- Re-engagement rate
-- Approval rate
-- Preview-generation rate
-- Positive reply rate
-- Meeting rate
-- Proposal rate
-- Win rate
-- Cost per qualified prospect
-- Cost per meeting
-- Performance by vertical
-- Performance by trigger
-- Performance by score band
-- Performance by source
-- Performance by offer
-- Performance by business unit
-
-## Rule
-
-The system may recommend scoring changes, but it may not automatically rewrite qualification, legal, rights, or brand-safety policies.
+None of those consumers is implemented, invoked, or authorized here. A released research package
+is information, not permission to generate, contact, send, store externally, or act.
 
 ---
 
 ## 4. Recommended Development Order
 
-1. Complete Phase 0.
-2. One-shot Phase 1 in a dedicated Codex build thread.
-3. Review the completed repository manually and with a separate read-only reviewer.
-4. Run a Phase 1.1 correction pass.
-5. Freeze the Phase 1 output contracts.
-6. Move the approved skills into or reference them from Unreal OS.
-7. Design Phase 2 schemas.
-8. Build the manual Mission Control workflow.
-9. Build the registered agent.
-10. Enable a bounded manual run.
-11. Enable the weekly shadow loop.
-12. Add enrichment.
-13. Add preview generation.
-14. Add human-approved outreach.
-15. Optimize from measured results.
+1. Preserve the finalized Phase 0–5 foundations and frozen Phase 1/2 contracts.
+2. Finish independent review and any required correction of the existing Phase 6A synthetic brief
+   foundation.
+3. Define the comprehensive dossier and graph-handoff schema, including category gap states,
+   claim-level provenance, stable identities, and public-business-contact restrictions.
+4. Prove the expanded contract with synthetic fixtures, deterministic validation, and both business
+   units before enabling any live source.
+5. Obtain separate authorization for the exact Phase 6B source classes, network-read boundary,
+   budgets, retention rules, and stop conditions.
+6. Implement bounded public-source research by extending the existing skill and evidence patterns.
+7. Validate the complete path from discovery and history filtering through reviewed dossier and
+   local graph-package emission.
+8. Independently review privacy, evidence quality, identity, business-unit isolation, failure
+   behavior, and the no-action handoff boundary.
+9. Stop. Any creative, outreach, external persistence, orchestration, or outcome-learning work moves
+   to a separately authorized downstream project.
 
 ---
 
@@ -681,15 +696,21 @@ When using parallel work in the Codex app, isolate the threads with worktrees wh
 
 ## 6. Program Completion Definition
 
-The program is complete when Unreal can:
+This repository's program is complete when the lead-intelligence workflow can:
 
 1. Configure an open or focused prospecting campaign.
 2. Find unique evidence-backed brands or agencies.
 3. Reliably recognize prior discoveries.
 4. Reconsider old prospects only for legitimate new triggers.
 5. Review every candidate in Mission Control.
-6. Approve deeper research.
-7. Generate controlled campaign previews.
-8. Approve the exact outreach package.
-9. Send manually or through a specifically approved permitted channel.
-10. Measure outcomes and improve the system without weakening safety or rights controls.
+6. Approve the exact prospect and result for deeper research.
+7. Produce a comprehensive, source-backed dossier with explicit unknown, stale, conflicting, and
+   not-applicable states.
+8. Identify public business people, decision roles, and provenance-backed contact paths without
+   private or guessed data.
+9. Represent the customer, related entities, products, audiences, campaigns, evidence, people,
+   opportunities, restrictions, and history as stable graph nodes and edges.
+10. Human-review and release one exact, versioned, machine-readable lead-intelligence package.
+11. Make that package available at a local handoff boundary for a separately governed consumer,
+    without this repository generating assets, contacting anyone, writing to an external system, or
+    invoking a downstream agent.

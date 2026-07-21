@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .application import ACTOR_SCOPE, BUSINESS_UNITS, MissionControl, MissionControlError, safe_evidence_url, state_domain, utc_now
 from .agent import AGENT_ID, RegisteredAgentService, default_state_path
+from .enrichment import EnrichmentService
 from .shadow import SCHEDULE_MANAGER, ShadowLoopService, ShadowScheduler
 from .store import SqliteStore
 
@@ -49,12 +50,12 @@ table{{width:100%;border-collapse:collapse;background:var(--panel)}} th,td{{padd
 @media(max-width:640px){{table,thead,tbody,tr,th,td{{display:block}} thead{{position:absolute;left:-9999px}} td{{border-top:0}} nav{{flex-direction:column}}}}
 </style></head><body>
 <header><p><strong>Prospecting Manual Mission Control</strong></p>
-<p class="notice"><strong>Synthetic local review surface.</strong> Campaign and governed prospect-review state resets on restart; registered worker runs and Phase 5 shadow schedules are durable in a local, gitignored SQLite file. The worker executes local synthetic fixtures only. Actor selection simulates policy; it is not production authentication. No external research, creative, likeness, or outbound capability exists.</p>
-<nav aria-label="Primary"><a href="/campaigns?{query}">Campaigns</a><a href="/runs?{query}">Run history</a><a href="/worker-runs?{query}">Worker runs</a><a href="/review-tasks?{query}">Review tasks</a><a href="/prospects?{query}&amp;queue=new">Prospect queues</a><a href="/registry?{query}">Agent registry</a><a href="/shadow-schedules?{query}">Shadow schedules</a></nav>
+<p class="notice"><strong>Synthetic local review surface.</strong> Campaign and governed prospect-review state resets on restart; registered worker runs, Phase 5 shadow schedules, and Phase 6A approvals and briefs are durable in a local, gitignored SQLite file. The worker executes local synthetic fixtures only. Actor selection simulates policy; it is not production authentication. No external research, creative, likeness, or outbound capability exists.</p>
+<nav aria-label="Primary"><a href="/campaigns?{query}">Campaigns</a><a href="/runs?{query}">Run history</a><a href="/worker-runs?{query}">Worker runs</a><a href="/review-tasks?{query}">Review tasks</a><a href="/prospects?{query}&amp;queue=new">Prospect queues</a><a href="/registry?{query}">Agent registry</a><a href="/shadow-schedules?{query}">Shadow schedules</a><a href="/phase6-approvals?{query}">Fixture approvals</a><a href="/phase6-enrichments?{query}">Fixture briefs</a></nav>
 <form method="get" action="/campaigns"><label for="scope_actor">Fixture review actor (not authentication)</label><select id="scope_actor" name="actor">{''.join(f'<option value="{e(name)}"{" selected" if name == actor else ""}>{e(name)}</option>' for name in ACTOR_SCOPE)}</select><label for="scope_unit">Business-unit scope</label><select id="scope_unit" name="business_unit">{''.join(f'<option value="{e(unit)}"{" selected" if unit == business_unit else ""}>{e(unit)}</option>' for unit in sorted(BUSINESS_UNITS))}</select><button type="submit">Change local review scope</button></form>
 <p>Review actor: <strong>{e(actor)}</strong> · Business unit: <strong>{e(business_unit)}</strong></p></header>
 <main id="main"><h1>{e(title)}</h1>{status_html}{body}</main>
-<footer><small>Local synthetic registered worker · fixture-only shadow execution · durable local state · zero cost cap · no credentials, external network client, creative, likeness, approval, or outreach.</small></footer></body></html>"""
+<footer><small>Local synthetic registered worker · fixture-only shadow execution and enrichment · durable local state · zero cost cap · no credentials, external network client, production approval, creative, likeness, or outreach.</small></footer></body></html>"""
 
 
 class WebApplication:
@@ -65,6 +66,7 @@ class WebApplication:
         agent_service: RegisteredAgentService | None = None,
         state_path: Path | None = None,
         shadow_service: ShadowLoopService | None = None,
+        enrichment_service: EnrichmentService | None = None,
     ):
         self.control = mission_control or MissionControl()
         self.csrf_token = csrf_token or secrets.token_urlsafe(32)
@@ -76,6 +78,12 @@ class WebApplication:
         self.shadow = shadow_service or ShadowLoopService(
             self.agent.store,
             self.agent,
+            clock=getattr(self.control.repository, "clock", utc_now),
+        )
+        self.enrichment = enrichment_service or EnrichmentService(
+            self.agent,
+            fixture_path=Path(__file__).resolve().parents[3]
+            / "fixtures" / "prospecting" / "phase6" / "brief-fixtures.json",
             clock=getattr(self.control.repository, "clock", utc_now),
         )
 
@@ -126,6 +134,16 @@ class WebApplication:
             return 200, self.review_tasks(actor, business_unit)
         if len(parts) == 2 and parts[0] == "review-tasks" and IDENTIFIER.fullmatch(parts[1]):
             return 200, self.review_task_detail(actor, business_unit, parts[1])
+        if path == "/phase6-approvals":
+            return 200, self.phase6_approvals(actor, business_unit)
+        if len(parts) == 2 and parts[0] == "phase6-approvals" and IDENTIFIER.fullmatch(parts[1]):
+            return 200, self.phase6_approval_detail(actor, business_unit, parts[1])
+        if path == "/phase6-enrichments":
+            return 200, self.phase6_enrichments(actor, business_unit)
+        if len(parts) == 2 and parts[0] == "phase6-enrichments" and IDENTIFIER.fullmatch(parts[1]):
+            return 200, self.phase6_enrichment_detail(actor, business_unit, parts[1])
+        if len(parts) == 2 and parts[0] == "phase6-briefs" and IDENTIFIER.fullmatch(parts[1]):
+            return 200, self.phase6_brief_detail(actor, business_unit, parts[1])
         if path == "/shadow-schedules":
             return 200, self.shadow_schedules(actor, business_unit)
         if path == "/shadow-schedules/new":
@@ -177,6 +195,39 @@ class WebApplication:
         if len(parts) == 3 and parts[0] == "prospects" and IDENTIFIER.fullmatch(parts[1]) and parts[2] == "actions":
             self.control.repository.act(actor, business_unit, parts[1], form.get("action", ""), form)
             return 200, self.prospect_detail(actor, business_unit, parts[1], "Append-only governed event recorded.")
+        if path == "/phase6-approvals":
+            expected = form.get("expected_leaf_id", "") or None
+            approval = self.enrichment.record_approval(
+                actor, business_unit, form.get("task_id", ""), form.get("result_id", ""),
+                decision=form.get("decision", ""), reason=form.get("reason", ""),
+                expected_leaf_id=expected,
+            )
+            return 201, self.phase6_approval_detail(
+                actor, business_unit, approval["approval_event_id"],
+                f"durable approval event recorded: {approval['reason']}",
+            )
+        if path == "/phase6-enrichments":
+            run, created = self.enrichment.start_enrichment(
+                actor, business_unit, form.get("approval_event_id", ""),
+                form.get("idempotency_key", ""),
+            )
+            status = (
+                "Synthetic fixture brief completed; this is not official-site research."
+                if created else
+                "Idempotent replay returned the existing synthetic fixture enrichment."
+            )
+            return 200, self.phase6_enrichment_detail(
+                actor, business_unit, run["enrichment_run_id"], status,
+            )
+        if len(parts) == 3 and parts[0] == "phase6-briefs" and IDENTIFIER.fullmatch(parts[1]) and parts[2] == "review":
+            self.enrichment.review_brief(
+                actor, business_unit, parts[1], decision=form.get("decision", ""),
+                reason=form.get("reason", ""), expected_leaf_id=form.get("expected_leaf_id", "") or None,
+            )
+            return 200, self.phase6_brief_detail(
+                actor, business_unit, parts[1],
+                "Research-quality review recorded. It grants no generation or execution authority.",
+            )
         if path == "/shadow-schedules":
             refs = []
             for raw in form.get("campaign_refs", "").split(","):
@@ -515,6 +566,149 @@ class WebApplication:
 {self._durable_results_section(output)}
 <p><a href="/prospects?{query}&amp;queue=new">Open the process-local prospect queues (populated only by runs executed in this server process)</a></p>"""
         return page(f"Review task {task_id}", body, actor=actor, business_unit=business_unit)
+
+    def phase6_approvals(self, actor: str, business_unit: str) -> str:
+        items = self.enrichment.approvals(actor, business_unit)
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        rows = "".join(
+            f'<tr><td><a href="/phase6-approvals/{e(item["approval_event_id"])}?{query}">{e(item["approval_event_id"])}</a></td>'
+            f'<td>{e(item["task_id"])}</td><td>{e(item["result_id"])}</td><td>{e(item["decision"])}</td>'
+            f'<td>{e(item["effective_at"])}</td><td>{e(item["expires_at"])}</td>'
+            f'<td>{e("actionable" if item["proposer_actor"] == actor and item["is_current_leaf"] and item["valid_now"] and not item["consumed"] else "current (bound proposer only)" if item["is_current_leaf"] and item["valid_now"] and not item["consumed"] else "history only (" + item["validity_status"] + ")")}</td></tr>'
+            for item in items
+        )
+        table = (
+            f'<table><thead><tr><th>Event</th><th>Review task</th><th>Result</th><th>Decision</th><th>Effective</th><th>Expires</th><th>Use</th></tr></thead><tbody>{rows}</tbody></table>'
+            if rows else '<p class="notice">No durable approvals exist for this scope.</p>'
+        )
+        body = f"""<p class="notice"><strong>Phase 6A fixture policy simulation.</strong> Actor selection is not authentication. This append-only event is authority only for one local synthetic fixture enrichment; it grants no external research, generation, likeness, outreach, or deployment authority.</p>
+{table}<h2>Record a durable result-bound decision</h2>
+<form method="post" action="/phase6-approvals">{self.hidden(actor, business_unit)}
+<label for="task_id">Pending review task ID</label><input id="task_id" name="task_id" required maxlength="100">
+<label for="result_id">Exact result ID</label><input id="result_id" name="result_id" required maxlength="100">
+<label for="decision">Decision</label><select id="decision" name="decision"><option value="approved">Approve fixture enrichment</option><option value="rejected">Reject</option><option value="revoked">Revoke</option><option value="invalidated">Invalidate</option></select>
+<label for="expected_leaf_id">Current leaf event ID (for supersession)</label><input id="expected_leaf_id" name="expected_leaf_id" maxlength="100">
+<label for="reason">Reason</label><textarea id="reason" name="reason" required maxlength="512"></textarea>
+<button type="submit">Record append-only decision</button></form>"""
+        return page("Phase 6A fixture approvals", body, actor=actor, business_unit=business_unit)
+
+    def phase6_approval_detail(
+        self, actor: str, business_unit: str, approval_event_id: str, status: str = ""
+    ) -> str:
+        item = self.enrichment.get_approval(actor, business_unit, approval_event_id)
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        fields = (
+            "approval_event_id", "decision", "scope", "task_id", "run_id", "output_id", "result_id",
+            "global_identity_id", "proposer_actor", "reviewer_actor", "reason", "effective_at",
+            "recorded_at", "expires_at", "supersedes_id", "result_hash", "protection_hash",
+            "configuration_hash",
+        )
+        body = '<p class="notice">This exact durable binding grants only local synthetic fixture enrichment authority.</p><dl>'
+        body += "".join(
+            f'<dt>{e(name.replace("_", " ").title())}</dt><dd>{e(item[name] or "None")}</dd>'
+            for name in fields
+        )
+        body += f'</dl><p><a href="/phase6-approvals?{query}">Back to fixture approvals</a></p>'
+        return page(
+            f"Fixture approval {approval_event_id}", body, actor=actor,
+            business_unit=business_unit, status=status,
+        )
+
+    def phase6_enrichments(self, actor: str, business_unit: str) -> str:
+        runs = self.enrichment.runs(actor, business_unit)
+        approvals = self.enrichment.approvals(actor, business_unit)
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        rows = "".join(
+            f'<tr><td><a href="/phase6-enrichments/{e(item["enrichment_run_id"])}?{query}">{e(item["enrichment_run_id"])}</a></td>'
+            f'<td>{e(item["result_id"])}</td><td>{e(item["state"])}</td><td>$0</td><td>{e(item["brief_id"] or "None")}</td></tr>'
+            for item in runs
+        )
+        run_table = (
+            f'<table><thead><tr><th>Enrichment</th><th>Result</th><th>State</th><th>Cost</th><th>Brief</th></tr></thead><tbody>{rows}</tbody></table>'
+            if rows else '<p class="notice">No synthetic fixture enrichment has run.</p>'
+        )
+        forms = "".join(
+            f'<form class="card" method="post" action="/phase6-enrichments">{self.hidden(actor, business_unit)}'
+            f'<input type="hidden" name="approval_event_id" value="{e(item["approval_event_id"])}">'
+            f'<p>Approved result: <strong>{e(item["result_id"])}</strong></p>'
+            f'<label for="key-{e(item["approval_event_id"])}">Idempotency key</label>'
+            f'<input id="key-{e(item["approval_event_id"])}" name="idempotency_key" required maxlength="100">'
+            f'<button type="submit">Run one bounded fixture enrichment</button></form>'
+            for item in approvals
+            if item["proposer_actor"] == actor
+            and item["is_current_leaf"] and item["valid_now"] and not item["consumed"]
+        )
+        body = f"""<p class="notice"><strong>Synthetic fixture only.</strong> This one-shot action reads repository-owned .example metadata, costs $0, performs no official-site research, and creates no prompt, asset, likeness, message, schedule, or external record.</p>
+{run_table}<h2>Start from a durable approved leaf</h2><div class="grid">{forms or '<p class="notice">No approved event is available.</p>'}</div>"""
+        return page("Phase 6A fixture enrichments", body, actor=actor, business_unit=business_unit)
+
+    def phase6_enrichment_detail(
+        self, actor: str, business_unit: str, run_id: str, status: str = ""
+    ) -> str:
+        item = self.enrichment.get_run(actor, business_unit, run_id)
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        brief = (
+            f'<a href="/phase6-briefs/{e(item["brief_id"])}?{query}">{e(item["brief_id"])}</a>'
+            if item["brief_id"] else "Not created"
+        )
+        body = f"""<p class="notice">One bounded zero-cost fixture attempt. A successful brief grants no downstream execution authority.</p>
+<dl><dt>Run</dt><dd>{e(item['enrichment_run_id'])}</dd><dt>State</dt><dd>{e(item['state'])}</dd>
+<dt>Approval</dt><dd>{e(item['approval_event_id'])}</dd><dt>Result</dt><dd>{e(item['result_id'])}</dd>
+<dt>Global identity</dt><dd>{e(item['global_identity_id'])}</dd><dt>Cost</dt><dd>$0 exactly</dd>
+<dt>Brief</dt><dd>{brief}</dd><dt>Failure class</dt><dd>{e(item['failure_class'] or 'None')}</dd>
+<dt>Remediation</dt><dd>{e(item['remediation'] or 'None')}</dd></dl>"""
+        return page(
+            f"Fixture enrichment {run_id}", body, actor=actor,
+            business_unit=business_unit, status=status,
+        )
+
+    def phase6_brief_detail(
+        self, actor: str, business_unit: str, brief_id: str, status: str = ""
+    ) -> str:
+        item = self.enrichment.get_brief(actor, business_unit, brief_id)
+        snapshot = item["snapshot"]
+        reviews = self.enrichment.brief_reviews(actor, business_unit, brief_id)
+        research_rows = "".join(
+            f'<tr><th scope="row">{e(name)}</th><td><pre>{e(json.dumps(value["value"], indent=2, sort_keys=True))}</pre></td>'
+            f'<td>{e(value["basis"])}</td><td>{e(value["currentness"])}</td>'
+            f'<td>{e(value["confidence_reason"])}</td><td>{e(value["uncertainty"])}</td>'
+            f'<td><pre>{e(json.dumps(value["source_lineage"], indent=2, sort_keys=True))}</pre></td></tr>'
+            for name, value in snapshot["research"].items()
+        )
+        source_rows = "".join(
+            f'<tr><td>{e(source["title"])}</td><td><code>{e(source["source_url"])}</code></td>'
+            f'<td>{e(source["summary"])}</td><td>{e(source["quote"])}</td><td>{e(source["source_date"] or "Unknown")}</td></tr>'
+            for source in item["sources"]
+        )
+        review_rows = "".join(
+            f'<tr><td>{e(review["review_event_id"])}</td><td>{e(review["decision"])}</td>'
+            f'<td>{e(review["reviewer_actor"])}</td><td>{e(review["reason"])}</td>'
+            f'<td>{e(review["recorded_at"])}</td><td>{e(review["authority_granted"])}</td></tr>'
+            for review in reviews
+        )
+        current_review = reviews[-1]["review_event_id"] if reviews else ""
+        unit_name = "umg" if business_unit == "unreal-media-group" else "talent"
+        run = self.enrichment.get_run(actor, business_unit, item["enrichment_run_id"])
+        if actor == run["initiating_actor"]:
+            review_controls = (
+                '<p class="notice"><strong>Read-only for the proposing actor.</strong> '
+                'Separation of duty requires a different allowed reviewer; no review form is shown.</p>'
+            )
+        else:
+            review_controls = f"""<form method="post" action="/phase6-briefs/{e(brief_id)}/review">{self.hidden(actor, business_unit)}
+<label for="brief-decision">Decision</label><select id="brief-decision" name="decision"><option value="accepted">Accept research quality</option><option value="changes_requested">Request changes</option><option value="rejected">Reject</option></select>
+<label for="brief-reason">Reason</label><textarea id="brief-reason" name="reason" required maxlength="512"></textarea>
+<input type="hidden" name="expected_leaf_id" value="{e(current_review)}"><button type="submit">Record research-quality review</button></form>"""
+        body = f"""<p class="notice"><strong>Research brief, not production authority.</strong> Synthetic fixture metadata only; no official-site research, page body, generation, likeness, outreach, or clearance claim.</p>
+<dl><dt>Brief</dt><dd>{e(brief_id)}</dd><dt>Version</dt><dd>{item['version']}</dd><dt>Research state</dt><dd>{e(item['research_state'])}</dd>
+<dt>Global identity</dt><dd>{e(item['global_identity_id'])}</dd><dt>Human review required</dt><dd>Yes</dd><dt>Integrity</dt><dd>{e(item['content_hash'])}</dd></dl>
+<h2>Research fields</h2><table><thead><tr><th>Field</th><th>Value</th><th>Basis</th><th>Currentness</th><th>Confidence</th><th>Uncertainty</th><th>Source lineage</th></tr></thead><tbody>{research_rows}</tbody></table>
+<h2>{e(unit_name.upper())} brief fields</h2><pre>{e(json.dumps(snapshot[unit_name], indent=2, sort_keys=True))}</pre>
+<h2>Limitations and unresolved questions</h2><pre>{e(json.dumps({"limitations": snapshot["limitations"], "unresolved_questions": snapshot["unresolved_questions"], "business_unit_value_lineage": snapshot["business_unit_value_lineage"]}, indent=2, sort_keys=True))}</pre>
+<h2>Bounded source metadata</h2><table><thead><tr><th>Fixture source</th><th>.example URL (display only)</th><th>Summary</th><th>Short quote</th><th>Source date</th></tr></thead><tbody>{source_rows}</tbody></table>
+<h2>Append-only review history</h2>{f'<table><thead><tr><th>Event</th><th>Decision</th><th>Reviewer</th><th>Reason</th><th>Recorded</th><th>Authority</th></tr></thead><tbody>{review_rows}</tbody></table>' if review_rows else '<p class="notice">No research-quality review exists.</p>'}
+<h2>Research-quality review only</h2>{review_controls}"""
+        return page(f"Campaign brief {brief_id}", body, actor=actor, business_unit=business_unit, status=status)
 
     def shadow_schedules(self, actor: str, business_unit: str) -> str:
         items = self.shadow.schedules(actor, business_unit)

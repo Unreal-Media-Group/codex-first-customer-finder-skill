@@ -7,6 +7,14 @@ The `unreal` branch preserves the upstream `first-customer-finder` skill and add
 
 They share deterministic identity, history, deduplication, validation, scoring, and report utilities. They do not connect to Unreal OS or Supabase, generate creative or likenesses, or send outreach.
 
+This repository owns the upstream lead-intelligence node: find and filter potential customers,
+research approved leads across all material public business-information categories, and emit a
+reviewed machine-readable dossier for a larger governed agent graph. Public business people and
+contact paths are one category within that dossier. Brand and campaign images are recorded as
+source references and factual observations, not generated assets. Downstream agents may later use
+the dossier for creative, campaign, outreach, CRM, or learning work, but those agents are neither
+implemented nor invoked here. This repository does not implement or modify Unreal OS.
+
 Phase 2 contains independently reviewed and finalized design contracts for a future Unreal OS
 prospecting data model. Phase 3 (finalized at `8ea7c16`) adds a synthetic, loopback-only Manual
 Mission Control review app with deterministic fixtures; it is not production authentication.
@@ -18,7 +26,12 @@ shadow loop with immutable campaign rotation, durable occurrences, history-aware
 health and local alerts, pause/disable controls, and pending human review. Phase 5 is independently
 reviewed and finalized at `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. No external-system connection or migration,
 real-data API, production scheduler, generic cron, live research, creative, likeness use,
-advertisement, or outreach has been built or authorized; Phase 6 remains unauthorized.
+advertisement, or outreach has been built or authorized. Phase 6A adds a pending-review, manually
+approved, one-shot, zero-cost synthetic `.example` fixture enrichment and source-linked campaign
+brief as the narrow foundation for the customer dossier. Phase 6B will, if separately authorized,
+add comprehensive public-source research and a graph-ready handoff package. It is not implemented
+or authorized. Creative generation, outreach, external persistence, orchestration, and outcome
+optimization are downstream responsibilities outside this repository rather than later phases here.
 
 ## Local installation
 
@@ -40,6 +53,7 @@ Use `--skills-dir PATH` for an isolated location. The original `scripts/install.
 - [Phase 3 Manual Mission Control](docs/PHASE_3_MISSION_CONTROL.md)
 - [Phase 4 Registered Agent](docs/PHASE_4_REGISTERED_AGENT.md)
 - [Phase 5 Shadow Loop](docs/PHASE_5_SHADOW_LOOP.md)
+- [Phase 6A Synthetic Lead-Intelligence Brief Foundation](docs/PHASE_6_ENRICHMENT_BRIEF.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Safe upstream synchronization](docs/UPSTREAM_SYNC.md)
 - [Program roadmap](docs/specs/UNREAL_PROSPECTING_SKILLS_PROGRAM_ROADMAP.md)
