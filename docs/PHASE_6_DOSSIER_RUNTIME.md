@@ -1,9 +1,16 @@
 # Phase 6 governed dossier runtime
 
-This runtime connects the finalized synthetic Phase 6B contracts to the existing local Mission
-Control approval and review surface. It remains standard-library-only, local, synthetic, and
-gitignored. It does not read a live site, store a real prospect, invoke another agent, generate an
-asset, contact anyone, write externally, deploy, or modify Unreal OS.
+This runtime connects the finalized synthetic Phase 6B contracts to the local Mission Control
+approval and review surface. Synthetic fixtures remain the default. The additive v2 real path is
+limited to the two exact user-authorized public-business plans documented in
+`PHASE_6_REAL_PUBLIC_PROOF.md`; it adds no general discovery or crawling capability. Runtime state is
+local and gitignored. The service never invokes another agent, generates an asset, contacts anyone,
+writes externally, deploys, or modifies Unreal OS.
+
+The two proof alternatives advance monotonically. Later authority waits for every earlier eligible
+target to become terminal or non-executable, and an earlier target cannot reopen after later
+authority progress. Authority creation, claims, public-read preflight, final persistence, and visible
+controls all enforce that same order.
 
 ## Search and durable history
 
@@ -56,10 +63,13 @@ requires a new approval. Multiple independent processes sharing one state file r
 
 One append-only authority event binds the complete canonical selected-result projection and its hash
 and length, search and history hashes, derived account, business unit, proposer, separate reviewer,
-exact synthetic source plan, canonical source-plan hash and length, scope, reason, effective time,
+exact source plan, canonical source-plan hash and length, scope, reason, effective time,
 recorded time, and exact seven-day expiry.
 The stored immutable event remains readable if a repository fixture later evolves; execution compares
-the current fixture evidence to the approved stored plan and requires a new approval if they differ.
+the current synthetic fixture or exact real manifest to the approved stored plan and requires a new
+approval if it differs. Synthetic approval uses a separate simulated reviewer. Exact public research
+uses the truthful reserved principal `user-goal-authority` for the authorization already supplied in
+the Phase 6 goal; it does not impersonate a local actor or pre-accept a dossier.
 
 Current-leaf checks, expected-leaf supersession, revocation, expiry, and single-use claiming are
 serialized. Revoke-first denies the claim. Claim-first permits only that committed synchronous run to
@@ -78,8 +88,10 @@ Every candidate uses the exact eleven Phase 6B categories. A category is populat
 evidence-linked claims or carries an explicit gap. Runtime cutoff replaces fixture time, and claim
 freshness is recomputed as conflicted first, stale second, otherwise current.
 
-The candidate is immutable and starts in `pending_research_quality_review`. A separate allowed
-reviewer may record exactly one terminal decision for that exact candidate version:
+The candidate is immutable and starts in `pending_research_quality_review`. A synthetic candidate
+uses a separate allowed simulated reviewer. A real candidate rejects simulated-actor review and can
+record only a directly supplied exact-version user decision as `user-human-reviewer`. Exactly one
+terminal decision is allowed for that candidate version:
 
 - `accepted` atomically creates the terminal review, immutable final dossier, one deterministic
   graph-ready package, and audit event;
@@ -98,7 +110,7 @@ invoke another agent.
 
 ## Verification
 
-Focused coverage lives in `tests/prospecting/test_phase6_dossier_runtime.py`. It covers isolated
+Synthetic runtime coverage lives in `tests/prospecting/test_phase6_dossier_runtime.py`. It covers isolated
 activation, populated migration, rollback, reopen, incomplete layouts, integrity and foreign keys,
 history projection, filtering, account derivation, complete-result and source-plan authority,
 business-unit isolation including shared-account version allocation, recomputed idempotency,
@@ -106,6 +118,9 @@ self-consistent snapshot and relationship rewrites, revoke/claim and cancel/comp
 process-local recovery, failure cleanup, freshness, exact terminal-review concurrency, atomic fault
 rollback, both business units, all eleven categories, and the loopback web workflow.
 
-The real public-source contract and reader are separate subsequent Phase 6 work. No live proof may
-run until their focused network-control tests, complete repository suite, independent security
-review, exact approved source-plan verification, and durable result-bound authority all pass.
+The additive real contract, bounded reader, and exact runtime path are covered by
+`test_phase6_real_contract.py`, `test_phase6_public_reader.py`, and
+`test_phase6_real_runtime.py`. Their public-read gate requires focused controls, the complete warning-
+strict suite, independent security review, exact manifest validation, and durable result-bound goal
+authority. The resulting candidate must stop at genuine human research-quality review; see
+`PHASE_6_REAL_PUBLIC_PROOF.md`.

@@ -363,7 +363,7 @@ class DomainTests(unittest.TestCase):
             serialized = json.dumps(candidate)
             self.assertNotIn("@", serialized)
 
-    def test_executable_modules_have_no_outbound_or_dynamic_execution_imports(self) -> None:
+    def test_only_exact_public_reader_has_outbound_import_and_no_module_has_dynamic_execution(self) -> None:
         forbidden_imports = {"requests", "httpx", "socket", "smtplib", "subprocess"}
         for path in (APP_ROOT / "mission_control").glob("*.py"):
             tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
@@ -374,7 +374,11 @@ class DomainTests(unittest.TestCase):
                 for alias in node.names
             }
             calls = {node.func.id for node in ast.walk(tree) if isinstance(node, ast.Call) and isinstance(node.func, ast.Name)}
-            self.assertFalse(imports & forbidden_imports, path)
+            forbidden = imports & forbidden_imports
+            if path.name == "public_reader.py":
+                self.assertEqual(forbidden, {"socket"}, path)
+            else:
+                self.assertFalse(forbidden, path)
             self.assertFalse(calls & {"eval", "exec", "compile"}, path)
 
     def test_safe_evidence_url(self) -> None:
@@ -427,7 +431,8 @@ class HttpTests(unittest.TestCase):
         self.assertEqual(self.server.server_address[0], "127.0.0.1")
         status, body, headers = self.request("GET", "/campaigns?actor=noah&business_unit=unreal-media-group")
         self.assertEqual(status, 200)
-        self.assertIn("Synthetic local review surface", body)
+        self.assertIn("Local governed review surface", body)
+        self.assertIn("Synthetic fixtures remain the default path", body)
         self.assertIn("No campaigns exist", body)
         self.assertIn('aria-label="Primary"', body)
         self.assertIn("Content-Security-Policy", headers)

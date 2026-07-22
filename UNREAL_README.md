@@ -24,9 +24,10 @@ human-review-task state, a zero cost cap, timeout, retry cap, cancellation, idem
 startup recovery. Phase 5 adds a disabled-by-default, explicitly human-configured, weekly UTC local
 shadow loop with immutable campaign rotation, durable occurrences, history-aware deduplication,
 health and local alerts, pause/disable controls, and pending human review. Phase 5 is independently
-reviewed and finalized at `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. No external-system connection or migration,
-real-data API, production scheduler, generic cron, live research, creative, likeness use,
-advertisement, or outreach has been built or authorized. Phase 6A is independently reviewed and
+reviewed and finalized at `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Except for the exact
+read-only Phase 6 proof described below, no external-system connection or migration, real-data API,
+production scheduler, generic cron, broader live research, creative, likeness use, advertisement,
+or outreach has been built or authorized. Phase 6A is independently reviewed and
 finalized at `e8d2546647603905c0b97a21f335535b3a98cc17`; it adds a manually approved, one-shot,
 zero-cost synthetic `.example` fixture enrichment and source-linked campaign brief as the narrow
 foundation for the customer dossier. Phase 6B's contract-first repository-local schemas,
@@ -36,7 +37,11 @@ work is independently reviewed and finalized at `86f83f1a94862d573f30da70a477605
 and now has a governed synthetic runtime that activates additive SQLite v4, runs durable history-first
 filters, binds exact source-plan approval, produces immutable eleven-category candidates, and releases
 one inert local package only after terminal exact-version review. This runtime still does not satisfy
-the full Phase 6 exit gate. Live public-source research remains separately gated. Creative generation, outreach, external persistence,
+the full Phase 6 exit gate. A separately authorized additive v2 real-source path now binds the exact
+CELSIUS-then-Jazwares proof plans, uses a bounded standard-library public reader, produces a scrubbed
+pending dossier, and keeps human acceptance as the final release gate. Its implementation and
+pre-live independent review are complete; the exact live read, automated evidence QA, and genuine
+exact-version human decision remain. Creative generation, outreach, external persistence,
 orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 ## Local installation
@@ -62,6 +67,7 @@ Use `--skills-dir PATH` for an isolated location. The original `scripts/install.
 - [Phase 6A Synthetic Lead-Intelligence Brief Foundation](docs/PHASE_6_ENRICHMENT_BRIEF.md)
 - [Phase 6B Dossier Contract-First Foundation](docs/PHASE_6B_DOSSIER_CONTRACT.md)
 - [Phase 6 Governed Dossier Runtime](docs/PHASE_6_DOSSIER_RUNTIME.md)
+- [Phase 6 Exact Public-Business Proof](docs/PHASE_6_REAL_PUBLIC_PROOF.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Safe upstream synchronization](docs/UPSTREAM_SYNC.md)
 - [Program roadmap](docs/specs/UNREAL_PROSPECTING_SKILLS_PROGRAM_ROADMAP.md)

@@ -51,12 +51,12 @@ table{{width:100%;border-collapse:collapse;background:var(--panel)}} th,td{{padd
 @media(max-width:640px){{table,thead,tbody,tr,th,td{{display:block}} thead{{position:absolute;left:-9999px}} td{{border-top:0}} nav{{flex-direction:column}}}}
 </style></head><body>
 <header><p><strong>Prospecting Manual Mission Control</strong></p>
-<p class="notice"><strong>Synthetic local review surface.</strong> Registered runs, schedules, exact approvals, dossiers, and local-only packages are durable in a gitignored SQLite file. Synthetic fixtures remain the default proof path. Actor selection simulates policy; it is not production authentication. No creative, likeness, outreach, external-write, deployment, or downstream-agent authority exists.</p>
+<p class="notice"><strong>Local governed review surface.</strong> Synthetic fixtures remain the default path; the separately labeled Phase 6 live proof is limited to its two exact public source plans. Actor selection simulates policy and never supplies human acceptance. No creative, likeness, outreach, external-write, deployment, or downstream-agent authority exists.</p>
 <nav aria-label="Primary"><a href="/campaigns?{query}">Campaigns</a><a href="/runs?{query}">Run history</a><a href="/worker-runs?{query}">Worker runs</a><a href="/review-tasks?{query}">Review tasks</a><a href="/prospects?{query}&amp;queue=new">Prospect queues</a><a href="/registry?{query}">Agent registry</a><a href="/shadow-schedules?{query}">Shadow schedules</a><a href="/phase6-approvals?{query}">Fixture approvals</a><a href="/phase6-enrichments?{query}">Fixture briefs</a><a href="/phase6-dossiers?{query}">Customer dossiers</a><a href="/phase6-packages?{query}">Local packages</a></nav>
 <form method="get" action="/campaigns"><label for="scope_actor">Local review actor (not authentication)</label><select id="scope_actor" name="actor">{''.join(f'<option value="{e(name)}"{" selected" if name == actor else ""}>{e(name)}</option>' for name in ACTOR_SCOPE)}</select><label for="scope_unit">Business-unit scope</label><select id="scope_unit" name="business_unit">{''.join(f'<option value="{e(unit)}"{" selected" if unit == business_unit else ""}>{e(unit)}</option>' for unit in sorted(BUSINESS_UNITS))}</select><button type="submit">Change local review scope</button></form>
 <p>Review actor: <strong>{e(actor)}</strong> · Business unit: <strong>{e(business_unit)}</strong></p></header>
 <main id="main"><h1>{e(title)}</h1>{status_html}{body}</main>
-<footer><small>Local registered worker · governed synthetic research and dossier review · durable local state · zero cost cap · no credentials, creative, likeness, outreach, external writes, deployment, or downstream invocation.</small></footer></body></html>"""
+<footer><small>Local registered worker · governed fixture or exact bounded public research · durable local state · no credentials, private contacts, creative, likeness, outreach, external writes, deployment, or downstream invocation.</small></footer></body></html>"""
 
 
 class WebApplication:
@@ -94,6 +94,8 @@ class WebApplication:
             / "fixtures" / "prospecting" / "phase6" / "dossier-fixtures.json",
             history_path=Path(__file__).resolve().parents[3]
             / "fixtures" / "prospecting" / "phase6" / "dossier-history.json",
+            real_manifest_path=Path(__file__).resolve().parents[3]
+            / "shared" / "prospecting-core" / "manifests" / "phase6-live-proof-source-plans.json",
             clock=getattr(self.control.repository, "clock", utc_now),
         )
 
@@ -262,6 +264,36 @@ class WebApplication:
             )
             return 200, self.phase6_search_detail(
                 actor, business_unit, search["search_id"], status
+            )
+        if path == "/phase6-real-searches":
+            search, created = self.dossier.create_real_search(
+                actor,
+                business_unit,
+                idempotency_key=form.get("idempotency_key", ""),
+            )
+            status = (
+                "The exact two-target real-proof search was classified against durable history. No public read occurred."
+                if created else
+                "Idempotent replay returned the existing exact real-proof search without a public read."
+            )
+            return 200, self.phase6_search_detail(
+                actor, business_unit, search["search_id"], status
+            )
+        if path == "/phase6-real-goal-approvals":
+            approval = self.dossier.record_real_goal_approval(
+                actor,
+                business_unit,
+                form.get("search_id", ""),
+                form.get("result_id", ""),
+                decision=form.get("decision", ""),
+                reason=form.get("reason", ""),
+                expected_leaf_id=form.get("expected_leaf_id", "") or None,
+            )
+            return 201, self.phase6_search_detail(
+                actor,
+                business_unit,
+                approval["search_id"],
+                f"The user's exact goal-authority event was recorded as {approval['decision']}.",
             )
         if path == "/phase6-dossier-approvals":
             approval = self.dossier.record_approval(
@@ -814,13 +846,20 @@ class WebApplication:
         )
         default_include = "product_photography, product_video" if business_unit == "unreal-media-group" else ""
         default_exclude = "ugc_ad" if business_unit == "unreal-media-group" else ""
+        real_form = ""
+        if business_unit == "unreal-media-group":
+            real_form = f"""<h2>Exact authorized public-business proof</h2>
+<p class="notice">This route evaluates only CELSIUS then Jazwares against durable history using the fixed product-photo/video include and UGC-ad exclude filter. It performs no public read until the exact result receives its separately recorded goal authority.</p>
+<form method="post" action="/phase6-real-searches">{self.hidden(actor, business_unit)}
+<label for="phase6-real-search-key">Real-proof search idempotency key</label><input id="phase6-real-search-key" name="idempotency_key" maxlength="100" required>
+<button type="submit">Evaluate the exact two authorized targets</button></form>"""
         body = f"""<p class="notice"><strong>Durable history-first Phase 6 search.</strong> History, identity, suppression, relationship, cooldown, and re-engagement classification runs before opportunity filtering, qualification, and target capping. Search intent is not evidence of demand.</p>
 <form method="post" action="/phase6-searches" aria-describedby="phase6-filter-help">{self.hidden(actor, business_unit)}
 <p id="phase6-filter-help">Controlled values: product_photography, product_video, ugc_ad. Leave both fields blank for the unfiltered route.</p>
 <label for="phase6-include">Include any opportunity types</label><input id="phase6-include" name="include_any" maxlength="200" value="{e(default_include)}">
 <label for="phase6-exclude">Exclude opportunity types</label><input id="phase6-exclude" name="exclude" maxlength="200" value="{e(default_exclude)}">
 <label for="phase6-search-key">Idempotency key</label><input id="phase6-search-key" name="idempotency_key" maxlength="100" required>
-<button type="submit">Run governed local search</button></form>
+<button type="submit">Run governed local fixture search</button></form>{real_form}
 <h2>Durable searches</h2>{f'<table><thead><tr><th>Search</th><th>Filter</th><th>Selected</th><th>History fingerprint</th><th>Created</th></tr></thead><tbody>{rows}</tbody></table>' if rows else '<p class="notice">No Phase 6 dossier search has run for this business unit.</p>'}"""
         return page("Customer dossier search", body, actor=actor, business_unit=business_unit, status=status)
 
@@ -840,7 +879,44 @@ class WebApplication:
             decision = item["decision"]
             leaf = leaf_by_result.get(item["result_record_id"])
             controls = ""
-            if item["selected"] and actor != search["initiating_actor"]:
+            is_real = item["candidate"].get("synthetic") is False
+            if (
+                is_real
+                and item["selected"]
+                and leaf
+                and leaf["valid_now"]
+                and not leaf["consumed"]
+                and actor == search["initiating_actor"]
+                and self.dossier.real_goal_authority_ready(
+                    actor, business_unit, search_id, item["result_id"]
+                )
+            ):
+                controls = f"""<form method="post" action="/phase6-dossier-runs">{self.hidden(actor, business_unit)}
+<input type="hidden" name="approval_event_id" value="{e(leaf['approval_event_id'])}">
+<label for="dossier-key-{e(item['result_record_id'])}">Dossier idempotency key</label><input id="dossier-key-{e(item['result_record_id'])}" name="idempotency_key" maxlength="100" required>
+<button type="submit">Run the exact bounded public read</button></form>"""
+            elif is_real and item["selected"] and leaf and leaf["consumed"] and actor == search["initiating_actor"]:
+                controls = '<p class="notice">This exact goal authority has been consumed. A new attempt requires a new exact authority event and candidate version.</p>'
+            elif is_real and item["selected"] and leaf and actor == search["initiating_actor"]:
+                controls = '<p class="notice">The current exact goal-authority leaf is not executable or target order currently blocks it.</p>'
+            elif (
+                is_real
+                and item["selected"]
+                and actor == search["initiating_actor"]
+                and self.dossier.real_goal_authority_ready(
+                    actor, business_unit, search_id, item["result_id"]
+                )
+            ):
+                controls = f"""<form method="post" action="/phase6-real-goal-approvals">{self.hidden(actor, business_unit)}
+<input type="hidden" name="search_id" value="{e(search_id)}"><input type="hidden" name="result_id" value="{e(item['result_id'])}">
+<input type="hidden" name="expected_leaf_id" value=""><input type="hidden" name="decision" value="approved">
+<input type="hidden" name="reason" value="The user's exact Phase 6 goal authorizes this bounded public read.">
+<button type="submit">Bind the existing exact user-goal authority</button></form>"""
+            elif is_real and item["selected"] and actor == search["initiating_actor"]:
+                controls = '<p class="notice">Waiting for every earlier eligible real-proof target to become terminal.</p>'
+            elif is_real and item["selected"]:
+                controls = '<p class="notice">Read-only. Simulated local actors cannot supply or replace the user-goal authority.</p>'
+            elif item["selected"] and actor != search["initiating_actor"]:
                 expected = leaf["approval_event_id"] if leaf else ""
                 controls = f"""<form method="post" action="/phase6-dossier-approvals">{self.hidden(actor, business_unit)}
 <input type="hidden" name="search_id" value="{e(search_id)}"><input type="hidden" name="result_id" value="{e(item['result_id'])}">
@@ -881,6 +957,7 @@ class WebApplication:
     ) -> str:
         item = self.dossier.get_candidate(actor, business_unit, candidate_id)
         dossier = item["dossier"]
+        is_real = dossier.get("synthetic") is False
         coverage_rows = "".join(
             f'<tr><td>{e(category["category"])}</td><td>{e(category["coverage_state"])}</td>'
             f'<td>{e(category.get("gap_explanation", ""))}</td><td>{len(category["claims"])}</td></tr>'
@@ -899,6 +976,12 @@ class WebApplication:
                 f'{e(review["review"]["decision"])} by {e(review["review"]["reviewer_actor"])}. '
                 'This exact candidate cannot receive another review or release.</p>'
             )
+        elif is_real:
+            controls = (
+                '<p class="notice"><strong>Pending genuine human review.</strong> '
+                'This loopback UI has no authority to accept, request changes, or reject a real dossier. '
+                'Use the exact hash-and-length approval packet and record only the user’s explicit decision.</p>'
+            )
         elif actor == item["proposer_actor"]:
             controls = '<p class="notice"><strong>Read-only for the proposer.</strong> A different allowed reviewer must make the one terminal exact-version decision.</p>'
         else:
@@ -907,8 +990,17 @@ class WebApplication:
 <label for="dossier-review-reason">Reason</label><textarea id="dossier-review-reason" name="reason" maxlength="2000" required></textarea>
 <label for="dossier-review-key">Review idempotency key</label><input id="dossier-review-key" name="idempotency_key" maxlength="100" required>
 <button type="submit">Record one terminal review</button></form>"""
+        real_packet = ""
+        if is_real:
+            conflicts = sum(
+                1 for evidence in dossier["evidence_inventory"]
+                if evidence["conflict_state"] == "conflicted"
+            )
+            real_packet = f"""<h2>Exact human approval packet</h2>
+<dl><dt>Source-plan hash</dt><dd>{e(dossier['source_plan_hash'])}</dd><dt>Conflicts</dt><dd>{conflicts}</dd><dt>Qualification</dt><dd>{e(dossier['qualification']['state'])} ({e(dossier['qualification']['basis'])})</dd></dl>
+<h3>Downstream authority</h3><pre>{e(json.dumps(dossier['authority'], indent=2, sort_keys=True))}</pre>"""
         body = f"""<p class="notice"><strong>Exact immutable dossier candidate.</strong> It is local data only and cannot generate, contact, send, write externally, invoke an agent, or deploy.</p>
-<dl><dt>Candidate version</dt><dd>{e(candidate_id)}</dd><dt>Dossier</dt><dd>{e(dossier['dossier_id'])} v{dossier['version']}</dd><dt>Result</dt><dd>{e(item['result_id'])}</dd><dt>Derived account</dt><dd>{e(item['account_id'])}</dd><dt>Content hash</dt><dd>{e(item['content_hash'])}</dd><dt>Byte length</dt><dd>{item['byte_length']}</dd><dt>State</dt><dd>{e(dossier['review_state'])}</dd></dl>
+<dl><dt>Candidate version</dt><dd>{e(candidate_id)}</dd><dt>Dossier</dt><dd>{e(dossier['dossier_id'])} v{dossier['version']}</dd><dt>Result</dt><dd>{e(item['result_id'])}</dd><dt>Derived account</dt><dd>{e(item['account_id'])}</dd><dt>Content hash</dt><dd>{e(item['content_hash'])}</dd><dt>Byte length</dt><dd>{item['byte_length']}</dd><dt>State</dt><dd>{e(dossier['review_state'])}</dd></dl>{real_packet}
 <h2>Eleven-category coverage</h2><table><thead><tr><th>Category</th><th>Coverage</th><th>Explicit gap</th><th>Claims</th></tr></thead><tbody>{coverage_rows}</tbody></table>
 <h2>Evidence inventory</h2><pre>{e(json.dumps(dossier['evidence_inventory'], indent=2, sort_keys=True))}</pre>
 <h2>Complete graph-ready candidate</h2><pre>{e(json.dumps(dossier, indent=2, sort_keys=True))}</pre>

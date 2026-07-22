@@ -19,6 +19,7 @@ from .store import MAX_SNAPSHOT_BYTES, SqliteStore, canonical_json
 
 # application.py installs the shared deterministic core on sys.path.
 from common import ValidationError  # noqa: E402
+from classify_duplicate import classify_duplicate  # noqa: E402
 from normalize_domain import normalize_domain  # noqa: E402
 from validate_phase6b_contract import (  # noqa: E402
     CATEGORIES,
@@ -32,9 +33,23 @@ from validate_phase6b_contract import (  # noqa: E402
     validate_lead_intelligence_package,
     validate_search_request,
 )
+from validate_phase6_real_contract import (  # noqa: E402
+    build_real_customer_dossier,
+    build_real_lead_intelligence_package,
+    build_real_result_projection,
+    derive_real_result_id,
+    load_real_source_manifest,
+    validate_real_customer_dossier,
+    validate_real_lead_intelligence_package,
+    validate_real_research_bundle,
+    validate_real_result_projection,
+    validate_real_source_plan,
+)
 
 ACCOUNT_IDENTITY_VERSION = "account-v1"
 DOSSIER_APPROVAL_SCOPE = "phase6_dossier_research"
+REAL_GOAL_AUTHORITY = "user-goal-authority"
+REAL_HUMAN_REVIEWER = "user-human-reviewer"
 APPROVAL_LIFETIME = timedelta(days=7)
 IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
 IDEMPOTENCY = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
@@ -165,20 +180,33 @@ class DossierService:
         fixture_path: Path,
         history_path: Path,
         clock: Callable[[], datetime],
+        real_manifest_path: Path | None = None,
+        public_reader: Any | None = None,
     ):
         self.enrichment = enrichment
         self.store: SqliteStore = enrichment.store
         self.clock = clock
         self.fixture_path = Path(fixture_path)
         self.history_path = Path(history_path)
+        self.real_manifest_path = Path(real_manifest_path) if real_manifest_path else None
+        self.public_reader = public_reader
         self._active_key = str(self.store.path.resolve())
         self.store.initialize_phase6_dossier()
         try:
             self.fixture_bundle = load_json_strict(self.fixture_path, "Phase 6 dossier fixture")
             self.history_bundle = load_json_strict(self.history_path, "Phase 6 dossier history")
             validate_fixture_bundle(self.fixture_bundle, self.history_bundle)
+            self.real_manifest = (
+                load_real_source_manifest(self.real_manifest_path)
+                if self.real_manifest_path is not None
+                else None
+            )
         except ValidationError as exc:
             raise MissionControlError(500, "The repository-owned Phase 6 dossier fixtures are invalid.") from exc
+        self.real_plans = {
+            item["source_plan_id"]: copy.deepcopy(item)
+            for item in (self.real_manifest or {}).get("plans", [])
+        }
         self.recovered_run_ids = self._recover_interrupted()
 
     def _register_active(self, run_id: str) -> None:
@@ -266,7 +294,12 @@ class DossierService:
             raise MissionControlError(500, "The business unit has no repository-owned Phase 6 search route.") from exc
 
     def _history(
-        self, connection: sqlite3.Connection, business_unit: str, *, generated_at: str
+        self,
+        connection: sqlite3.Connection,
+        business_unit: str,
+        *,
+        generated_at: str,
+        include_real: bool = False,
     ) -> dict[str, Any]:
         """Project prior durable search outcomes into the next immutable history snapshot."""
         history = copy.deepcopy(self.history_bundle["histories"][business_unit])
@@ -282,7 +315,6 @@ class DossierService:
             (business_unit,),
         ).fetchall()
         for row in rows:
-            result = self._result_row(row)
             request_raw = row["request_snapshot"]
             request_encoded = request_raw.encode("utf-8")
             if (
@@ -291,6 +323,11 @@ class DossierService:
             ):
                 raise MissionControlError(409, "The durable search request failed its integrity check.")
             request = self._decode(request_raw, "search request")
+            if request.get("synthetic") is False:
+                if not include_real:
+                    continue
+                self._require_exact_real_search_request(request, business_unit)
+            result = self._result_row(row)
             candidate = result["candidate"]
             decision = result["decision"]
             domain = result["canonical_domain"]
@@ -396,6 +433,215 @@ class DossierService:
         ):
             raise MissionControlError(409, f"The stored {label} failed its integrity check.")
         return DossierService._decode(raw, label)
+
+    def _real_plan_for_id(self, source_plan_id: str) -> dict[str, Any]:
+        plan = self.real_plans.get(source_plan_id)
+        if plan is None:
+            raise MissionControlError(409, "The exact authorized real source plan is unavailable.")
+        try:
+            validate_real_source_plan(plan)
+        except ValidationError as exc:
+            raise MissionControlError(409, "The exact authorized real source plan is invalid.") from exc
+        return copy.deepcopy(plan)
+
+    def _real_plan_for_result(self, result_id: str, business_unit: str) -> dict[str, Any]:
+        matches = [
+            plan for plan in self.real_plans.values()
+            if plan["business_unit"] == business_unit and derive_real_result_id(plan) == result_id
+        ]
+        if len(matches) != 1:
+            raise MissionControlError(409, "The real result does not resolve to one exact authorized source plan.")
+        return copy.deepcopy(matches[0])
+
+    def _real_search_request(self, business_unit: str) -> dict[str, Any]:
+        plans = [
+            copy.deepcopy(plan) for plan in self.real_plans.values()
+            if plan["business_unit"] == business_unit
+        ]
+        if business_unit != "unreal-media-group" or len(plans) != 2:
+            raise MissionControlError(409, "No exact real-proof search route is authorized for this business unit.")
+        filters = {json.dumps(plan["opportunity_filter"], sort_keys=True) for plan in plans}
+        if len(filters) != 1:
+            raise MissionControlError(409, "The exact real-proof filters are inconsistent.")
+        return {
+            "contract_version": 2,
+            "synthetic": False,
+            "request_id": "search-real-live-proof-v1",
+            "idempotency_identity": "phase6-real:search:umg:live-proof-v1",
+            "business_unit": business_unit,
+            "campaign": {
+                "business_unit": business_unit,
+                "campaign_name": "Authorized South Florida Product Creative Live Proof",
+                "reengagement_enabled": False,
+                "cooldown_days": 120,
+                "maximum_evidence_age_days": 365,
+            },
+            "opportunity_filter": copy.deepcopy(plans[0]["opportunity_filter"]),
+            "source_plan_ids": [plan["source_plan_id"] for plan in plans],
+        }
+
+    def _require_exact_real_search_request(
+        self, request: dict[str, Any], business_unit: str
+    ) -> None:
+        if request != self._real_search_request(business_unit):
+            raise MissionControlError(409, "The exact real-proof search request changed.")
+
+    def _prior_real_target_blocker(
+        self,
+        connection: sqlite3.Connection,
+        search_id: str,
+        source_plan_id: str,
+        *,
+        now: datetime,
+    ) -> str | None:
+        search = connection.execute(
+            "SELECT * FROM dossier_searches WHERE search_id=?", (search_id,)
+        ).fetchone()
+        if search is None:
+            raise MissionControlError(409, "The exact real-proof search is unavailable.")
+        request = self._check_snapshot(search, "request", "search request")
+        self._require_exact_real_search_request(request, search["business_unit"])
+        plan_ids = request.get("source_plan_ids")
+        if request.get("synthetic") is not False or not isinstance(plan_ids, list):
+            raise MissionControlError(409, "The exact real-proof search ordering is invalid.")
+        try:
+            target_index = plan_ids.index(source_plan_id)
+        except ValueError as exc:
+            raise MissionControlError(409, "The real source plan is not in its exact search order.") from exc
+        for prior_plan_id in plan_ids[:target_index]:
+            prior_plan = self._real_plan_for_id(prior_plan_id)
+            prior_result = connection.execute(
+                "SELECT * FROM dossier_results WHERE search_id=? AND result_id=? AND business_unit=?",
+                (search_id, derive_real_result_id(prior_plan), search["business_unit"]),
+            ).fetchone()
+            if prior_result is None:
+                raise MissionControlError(409, "An earlier exact real-proof result is unavailable.")
+            projected = self._result_row(prior_result)
+            if not projected["selected"]:
+                continue
+            active_run = connection.execute(
+                "SELECT dossier_run_id FROM dossier_runs WHERE result_record_id=? AND state='running'",
+                (prior_result["result_record_id"],),
+            ).fetchone()
+            if active_run is not None:
+                return "An earlier eligible real-proof target is still running."
+            leaf = self._approval_leaf(connection, prior_result["result_record_id"])
+            if leaf is None:
+                return "An earlier eligible real-proof target must become terminal before this target."
+            self._approval_integrity(connection, leaf, require_leaf=True)
+            run = connection.execute(
+                "SELECT * FROM dossier_runs WHERE approval_event_id=?",
+                (leaf["approval_event_id"],),
+            ).fetchone()
+            if run is not None:
+                state = self._run_row(run)["state"]
+                if state == "running":
+                    return "An earlier eligible real-proof target is still running."
+                continue
+            if leaf["decision"] in {"rejected", "revoked", "invalidated"}:
+                continue
+            if now >= _parse_time(leaf["expires_at"], "approval expiry"):
+                continue
+            return "An earlier eligible real-proof target remains executable and must run first."
+        return None
+
+    def _later_real_target_progressed(
+        self,
+        connection: sqlite3.Connection,
+        search_id: str,
+        source_plan_id: str,
+    ) -> bool:
+        search = connection.execute(
+            "SELECT * FROM dossier_searches WHERE search_id=?", (search_id,)
+        ).fetchone()
+        if search is None:
+            raise MissionControlError(409, "The exact real-proof search is unavailable.")
+        request = self._check_snapshot(search, "request", "search request")
+        self._require_exact_real_search_request(request, search["business_unit"])
+        plan_ids = request["source_plan_ids"]
+        try:
+            target_index = plan_ids.index(source_plan_id)
+        except ValueError as exc:
+            raise MissionControlError(409, "The real source plan is not in its exact search order.") from exc
+        for later_plan_id in plan_ids[target_index + 1:]:
+            later_plan = self._real_plan_for_id(later_plan_id)
+            later_result = connection.execute(
+                "SELECT * FROM dossier_results WHERE search_id=? AND result_id=? AND business_unit=?",
+                (search_id, derive_real_result_id(later_plan), search["business_unit"]),
+            ).fetchone()
+            if later_result is None:
+                raise MissionControlError(409, "A later exact real-proof result is unavailable.")
+            projected = self._result_row(later_result)
+            if not projected["selected"]:
+                continue
+            progressed = connection.execute(
+                "SELECT 1 FROM dossier_approval_events WHERE result_record_id=? LIMIT 1",
+                (later_result["result_record_id"],),
+            ).fetchone()
+            if progressed is not None:
+                return True
+        return False
+
+    def _require_no_later_real_target_progress(
+        self,
+        connection: sqlite3.Connection,
+        search_id: str,
+        source_plan_id: str,
+    ) -> None:
+        if self._later_real_target_progressed(connection, search_id, source_plan_id):
+            raise MissionControlError(
+                409,
+                "A later eligible real-proof target already entered its authority flow; earlier targets cannot be reopened.",
+            )
+
+    def _require_prior_real_targets_terminal(
+        self,
+        connection: sqlite3.Connection,
+        search_id: str,
+        source_plan_id: str,
+        *,
+        now: datetime,
+    ) -> None:
+        blocker = self._prior_real_target_blocker(
+            connection, search_id, source_plan_id, now=now
+        )
+        if blocker is not None:
+            raise MissionControlError(409, blocker)
+
+    def real_goal_authority_ready(
+        self,
+        actor: str,
+        business_unit: str,
+        search_id: str,
+        result_id: str,
+    ) -> bool:
+        """Return whether target ordering permits binding this exact real result now."""
+        self._authorize(actor, business_unit)
+        connection = self.store._connect()
+        try:
+            search = connection.execute(
+                "SELECT * FROM dossier_searches WHERE search_id=? AND business_unit=?",
+                (search_id, business_unit),
+            ).fetchone()
+            result = connection.execute(
+                "SELECT * FROM dossier_results WHERE search_id=? AND result_id=? AND business_unit=?",
+                (search_id, result_id, business_unit),
+            ).fetchone()
+            if search is None or result is None:
+                raise MissionControlError(403, "Business-unit access denied or real result not found.")
+            if search["initiating_actor"] != actor:
+                return False
+            projected = self._result_row(result)
+            if projected["candidate"].get("synthetic") is not False or not projected["selected"]:
+                return False
+            plan = self._real_plan_for_result(result_id, business_unit)
+            return self._prior_real_target_blocker(
+                connection, search_id, plan["source_plan_id"], now=self._now_dt()
+            ) is None and not self._later_real_target_progressed(
+                connection, search_id, plan["source_plan_id"]
+            )
+        finally:
+            connection.close()
 
     def create_search(
         self,
@@ -504,6 +750,122 @@ class DossierService:
             ).fetchone()
             return self._search_row(connection, row), True
 
+    def create_real_search(
+        self,
+        actor: str,
+        business_unit: str,
+        *,
+        idempotency_key: str,
+    ) -> tuple[dict[str, Any], bool]:
+        """Evaluate only the exact authorized alternatives through durable history."""
+        self._authorize(actor, business_unit)
+        key = _idempotency(idempotency_key)
+        request = self._real_search_request(business_unit)
+        request_raw, request_hash, request_length = _canonical(
+            request, label="Phase 6 real search request"
+        )
+        fingerprint = _fingerprint({
+            "actor": actor,
+            "business_unit": business_unit,
+            "request_hash": request_hash,
+        })
+        now_dt = self._now_dt()
+        now = _format_time(now_dt)
+        with self.store.transaction() as connection:
+            existing = connection.execute(
+                "SELECT * FROM dossier_searches WHERE idempotency_key=? AND business_unit=?",
+                (key, business_unit),
+            ).fetchone()
+            if existing is not None:
+                if existing["request_fingerprint"] != fingerprint:
+                    raise MissionControlError(409, "Idempotency key was already used with different search input.")
+                return self._search_row(connection, existing), False
+            try:
+                history = self._history(
+                    connection,
+                    business_unit,
+                    generated_at=now,
+                    include_real=True,
+                )
+                candidates: list[dict[str, Any]] = []
+                decisions: list[dict[str, Any]] = []
+                for source_plan_id in request["source_plan_ids"]:
+                    plan = self._real_plan_for_id(source_plan_id)
+                    classification = classify_duplicate(
+                        {
+                            "company_name": plan["organization_name"],
+                            "domain": plan["canonical_domain"],
+                            "company_type": "brand",
+                        },
+                        history,
+                        request["campaign"],
+                        today=now_dt.date(),
+                    )
+                    candidate, decision = build_real_result_projection(plan, classification)
+                    candidates.append(candidate)
+                    decisions.append(decision)
+            except ValidationError as exc:
+                raise MissionControlError(400, str(exc)) from exc
+            evaluation = {
+                "contract_version": 2,
+                "synthetic": False,
+                "business_unit": business_unit,
+                "source_plan_ids": list(request["source_plan_ids"]),
+                "decisions": decisions,
+            }
+            history_raw, history_hash, history_length = _canonical(
+                history, label="Phase 6 real history snapshot"
+            )
+            evaluation_raw, evaluation_hash, evaluation_length = _canonical(
+                evaluation, label="Phase 6 real search evaluation"
+            )
+            search_id = self._next_id(connection, "dsearch", business_unit)
+            connection.execute(
+                "INSERT INTO dossier_searches (search_id,idempotency_key,request_fingerprint,business_unit,"
+                "initiating_actor,request_snapshot,request_hash,request_byte_length,history_snapshot,history_hash,"
+                "history_byte_length,evaluation_snapshot,evaluation_hash,evaluation_byte_length,created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                (
+                    search_id, key, fingerprint, business_unit, actor, request_raw, request_hash,
+                    request_length, history_raw, history_hash, history_length, evaluation_raw,
+                    evaluation_hash, evaluation_length, now,
+                ),
+            )
+            for candidate, decision in zip(candidates, decisions, strict=True):
+                candidate_raw, candidate_hash, candidate_length = _canonical(
+                    candidate, label="Phase 6 real candidate"
+                )
+                decision_raw, decision_hash, decision_length = _canonical(
+                    decision, label="Phase 6 real search decision"
+                )
+                result_record_id = self._next_id(connection, "dresult", business_unit)
+                connection.execute(
+                    "INSERT INTO dossier_results (result_record_id,search_id,result_id,global_identity_id,"
+                    "account_id,account_identity_version,canonical_domain,business_unit,candidate_snapshot,"
+                    "candidate_hash,candidate_byte_length,decision_snapshot,decision_hash,decision_byte_length,"
+                    "selected,created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)",
+                    (
+                        result_record_id, search_id, decision["result_id"], decision["global_identity_id"],
+                        decision["account_id"], ACCOUNT_IDENTITY_VERSION, decision["canonical_domain"],
+                        business_unit, candidate_raw, candidate_hash, candidate_length, decision_raw,
+                        decision_hash, decision_length, int(decision["selected"]), now,
+                    ),
+                )
+            self.store.insert_audit(
+                connection,
+                run_id=search_id,
+                event_type="phase6_real_history_first_search_recorded",
+                actor=actor,
+                business_unit=business_unit,
+                correlation_id=self._next_id(connection, "dcorr", business_unit),
+                safe_status="completed",
+                recorded_at=now,
+            )
+            row = connection.execute(
+                "SELECT * FROM dossier_searches WHERE search_id=?", (search_id,)
+            ).fetchone()
+            return self._search_row(connection, row), True
+
     def _search_row(self, connection: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
         request = self._check_snapshot(row, "request", "search request")
         history = self._check_snapshot(row, "history", "history snapshot")
@@ -512,6 +874,21 @@ class DossierService:
             "SELECT * FROM dossier_results WHERE search_id=? ORDER BY result_id", (row["search_id"],)
         ).fetchall()
         items = [self._result_row(item) for item in results]
+        if request.get("synthetic") is False:
+            self._require_exact_real_search_request(request, row["business_unit"])
+            order = {
+                source_plan_id: index
+                for index, source_plan_id in enumerate(request.get("source_plan_ids", []))
+            }
+            items.sort(key=lambda item: order.get(item["candidate"].get("source_plan_id"), len(order)))
+            if (
+                evaluation.get("contract_version") != 2
+                or evaluation.get("synthetic") is not False
+                or evaluation.get("source_plan_ids") != request["source_plan_ids"]
+                or [item["candidate"].get("source_plan_id") for item in items]
+                != request["source_plan_ids"]
+            ):
+                raise MissionControlError(409, "The exact real search projection changed.")
         stored_decisions = sorted(
             (item["decision"] for item in items), key=lambda item: item["result_id"]
         )
@@ -547,6 +924,12 @@ class DossierService:
         candidate = self._check_snapshot(row, "candidate", "candidate")
         decision = self._check_snapshot(row, "decision", "search decision")
         expected = derive_account_id(row["canonical_domain"], row["global_identity_id"])
+        if candidate.get("synthetic") is False:
+            plan = self._real_plan_for_id(candidate.get("source_plan_id"))
+            try:
+                validate_real_result_projection(candidate, decision, plan)
+            except ValidationError as exc:
+                raise MissionControlError(409, "The stored real result failed contract validation.") from exc
         if (
             row["account_identity_version"] != ACCOUNT_IDENTITY_VERSION
             or row["account_id"] != expected
@@ -630,6 +1013,17 @@ class DossierService:
     def _validate_stored_source_plan(
         source_plan: dict[str, Any], result_id: str, business_unit: str
     ) -> None:
+        if source_plan.get("synthetic") is False:
+            try:
+                validate_real_source_plan(source_plan)
+            except ValidationError as exc:
+                raise MissionControlError(409, "The stored real source plan is invalid.") from exc
+            if (
+                source_plan["business_unit"] != business_unit
+                or derive_real_result_id(source_plan) != result_id
+            ):
+                raise MissionControlError(409, "The stored real source plan target is invalid.")
+            return
         if set(source_plan) != {
             "contract_version", "plan_id", "synthetic", "business_unit", "result_id", "sources"
         }:
@@ -680,7 +1074,11 @@ class DossierService:
 
     def _require_current_source_plan(self, approval: sqlite3.Row) -> dict[str, Any]:
         approved = self._decode(approval["source_plan_snapshot"], "source plan")
-        current = self._synthetic_source_plan(approval["result_id"], approval["business_unit"])
+        current = (
+            self._real_plan_for_result(approval["result_id"], approval["business_unit"])
+            if approved.get("synthetic") is False
+            else self._synthetic_source_plan(approval["result_id"], approval["business_unit"])
+        )
         if approved != current:
             raise MissionControlError(
                 409,
@@ -864,6 +1262,24 @@ class DossierService:
             raise MissionControlError(409, "The durable dossier approval search is unavailable.")
         plan_encoded = row["source_plan_snapshot"].encode("utf-8")
         source_plan = self._decode(row["source_plan_snapshot"], "source plan")
+        plan_raw, plan_snapshot_hash, plan_snapshot_length = _canonical(
+            source_plan, label="stored source plan", limit=64_000
+        )
+        is_real = source_plan.get("synthetic") is False
+        reviewer_valid = (
+            row["reviewer_actor"] == REAL_GOAL_AUTHORITY
+            if is_real
+            else (
+                row["reviewer_actor"] in ACTOR_SCOPE
+                and row["business_unit"] in ACTOR_SCOPE.get(row["reviewer_actor"], set())
+                and row["reviewer_actor"] != row["proposer_actor"]
+            )
+        )
+        plan_hash_valid = (
+            row["source_plan_hash"] == source_plan.get("source_plan_hash")
+            if is_real
+            else row["source_plan_hash"] == plan_snapshot_hash
+        )
         expected_account = derive_account_id(row["canonical_domain"], row["global_identity_id"])
         effective = _parse_time(row["effective_at"], "approval effective time")
         recorded = _parse_time(row["recorded_at"], "approval recorded time")
@@ -884,15 +1300,14 @@ class DossierService:
             search["request_hash"] == row["request_hash"],
             row["account_identity_version"] == ACCOUNT_IDENTITY_VERSION,
             row["account_id"] == expected_account == projected["account_id"],
-            hashlib.sha256(plan_encoded).hexdigest() == row["source_plan_hash"],
-            len(plan_encoded) == row["source_plan_byte_length"],
+            row["source_plan_snapshot"] == plan_raw,
+            len(plan_encoded) == plan_snapshot_length == row["source_plan_byte_length"],
+            plan_hash_valid,
             row["scope"] == DOSSIER_APPROVAL_SCOPE,
             row["decision"] in APPROVAL_DECISIONS,
             row["proposer_actor"] in ACTOR_SCOPE,
             row["business_unit"] in ACTOR_SCOPE.get(row["proposer_actor"], set()),
-            row["reviewer_actor"] in ACTOR_SCOPE,
-            row["business_unit"] in ACTOR_SCOPE.get(row["reviewer_actor"], set()),
-            row["reviewer_actor"] != row["proposer_actor"],
+            reviewer_valid,
             isinstance(row["reason"], str) and 0 < len(row["reason"].strip()) <= 2_000,
             effective <= recorded,
             expires == effective + APPROVAL_LIFETIME,
@@ -1026,6 +1441,138 @@ class DossierService:
             self._approval_integrity(connection, row, require_leaf=True)
             return self._approval_row(connection, row)
 
+    def record_real_goal_approval(
+        self,
+        actor: str,
+        business_unit: str,
+        search_id: str,
+        result_id: str,
+        *,
+        decision: str,
+        reason: str,
+        expected_leaf_id: str | None = None,
+        effective_at: datetime | None = None,
+        source_plan: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
+        """Record the user's exact goal authority without impersonating a local actor."""
+        self._authorize(actor, business_unit)
+        if decision not in APPROVAL_DECISIONS:
+            raise MissionControlError(400, "Unknown dossier approval decision.")
+        reason = _bounded_text(reason, "Approval reason")
+        recorded_dt = self._now_dt()
+        effective_dt = _utc(effective_at) if effective_at is not None else recorded_dt
+        if effective_dt > recorded_dt:
+            raise MissionControlError(400, "Approval effective time cannot be in the future.")
+        recorded = _format_time(recorded_dt)
+        effective = _format_time(effective_dt)
+        expires = _format_time(effective_dt + APPROVAL_LIFETIME)
+        with self.store.transaction() as connection:
+            result = connection.execute(
+                "SELECT * FROM dossier_results WHERE search_id=? AND result_id=? AND business_unit=?",
+                (search_id, result_id, business_unit),
+            ).fetchone()
+            if result is None:
+                raise MissionControlError(403, "Business-unit access denied or selected result not found.")
+            projected = self._result_row(result)
+            if projected["candidate"].get("synthetic") is not False or not projected["selected"]:
+                raise MissionControlError(409, "Only an exact selected real result can receive goal authority.")
+            search = connection.execute(
+                "SELECT * FROM dossier_searches WHERE search_id=? AND business_unit=?",
+                (search_id, business_unit),
+            ).fetchone()
+            if search is None:
+                raise MissionControlError(403, "Business-unit access denied or Phase 6 search not found.")
+            request = self._check_snapshot(search, "request", "search request")
+            self._require_exact_real_search_request(request, business_unit)
+            if request.get("synthetic") is not False or search["initiating_actor"] != actor:
+                raise MissionControlError(403, "Only the bound proposer may bind the user's exact goal authority.")
+            plan = self._real_plan_for_result(result_id, business_unit)
+            if source_plan is not None and source_plan != plan:
+                raise MissionControlError(400, "The source plan does not exactly match the authorized real result.")
+            if plan["source_plan_id"] not in request.get("source_plan_ids", []):
+                raise MissionControlError(409, "The real result source plan is not bound to its search request.")
+            try:
+                validate_real_result_projection(projected["candidate"], projected["decision"], plan)
+            except ValidationError as exc:
+                raise MissionControlError(409, "The selected real result failed exact-plan validation.") from exc
+            self._require_prior_real_targets_terminal(
+                connection, search_id, plan["source_plan_id"], now=recorded_dt
+            )
+            self._require_no_later_real_target_progress(
+                connection, search_id, plan["source_plan_id"]
+            )
+            leaf = self._approval_leaf(connection, result["result_record_id"])
+            expected = expected_leaf_id or None
+            if (leaf is None and expected is not None) or (
+                leaf is not None and expected != leaf["approval_event_id"]
+            ):
+                raise MissionControlError(409, "The expected dossier approval is not the current leaf.")
+            _result_raw, result_hash, result_length = _canonical(
+                projected, label="approved real dossier result"
+            )
+            plan_raw, _plan_snapshot_hash, plan_length = _canonical(
+                plan, label="Phase 6 real source plan", limit=64_000
+            )
+            event_id = self._next_id(connection, "dapproval", business_unit)
+            correlation_id = self._next_id(connection, "dcorr", business_unit)
+            event = {
+                "approval_event_id": event_id,
+                "result_record_id": result["result_record_id"],
+                "search_id": search_id,
+                "result_id": result_id,
+                "global_identity_id": result["global_identity_id"],
+                "account_id": derive_account_id(result["canonical_domain"], result["global_identity_id"]),
+                "account_identity_version": ACCOUNT_IDENTITY_VERSION,
+                "canonical_domain": result["canonical_domain"],
+                "business_unit": business_unit,
+                "result_hash": result_hash,
+                "result_byte_length": result_length,
+                "history_hash": search["history_hash"],
+                "request_hash": search["request_hash"],
+                "source_plan_snapshot": plan_raw,
+                "source_plan_hash": plan["source_plan_hash"],
+                "source_plan_byte_length": plan_length,
+                "scope": DOSSIER_APPROVAL_SCOPE,
+                "decision": decision,
+                "proposer_actor": actor,
+                "reviewer_actor": REAL_GOAL_AUTHORITY,
+                "reason": reason,
+                "effective_at": effective,
+                "recorded_at": recorded,
+                "expires_at": expires,
+                "supersedes_id": leaf["approval_event_id"] if leaf else None,
+                "audit_correlation_id": correlation_id,
+            }
+            raw, content_hash, byte_length = _canonical(
+                event, label="Real dossier goal-authority event", limit=64_000
+            )
+            try:
+                connection.execute(
+                    "INSERT INTO dossier_approval_events ("
+                    + ",".join(event)
+                    + ",event_snapshot,content_hash,byte_length) VALUES ("
+                    + ",".join("?" for _ in range(len(event) + 3))
+                    + ")",
+                    (*event.values(), raw, content_hash, byte_length),
+                )
+            except sqlite3.IntegrityError as exc:
+                raise MissionControlError(409, "The dossier approval leaf changed concurrently.") from exc
+            self.store.insert_audit(
+                connection,
+                run_id=search_id,
+                event_type="phase6_real_goal_authority_recorded",
+                actor=REAL_GOAL_AUTHORITY,
+                business_unit=business_unit,
+                correlation_id=correlation_id,
+                safe_status=decision,
+                recorded_at=recorded,
+            )
+            row = connection.execute(
+                "SELECT * FROM dossier_approval_events WHERE approval_event_id=?", (event_id,)
+            ).fetchone()
+            self._approval_integrity(connection, row, require_leaf=True)
+            return self._approval_row(connection, row)
+
     def _approval_row(
         self, connection: sqlite3.Connection, row: sqlite3.Row
     ) -> dict[str, Any]:
@@ -1107,6 +1654,26 @@ class DossierService:
             if existing is not None:
                 if existing["request_fingerprint"] != fingerprint:
                     raise MissionControlError(409, "Idempotency key was already used with different dossier input.")
+                existing_approval = connection.execute(
+                    "SELECT * FROM dossier_approval_events WHERE approval_event_id=? AND business_unit=?",
+                    (existing["approval_event_id"], business_unit),
+                ).fetchone()
+                if existing_approval is None:
+                    raise MissionControlError(409, "The stored dossier run lost its approval binding.")
+                self._approval_integrity(connection, existing_approval, require_leaf=False)
+                existing_plan = self._require_current_source_plan(existing_approval)
+                if existing_plan.get("synthetic") is False:
+                    self._require_prior_real_targets_terminal(
+                        connection,
+                        existing_approval["search_id"],
+                        existing_plan["source_plan_id"],
+                        now=now_dt,
+                    )
+                    self._require_no_later_real_target_progress(
+                        connection,
+                        existing_approval["search_id"],
+                        existing_plan["source_plan_id"],
+                    )
                 if existing["state"] == "running":
                     self._register_active(existing["dossier_run_id"])
                 return self._run_row(existing), False
@@ -1117,7 +1684,17 @@ class DossierService:
             if approval is None:
                 raise MissionControlError(403, "Business-unit access denied or dossier approval not found.")
             result, _search = self._approval_integrity(connection, approval, require_leaf=True)
-            self._require_current_source_plan(approval)
+            plan = self._require_current_source_plan(approval)
+            if plan.get("synthetic") is False:
+                self._require_prior_real_targets_terminal(
+                    connection,
+                    approval["search_id"],
+                    plan["source_plan_id"],
+                    now=now_dt,
+                )
+                self._require_no_later_real_target_progress(
+                    connection, approval["search_id"], plan["source_plan_id"]
+                )
             if approval["decision"] != "approved":
                 raise MissionControlError(409, "The current dossier approval is not approved.")
             if actor != approval["proposer_actor"]:
@@ -1230,6 +1807,69 @@ class DossierService:
         self._unregister_active(run_id)
         return result
 
+    def _real_bundle_for_run(
+        self, actor: str, business_unit: str, run_id: str
+    ) -> dict[str, Any] | None:
+        """Resolve a claimed exact plan, close SQLite, then perform the bounded read."""
+        connection = self.store._connect()
+        try:
+            run = connection.execute(
+                "SELECT * FROM dossier_runs WHERE dossier_run_id=? AND business_unit=?",
+                (run_id, business_unit),
+            ).fetchone()
+            if run is None:
+                raise MissionControlError(403, "Business-unit access denied or dossier run not found.")
+            if run["initiating_actor"] != actor:
+                raise MissionControlError(403, "Only the initiating actor may complete this dossier run.")
+            approval = connection.execute(
+                "SELECT * FROM dossier_approval_events WHERE approval_event_id=? AND business_unit=?",
+                (run["approval_event_id"], business_unit),
+            ).fetchone()
+            if approval is None:
+                raise MissionControlError(409, "The dossier approval is unavailable.")
+            self._approval_integrity(connection, approval, require_leaf=False)
+            plan = self._require_current_source_plan(approval)
+            if plan.get("synthetic") is not False:
+                return None
+            if run["state"] == "succeeded":
+                return None
+            expected_account = derive_account_id(run["canonical_domain"], run["global_identity_id"])
+            if (
+                run["state"] != "running"
+                or run["cancel_requested"]
+                or run["account_id"] != expected_account
+                or approval["account_id"] != expected_account
+                or run["result_id"] != derive_real_result_id(plan)
+                or approval["decision"] != "approved"
+            ):
+                raise MissionControlError(409, "The claimed real dossier run is not executable.")
+            self._require_prior_real_targets_terminal(
+                connection,
+                approval["search_id"],
+                plan["source_plan_id"],
+                now=self._now_dt(),
+            )
+            self._require_no_later_real_target_progress(
+                connection, approval["search_id"], plan["source_plan_id"]
+            )
+            plan_id = plan["source_plan_id"]
+        finally:
+            connection.close()
+        reader = self.public_reader
+        if reader is None:
+            try:
+                from .public_reader import PublicReader
+
+                reader = PublicReader(list(self.real_plans.values()))
+            except (ImportError, TypeError, ValueError) as exc:
+                raise MissionControlError(500, "The bounded public reader is unavailable.") from exc
+            self.public_reader = reader
+        try:
+            bundle = reader.read_plan(plan_id)
+            return validate_real_research_bundle(bundle, plan)
+        except ValidationError as exc:
+            raise MissionControlError(409, "The bounded public research result failed its contract.") from exc
+
     def _candidate_payload(
         self,
         connection: sqlite3.Connection,
@@ -1237,6 +1877,7 @@ class DossierService:
         approval: sqlite3.Row,
         version: int,
         research_cutoff: str,
+        research_bundle: dict[str, Any] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         result_row = connection.execute(
             "SELECT * FROM dossier_results WHERE result_record_id=? AND business_unit=?",
@@ -1253,6 +1894,33 @@ class DossierService:
             raise MissionControlError(409, "The dossier search is unavailable.")
         history = self._check_snapshot(search_row, "history", "history snapshot")
         search_request = self._check_snapshot(search_row, "request", "search request")
+        source_plan = self._decode(approval["source_plan_snapshot"], "source plan")
+        if source_plan.get("synthetic") is False:
+            if research_bundle is None:
+                raise MissionControlError(409, "The real dossier candidate has no bounded research bundle.")
+            approved_result = copy.deepcopy(result["decision"])
+            try:
+                dossier = build_real_customer_dossier(
+                    plan=source_plan,
+                    research_bundle=research_bundle,
+                    history=history,
+                    approved_result=approved_result,
+                    approval_id=approval["approval_event_id"],
+                    search_request_id=search_request["request_id"],
+                    history_fingerprint=search_row["history_hash"],
+                    research_cutoff=research_bundle["completed_at"],
+                    maximum_evidence_age_days=search_request["campaign"]["maximum_evidence_age_days"],
+                    version=version,
+                )
+                validate_real_customer_dossier(
+                    dossier,
+                    history=history,
+                    approved_result=approved_result,
+                    source_plan=source_plan,
+                )
+            except ValidationError as exc:
+                raise MissionControlError(409, "The real dossier candidate failed its contract.") from exc
+            return dossier, history, approved_result
         dossier = self._template_dossier(run["result_id"])
         if dossier is None:
             dossier = self._generic_dossier(
@@ -1293,7 +1961,14 @@ class DossierService:
             raise MissionControlError(409, "The dossier candidate failed the frozen contract.") from exc
         return dossier, history, approved_result
 
-    def _complete_dossier(self, actor: str, business_unit: str, run_id: str) -> dict[str, Any]:
+    def _complete_dossier(
+        self,
+        actor: str,
+        business_unit: str,
+        run_id: str,
+        *,
+        research_bundle: dict[str, Any] | None = None,
+    ) -> dict[str, Any]:
         self._authorize(actor, business_unit)
         now = self._now()
         with self.store.transaction() as connection:
@@ -1323,7 +1998,19 @@ class DossierService:
             if approval is None:
                 raise MissionControlError(409, "The dossier approval is unavailable.")
             self._approval_integrity(connection, approval, require_leaf=False)
-            self._require_current_source_plan(approval)
+            source_plan = self._require_current_source_plan(approval)
+            if source_plan.get("synthetic") is False:
+                self._require_prior_real_targets_terminal(
+                    connection,
+                    approval["search_id"],
+                    source_plan["source_plan_id"],
+                    now=self._now_dt(),
+                )
+                self._require_no_later_real_target_progress(
+                    connection,
+                    approval["search_id"],
+                    source_plan["source_plan_id"],
+                )
             expected_account = derive_account_id(run["canonical_domain"], run["global_identity_id"])
             if (
                 run["account_identity_version"] != ACCOUNT_IDENTITY_VERSION
@@ -1338,15 +2025,26 @@ class DossierService:
                 or run["initiating_actor"] != approval["proposer_actor"]
             ):
                 raise MissionControlError(409, "The dossier account binding failed at candidate creation.")
-            family_id = "dossier-" + hashlib.sha256(run["account_id"].encode("utf-8")).hexdigest()[:24]
+            family_id = (
+                "dossier-real-v2-"
+                if source_plan.get("synthetic") is False
+                else "dossier-"
+            ) + hashlib.sha256(run["account_id"].encode("utf-8")).hexdigest()[:24]
             version = connection.execute(
                 "SELECT COALESCE(MAX(version),0)+1 AS next_version FROM dossier_candidates "
                 "WHERE dossier_family_id=? AND business_unit=?",
                 (family_id, business_unit),
             ).fetchone()["next_version"]
             dossier, _history, _approved_result = self._candidate_payload(
-                connection, run, approval, version, now
+                connection,
+                run,
+                approval,
+                version,
+                now,
+                research_bundle=research_bundle,
             )
+            if dossier.get("dossier_id") != family_id:
+                raise MissionControlError(409, "The dossier family derivation changed before persistence.")
             raw, content_hash, byte_length = _canonical(dossier, label="Dossier candidate")
             candidate_id = self._next_id(connection, "dcandidate", business_unit)
             self.store._fault("insert_dossier_candidate")
@@ -1387,7 +2085,13 @@ class DossierService:
 
     def complete_dossier(self, actor: str, business_unit: str, run_id: str) -> dict[str, Any]:
         try:
-            result = self._complete_dossier(actor, business_unit, run_id)
+            research_bundle = self._real_bundle_for_run(actor, business_unit, run_id)
+            result = self._complete_dossier(
+                actor,
+                business_unit,
+                run_id,
+                research_bundle=research_bundle,
+            )
         except Exception:
             if self._fail_dossier_run(actor, business_unit, run_id):
                 self._unregister_active(run_id)
@@ -1487,10 +2191,20 @@ class DossierService:
             "account_id": row["account_id"],
             "canonical_domain": row["canonical_domain"],
         })
+        source_plan = self._decode(approval["source_plan_snapshot"], "source plan")
+        is_real = dossier.get("synthetic") is False
         try:
-            validate_customer_dossier(
-                dossier, history=history, approved_result=approved_result
-            )
+            if is_real:
+                validate_real_customer_dossier(
+                    dossier,
+                    history=history,
+                    approved_result=approved_result,
+                    source_plan=source_plan,
+                )
+            else:
+                validate_customer_dossier(
+                    dossier, history=history, approved_result=approved_result
+                )
         except ValidationError as exc:
             raise MissionControlError(
                 409, "The stored dossier candidate failed contract integrity validation."
@@ -1502,8 +2216,11 @@ class DossierService:
             or row["account_id"] != expected
             or row["dossier_family_id"] != dossier.get("dossier_id")
             or row["version"] != dossier.get("version")
-            or dossier.get("idempotency_identity")
-            != f"phase6-runtime:{row['business_unit']}:{row['result_id']}:{row['version']}"
+            or dossier.get("idempotency_identity") != (
+                f"phase6-real:{row['business_unit']}:{row['result_id']}:{row['version']}"
+                if is_real
+                else f"phase6-runtime:{row['business_unit']}:{row['result_id']}:{row['version']}"
+            )
             or dossier.get("business_unit") != row["business_unit"]
             or dossier.get("history_fingerprint") != row["history_hash"]
             or dossier.get("review_state") != "pending_research_quality_review"
@@ -1536,6 +2253,7 @@ class DossierService:
             or approval["canonical_domain"] != row["canonical_domain"]
             or approval["history_hash"] != row["history_hash"]
             or approval["source_plan_hash"] != row["source_plan_hash"]
+            or (is_real and dossier.get("source_plan_hash") != row["source_plan_hash"])
             or search["history_hash"] != row["history_hash"]
             or row["proposer_actor"] not in ACTOR_SCOPE
             or row["business_unit"] not in ACTOR_SCOPE.get(row["proposer_actor"], set())
@@ -1581,8 +2299,13 @@ class DossierService:
         decision: str,
         reason: str,
         idempotency_key: str,
+        _human_authority: bool = False,
     ) -> tuple[dict[str, Any], bool]:
-        self._authorize(actor, business_unit)
+        if _human_authority:
+            if actor != REAL_HUMAN_REVIEWER or business_unit not in BUSINESS_UNITS:
+                raise MissionControlError(403, "The explicit human-review authority is invalid.")
+        else:
+            self._authorize(actor, business_unit)
         if decision not in TERMINAL_REVIEW_DECISIONS:
             raise MissionControlError(400, "Unknown terminal dossier review decision.")
         reason = _bounded_text(reason, "Review reason")
@@ -1611,6 +2334,12 @@ class DossierService:
             if candidate_row is None:
                 raise MissionControlError(403, "Business-unit access denied or dossier candidate not found.")
             candidate = self._candidate_row(connection, candidate_row)
+            is_real = candidate["dossier"].get("synthetic") is False
+            if is_real != _human_authority:
+                raise MissionControlError(
+                    403,
+                    "A real dossier requires the explicit human review pathway; simulated local actors have no human authority.",
+                )
             if actor == candidate["proposer_actor"]:
                 raise MissionControlError(403, "The dossier proposer cannot perform terminal research review.")
             existing = connection.execute(
@@ -1689,22 +2418,45 @@ class DossierService:
                 ):
                     raise MissionControlError(409, "The dossier account binding failed at release.")
                 try:
-                    validate_customer_dossier(
-                        final_dossier, history=history, approved_result=approved_result
+                    source_plan = self._decode(
+                        approval_row["source_plan_snapshot"], "source plan"
                     )
+                    if is_real:
+                        validate_real_customer_dossier(
+                            final_dossier,
+                            history=history,
+                            approved_result=approved_result,
+                            source_plan=source_plan,
+                        )
+                    else:
+                        validate_customer_dossier(
+                            final_dossier, history=history, approved_result=approved_result
+                        )
                     prior_rows = connection.execute(
                         "SELECT package_snapshot FROM lead_intelligence_packages "
                         "WHERE business_unit=? ORDER BY package_record_id",
                         (business_unit,),
                     ).fetchall()
                     prior_packages = [self._decode(row["package_snapshot"], "lead package") for row in prior_rows]
-                    package = build_lead_intelligence_package(
-                        final_dossier,
-                        history=history,
-                        approved_result=approved_result,
-                        prior_packages=prior_packages,
-                    )
-                    validate_lead_intelligence_package(package)
+                    if is_real:
+                        package = build_real_lead_intelligence_package(
+                            final_dossier,
+                            history=history,
+                            approved_result=approved_result,
+                            source_plan=source_plan,
+                            prior_packages=prior_packages,
+                        )
+                        validate_real_lead_intelligence_package(
+                            package, source_plan=source_plan
+                        )
+                    else:
+                        package = build_lead_intelligence_package(
+                            final_dossier,
+                            history=history,
+                            approved_result=approved_result,
+                            prior_packages=prior_packages,
+                        )
+                        validate_lead_intelligence_package(package)
                 except ContractConflict as exc:
                     raise MissionControlError(409, str(exc)) from exc
                 except ValidationError as exc:
@@ -1753,6 +2505,26 @@ class DossierService:
             ).fetchone()
             return self._review_projection(connection, row), True
 
+    def record_real_human_review(
+        self,
+        business_unit: str,
+        candidate_id: str,
+        *,
+        decision: str,
+        reason: str,
+        idempotency_key: str,
+    ) -> tuple[dict[str, Any], bool]:
+        """Persist only a directly supplied exact-version human decision."""
+        return self.review_candidate(
+            REAL_HUMAN_REVIEWER,
+            business_unit,
+            candidate_id,
+            decision=decision,
+            reason=reason,
+            idempotency_key=idempotency_key,
+            _human_authority=True,
+        )
+
     def _review_projection(self, connection: sqlite3.Connection, row: sqlite3.Row) -> dict[str, Any]:
         raw = row["event_snapshot"]
         encoded = raw.encode("utf-8")
@@ -1771,6 +2543,19 @@ class DossierService:
             "SELECT * FROM dossier_candidates WHERE candidate_version_id=? AND business_unit=?",
             (row["candidate_version_id"], row["business_unit"]),
         ).fetchone()
+        candidate_snapshot = (
+            self._decode(candidate_row["dossier_snapshot"], "dossier candidate")
+            if candidate_row is not None
+            else {}
+        )
+        reviewer_valid = (
+            row["reviewer_actor"] == REAL_HUMAN_REVIEWER
+            if candidate_snapshot.get("synthetic") is False
+            else (
+                row["reviewer_actor"] in ACTOR_SCOPE
+                and row["business_unit"] in ACTOR_SCOPE.get(row["reviewer_actor"], set())
+            )
+        )
         if (
             hashlib.sha256(encoded).hexdigest() != row["content_hash"]
             or len(encoded) != row["byte_length"]
@@ -1782,8 +2567,7 @@ class DossierService:
             or candidate_row["byte_length"] != row["candidate_byte_length"]
             or candidate_row["proposer_actor"] != row["proposer_actor"]
             or row["reviewer_actor"] == row["proposer_actor"]
-            or row["reviewer_actor"] not in ACTOR_SCOPE
-            or row["business_unit"] not in ACTOR_SCOPE.get(row["reviewer_actor"], set())
+            or not reviewer_valid
         ):
             raise MissionControlError(409, "The dossier review failed its integrity check.")
         candidate = self._candidate_row(connection, candidate_row)
@@ -1827,6 +2611,37 @@ class DossierService:
             or package["package"]["business_unit"] != row["business_unit"]
         ):
             raise MissionControlError(409, "The lead package release binding failed its integrity check.")
+        if final_dossier.get("synthetic") is False:
+            history_row = connection.execute(
+                "SELECT history_snapshot FROM dossier_searches WHERE search_id=? AND business_unit=?",
+                (candidate["search_id"], row["business_unit"]),
+            ).fetchone()
+            result_row = connection.execute(
+                "SELECT * FROM dossier_results WHERE result_record_id=("
+                "SELECT result_record_id FROM dossier_runs WHERE dossier_run_id=? AND business_unit=?"
+                ") AND business_unit=?",
+                (candidate["dossier_run_id"], row["business_unit"], row["business_unit"]),
+            ).fetchone()
+            approval_row = connection.execute(
+                "SELECT * FROM dossier_approval_events WHERE approval_event_id=? AND business_unit=?",
+                (candidate["approval_event_id"], row["business_unit"]),
+            ).fetchone()
+            if history_row is None or result_row is None or approval_row is None:
+                raise MissionControlError(409, "The real lead package projection provenance is unavailable.")
+            approved_result = self._result_row(result_row)["decision"]
+            approved_result.update({"selected": True, "business_unit": row["business_unit"]})
+            source_plan = self._decode(approval_row["source_plan_snapshot"], "source plan")
+            try:
+                expected_package = build_real_lead_intelligence_package(
+                    final_dossier,
+                    history=self._decode(history_row["history_snapshot"], "history snapshot"),
+                    approved_result=approved_result,
+                    source_plan=source_plan,
+                )
+            except ValidationError as exc:
+                raise MissionControlError(409, "The real lead package projection failed validation.") from exc
+            if package["package"] != expected_package:
+                raise MissionControlError(409, "The real lead package is not the canonical dossier projection.")
         return {"review": event, "package": package}
 
     def _package_row(self, row: sqlite3.Row) -> dict[str, Any]:
@@ -1836,7 +2651,13 @@ class DossierService:
         if hashlib.sha256(encoded).hexdigest() != row["content_hash"] or len(encoded) != row["byte_length"]:
             raise MissionControlError(409, "The lead intelligence package failed its integrity check.")
         try:
-            validate_lead_intelligence_package(package)
+            if package.get("synthetic") is False:
+                plan = self._real_plan_for_id(
+                    package.get("approved_result", {}).get("source_plan_id")
+                )
+                validate_real_lead_intelligence_package(package, source_plan=plan)
+            else:
+                validate_lead_intelligence_package(package)
         except ValidationError as exc:
             raise MissionControlError(409, "The lead intelligence package failed contract validation.") from exc
         expected = derive_account_id(
@@ -1849,6 +2670,10 @@ class DossierService:
             or row["idempotency_identity"] != package["idempotency_identity"]
             or row["request_fingerprint"] != package["canonical_hash"]
             or row["business_unit"] != package["business_unit"]
+            or (
+                package.get("synthetic") is False
+                and row["source_plan_hash"] != package.get("source_plan_hash")
+            )
         ):
             raise MissionControlError(409, "The lead package account binding failed its integrity check.")
         if not re.fullmatch(r"[0-9a-f]{64}", row["source_plan_hash"]):

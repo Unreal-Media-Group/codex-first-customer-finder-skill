@@ -248,8 +248,8 @@ likeness, advertisement, outreach, deployment, or downstream-agent capability. B
 explicitly research-quality status only. The full contract and independent-review checks are in
 `docs/PHASE_6_ENRICHMENT_BRIEF.md`.
 
-The authorized contract-first portion of Phase 6B defines and validates the dossier and graph-package
-shapes without live reads. A later, separately authorized live-research extension would follow this
+The finalized contract-first portion of Phase 6B defines and validates the dossier and graph-package
+shapes without live reads. The separately authorized exact two-target live proof follows this
 governed boundary; neither portion adds a downstream worker:
 
 ```text
@@ -284,9 +284,10 @@ rights, and history. Each applicable category is populated or carries an explici
 material value distinguishes observation from inference and carries source lineage, confidence,
 uncertainty, and freshness.
 
-All Phase 6B source material is untrusted data. The future reader must enforce public HTTP(S)
-destinations, redirect revalidation, private/internal-address denial, and bounded time, size, content
-type, and extraction depth. It retains bounded claims and references, not raw page bodies or
+All Phase 6B source material is untrusted data. The additive v2 reader enforces the exact approved
+HTTPS destinations, redirect and robots revalidation, private/internal-address denial, TLS peer and
+hostname binding, and bounded time, headers, body, content type, and extracted text. It retains
+bounded claims and references, not raw page bodies or
 executable content. Source text cannot become a system instruction, tool call, policy override,
 review event, or downstream action.
 
@@ -301,12 +302,13 @@ schemas, synthetic fixtures, deterministic validator, and tests are independentl
 finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The validator reuses the frozen
 Phase 1 campaign/history validation
 and duplicate classifier, applies history protections before opportunity intent and qualification,
-and emits canonical local packages with all downstream authority flags denied. Live reads and any
-future consumer that stores or routes the released package remain separate work with separate
-authority.
+and emits canonical local packages with all downstream authority flags denied. The one exact
+two-target public-read proof is additive v2 work governed by the repository manifest; any future
+source, general discovery reader, or consumer that stores or routes a released package remains
+separate work with separate authority.
 
-The governed synthetic dossier runtime connects that frozen contract to local SQLite without
-changing the Phase 6B schemas. `DossierService` is the sole schema-v4 activation boundary. It records
+The governed dossier runtime connects that frozen contract to local SQLite without changing the v1
+Phase 6B schemas. `DossierService` is the sole schema-v4 activation boundary. It records
 immutable search/history/evaluation snapshots; projects every prior durable search outcome into the
 next history snapshot; derives account identity from canonical domain plus global identity; and
 serializes exact source-plan approval, single-use claims, cancellation, completion, and one terminal
@@ -322,7 +324,12 @@ do not depend on mutable fixture bytes. Runtime research cutoff and freshness ar
 contract validation. An accepted review atomically creates the immutable final dossier, one package,
 and audit event; every read recomputes its request fingerprint and revalidates the complete
 run/approval/result/search/candidate/final/package/source-plan chain. Non-accepted terminal reviews
-have no release. See `docs/PHASE_6_DOSSIER_RUNTIME.md`.
+have no release. The real v2 route uses a separate exact manifest and validators, executes its
+reader only after a result-bound goal-authority claim and outside SQLite, persists no raw body or
+extracted text, and rejects simulated-actor acceptance. Target progression is monotonic across the
+exact CELSIUS-then-Jazwares alternatives at authority, claim, read, persistence, and UI boundaries.
+See `docs/PHASE_6_DOSSIER_RUNTIME.md` and
+`docs/PHASE_6_REAL_PUBLIC_PROOF.md`.
 
 ## Ownership
 
@@ -345,6 +352,8 @@ have no release. See `docs/PHASE_6_DOSSIER_RUNTIME.md`.
 | Phase 6B dossier and graph-package contracts | `shared/prospecting-core/schemas/*phase6b*`, `customer-dossier.schema.json`, `lead-intelligence-package.schema.json`, `shared/prospecting-core/scripts/validate_phase6b_contract.py` |
 | Phase 6B synthetic dossier/history fixtures | `fixtures/prospecting/phase6/dossier-*.json` |
 | Phase 6 governed dossier runtime | `apps/prospecting-mission-control/mission_control/dossier.py`, `store.py`, `web.py` |
+| Phase 6 exact public-source contract and manifest | `shared/prospecting-core/schemas/*-real.schema.json`, `shared/prospecting-core/scripts/validate_phase6_real_contract.py`, `shared/prospecting-core/manifests/phase6-live-proof-source-plans.json` |
+| Phase 6 bounded public reader | `apps/prospecting-mission-control/mission_control/public_reader.py` |
 | Original upstream skill | `first-customer-finder/` |
 
 Skill report scripts are thin delegates. The installer places the shared core once at `unreal-prospecting-core`, preventing two business skills from drifting.

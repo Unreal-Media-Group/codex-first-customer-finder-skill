@@ -1,0 +1,141 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unreal.local/schemas/phase6-real-source-plan.schema.json",
+  "title": "Unreal Phase 6 Exact Public Source Plan",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "contract_version",
+    "synthetic",
+    "source_plan_id",
+    "organization_name",
+    "location_basis",
+    "canonical_domain",
+    "approved_related_domains",
+    "stable_identity_seed",
+    "business_unit",
+    "opportunity_filter",
+    "approved_origins",
+    "robots_policy_urls",
+    "sources",
+    "budgets",
+    "source_plan_hash"
+  ],
+  "properties": {
+    "contract_version": {"const": 2},
+    "synthetic": {"const": false},
+    "source_plan_id": {"$ref": "#/$defs/stableId"},
+    "organization_name": {"type": "string", "minLength": 1, "maxLength": 200},
+    "location_basis": {"type": "string", "minLength": 1, "maxLength": 300},
+    "canonical_domain": {"$ref": "#/$defs/domain"},
+    "approved_related_domains": {
+      "type": "array",
+      "maxItems": 20,
+      "uniqueItems": true,
+      "items": {"$ref": "#/$defs/domain"}
+    },
+    "stable_identity_seed": {"type": "string", "minLength": 3, "maxLength": 300},
+    "business_unit": {"const": "unreal-media-group"},
+    "opportunity_filter": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["include_any", "exclude"],
+      "properties": {
+        "include_any": {
+          "const": ["product_photography", "product_video"]
+        },
+        "exclude": {
+          "const": ["ugc_ad"]
+        }
+      }
+    },
+    "approved_origins": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {"type": "string", "format": "uri", "maxLength": 2048}
+    },
+    "robots_policy_urls": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "uniqueItems": true,
+      "items": {"type": "string", "format": "uri", "maxLength": 2048}
+    },
+    "sources": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 12,
+      "items": {"$ref": "#/$defs/source"}
+    },
+    "budgets": {"$ref": "#/$defs/budgets"},
+    "source_plan_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"}
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "domain": {
+      "type": "string",
+      "minLength": 3,
+      "maxLength": 253,
+      "pattern": "^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$"
+    },
+    "source": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["url", "source_class"],
+      "properties": {
+        "url": {"type": "string", "format": "uri", "maxLength": 2048},
+        "source_class": {
+          "enum": [
+            "official organization and corporate overview",
+            "official brand-owned site",
+            "official company and brand information",
+            "official product portfolio",
+            "official product detail",
+            "official investor and corporate profile",
+            "official organization site",
+            "official company history and ownership context",
+            "official brand and product portfolio",
+            "official press and current activity",
+            "official careers and operational signals",
+            "official public business roles and leadership"
+          ]
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "connect_timeout_seconds",
+        "read_timeout_seconds",
+        "request_deadline_seconds",
+        "run_deadline_seconds",
+        "max_redirects_per_source",
+        "max_requests_total",
+        "max_header_bytes",
+        "max_body_bytes",
+        "max_robots_bytes",
+        "max_extracted_text_bytes"
+      ],
+      "properties": {
+        "connect_timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 15},
+        "read_timeout_seconds": {"type": "integer", "minimum": 1, "maximum": 30},
+        "request_deadline_seconds": {"type": "integer", "minimum": 2, "maximum": 60},
+        "run_deadline_seconds": {"type": "integer", "minimum": 10, "maximum": 300},
+        "max_redirects_per_source": {"type": "integer", "minimum": 0, "maximum": 3},
+        "max_requests_total": {"type": "integer", "minimum": 2, "maximum": 40},
+        "max_header_bytes": {"type": "integer", "minimum": 4096, "maximum": 65536},
+        "max_body_bytes": {"type": "integer", "minimum": 1024, "maximum": 2000000},
+        "max_robots_bytes": {"type": "integer", "minimum": 1024, "maximum": 524288},
+        "max_extracted_text_bytes": {"type": "integer", "minimum": 1024, "maximum": 500000}
+      }
+    }
+  }
+}
