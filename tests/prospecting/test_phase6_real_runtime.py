@@ -85,7 +85,10 @@ def research_bundle(plan: dict, *, fail_product: bool = False) -> dict:
             })
             continue
         body = f"official body {source['url']}".encode()
-        text = f"Official public information for {plan['organization_name']} and its product portfolio.".encode()
+        text = (
+            f"The official source describes {plan['organization_name']} and its product portfolio. "
+            "It provides current public business evidence for the approved research plan."
+        ).encode()
         kind = {
             "official organization and corporate overview": "public_business_profile",
             "official brand-owned site": "official_site",
@@ -138,6 +141,7 @@ class FakeReader:
         self.before_read = None
         self.fail_product = False
         self.invalid_summary = False
+        self.non_substantive_summary = False
 
     def read_plan(self, plan_id: str) -> dict:
         self.calls.append(plan_id)
@@ -147,15 +151,17 @@ class FakeReader:
         if self.invalid_summary:
             successful = next(source for source in bundle["sources"] if source["status"] == "success")
             successful["summary"] += " badiaspices.com"
+        if self.non_substantive_summary:
+            for source in bundle["sources"]:
+                if source["status"] == "success":
+                    source["summary"] = (
+                        "Menu Search Catalog Collections Featured New Arrivals " * 10
+                    ).strip()
         return bundle
 
 
 class AuthorizedDossierService(DossierService):
     _real_execution_request_id = REAL_LATEST_PROOF_REQUEST_ID
-
-
-class ExhaustedDossierService(DossierService):
-    _real_execution_request_id = None
 
 
 class Env:
@@ -222,8 +228,9 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         self.assertTrue(all(not item["selected"] for item in second["results"]))
         self.assertTrue(all(item["decision"]["history_classification"]["status"] == "existing_no_new_trigger" for item in second["results"]))
 
-    def test_exhausted_routes_remain_verifiable_but_only_v3_is_executable(self) -> None:
-        self.assertEqual(DossierService._real_execution_request_id, "search-real-live-proof-v3")
+    def test_exhausted_routes_remain_verifiable_and_v3_is_test_enabled_only(self) -> None:
+        self.assertIsNone(DossierService._real_execution_request_id)
+        self.assertEqual(self.env.dossier._real_execution_request_id, "search-real-live-proof-v3")
         historical_routes = {
             "search-real-live-proof-v1": [
                 "phase6-live-proof-celsius-v1", "phase6-live-proof-jazwares-v1"
@@ -256,7 +263,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
 
     def test_explicitly_sealed_runtime_has_no_unspent_real_proof_route(self) -> None:
         historical = self.env.search("sealed-v3-history")
-        exhausted = ExhaustedDossierService(
+        exhausted = DossierService(
             self.env.enrichment,
             fixture_path=DOSSIER_FIXTURE,
             history_path=HISTORY_FIXTURE,
@@ -987,6 +994,33 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         self.assertFalse(self.env.dossier.real_goal_authority_ready(
             "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
         ))
+
+    def test_navigation_only_bundle_is_terminal_no_retry_and_creates_no_candidate(self) -> None:
+        search = self.env.search()
+        approval = self.env.approve(search)
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "navigation-only"
+        )
+        self.env.reader.non_substantive_summary = True
+        with self.assertRaisesRegex(MissionControlError, "failed its contract"):
+            self.env.dossier.complete_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+        with closing(self.env.store._connect()) as connection:
+            failed = connection.execute(
+                "SELECT * FROM dossier_runs WHERE dossier_run_id=?",
+                (run["dossier_run_id"],),
+            ).fetchone()
+            candidate_count = connection.execute(
+                "SELECT COUNT(*) FROM dossier_candidates"
+            ).fetchone()[0]
+        self.assertEqual(failed["failure_class"], "source_read_failed_no_retry")
+        self.assertEqual(candidate_count, 0)
+        self.assertFalse(self.env.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "cannot be retried"):
+            self.env.approve(search, expected=approval["approval_event_id"])
 
     def test_claim_blocks_successor_authority_and_terminal_source_failure_retry(self) -> None:
         search = self.env.search()

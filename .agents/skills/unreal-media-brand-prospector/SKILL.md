@@ -256,14 +256,19 @@ supply that decision. On acceptance, release only the validated, immutable, vers
 all generation, contact, outreach, external-write, agent-invocation, and deployment authority flags
 must remain false.
 
-The repository's completed CELSIUS/Jazwares and 4ocean/Badia proof attempts remain recorded by the
-versioned routes in `shared/prospecting-core/manifests/phase6-live-proof-source-plans.json`; all four
-alternatives are terminal without a candidate and none may retry. The separately authorized
-`search-real-live-proof-v3` route contains only TUUCI followed by Miansai and is the sole executable
-real-proof route. Manifest presence alone is not execution authority: use only the current route and
-its durable exact-result approval in the repository Mission Control `DossierService`. Never
-synthesize authority or durable state inside an installed skill session. No target, URL, source
-class, retry, or substitute may be added without new exact authorization and a new versioned route.
+The repository's completed CELSIUS/Jazwares, 4ocean/Badia, and TUUCI/Miansai proof attempts remain
+recorded by the versioned routes in
+`shared/prospecting-core/manifests/phase6-live-proof-source-plans.json`. The v1 and v2 alternatives
+are terminal without a candidate. TUUCI is terminal without a candidate; Miansai's exact candidate
+received `changes_requested` and no release. None may retry. The default Mission Control
+`DossierService` has no executable real-proof route. Manifest presence alone is not execution
+authority. Never synthesize authority or durable state inside an installed skill session. No target,
+URL, source class, retry, or substitute may be added without new exact authorization and a new
+versioned route.
+
+Treat any bounded retained public-source summary as evidence inventory, not a business-research
+claim. Source class and prose shape cannot populate a broader dossier category without claim-level
+verification; record an explicit category gap instead.
 
 ## Fail closed
 

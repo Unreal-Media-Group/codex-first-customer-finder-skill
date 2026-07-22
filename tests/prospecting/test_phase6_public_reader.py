@@ -70,7 +70,11 @@ class Transport:
             body = b"User-agent: *\nAllow: /\n"
             content_type = "text/plain; charset=utf-8"
         else:
-            body = b"<html><body>Official public product evidence.</body></html>"
+            body = (
+                b"<html><body><main><p>Official public product evidence describes the company "
+                b"and its current catalog. The official page also explains its current business "
+                b"offering and product portfolio.</p></main></body></html>"
+            )
             content_type = "text/html; charset=utf-8"
         return response(request, body=body, content_type=content_type)
 
@@ -119,7 +123,9 @@ class Phase6PublicReaderTests(unittest.TestCase):
         def source(request: dict) -> dict:
             body = (
                 b"<html><head><style>private style</style><script>doNotExecute()</script></head>"
-                b"<body>Official launch. press@example.org +1 (212) 555-0100</body></html>"
+                b"<body><main><p>Official launch details describe the company and its current product catalog. "
+                b"The official page also explains its current business offering. "
+                b"press@example.org +1 (212) 555-0100</p></main></body></html>"
             )
             return response(
                 request,
@@ -408,7 +414,9 @@ class Phase6PublicReaderTests(unittest.TestCase):
         first = self.plan["sources"][0]["url"]
         oversized = b"a" * (self.plan["budgets"]["max_extracted_text_bytes"] + 1)
         bundle = self.reader(
-            transport=Transport({first: lambda request: response(request, body=oversized)})
+            transport=Transport({
+                first: lambda request: response(request, body=b"<main><p>" + oversized + b"</p></main>")
+            })
         ).read_plan(self.plan["source_plan_id"])
         record = bundle["sources"][0]
         self.assertEqual(record["safe_reason_code"], "body_limit")
@@ -417,16 +425,87 @@ class Phase6PublicReaderTests(unittest.TestCase):
     def test_credential_like_visible_text_is_rejected_not_persisted(self) -> None:
         first = self.plan["sources"][0]["url"]
         transport = Transport({
-            first: lambda request: response(request, body=b"<p>api_key=super-secret-material</p>")
+            first: lambda request: response(
+                request, body=b"<main><p>api_key=super-secret-material</p></main>"
+            )
         })
         bundle = self.reader(transport=transport).read_plan(self.plan["source_plan_id"])
         record = bundle["sources"][0]
         self.assertEqual(record["safe_reason_code"], "privacy_rejected")
         self.assertNotIn("super-secret-material", json.dumps(record))
 
+    def test_zero_width_credential_like_visible_text_is_rejected_not_persisted(self) -> None:
+        first = self.plan["sources"][0]["url"]
+        body = (
+            "<main><p>api\u200b_key=super-secret-material. "
+            "The official source describes the company and its current product catalog.</p></main>"
+        ).encode()
+        bundle = self.reader(
+            transport=Transport({first: lambda request: response(request, body=body)})
+        ).read_plan(self.plan["source_plan_id"])
+        record = bundle["sources"][0]
+        self.assertEqual(record["safe_reason_code"], "privacy_rejected")
+        self.assertNotIn("super-secret-material", json.dumps(record))
+
+    def test_default_ignorable_credential_like_visible_text_is_rejected(self) -> None:
+        first = self.plan["sources"][0]["url"]
+        body = (
+            "<main><p>api\u034f_key=super-secret-material. "
+            "The official source describes the company and its current product catalog.</p></main>"
+        ).encode()
+        bundle = self.reader(
+            transport=Transport({first: lambda request: response(request, body=body)})
+        ).read_plan(self.plan["source_plan_id"])
+        record = bundle["sources"][0]
+        self.assertEqual(record["safe_reason_code"], "privacy_rejected")
+        self.assertNotIn("super-secret-material", json.dumps(record))
+
+    def test_cross_script_credential_like_visible_text_is_rejected(self) -> None:
+        first = self.plan["sources"][0]["url"]
+        for credential in (
+            "api.key=super-secret-material",
+            "api_kеy=super-secret-material",
+            "api_kЕy=super-secret-material",
+            "АPI_KEY=super-secret-material",
+        ):
+            with self.subTest(credential=credential):
+                body = (
+                    f"<main><p>{credential}. The official source describes the company and "
+                    "its current product catalog.</p></main>"
+                ).encode()
+                bundle = self.reader(
+                    transport=Transport({first: lambda request, body=body: response(request, body=body)})
+                ).read_plan(self.plan["source_plan_id"])
+                record = bundle["sources"][0]
+                self.assertEqual(record["safe_reason_code"], "privacy_rejected")
+                self.assertNotIn("super-secret-material", json.dumps(record))
+
+    def test_spaced_unicode_contact_routes_fail_closed(self) -> None:
+        first = self.plan["sources"][0]["url"]
+        for contact in (
+            "press @ пример.рф",
+            "press (at) пример (dot) рф",
+            "press at пример dot рф",
+        ):
+            with self.subTest(contact=contact):
+                body = (
+                    f"<main><p>{contact}. The official source describes the company and its current "
+                    "product catalog. Its public page also explains the current business offering.</p></main>"
+                ).encode()
+                bundle = self.reader(
+                    transport=Transport({first: lambda request, body=body: response(request, body=body)})
+                ).read_plan(self.plan["source_plan_id"])
+                record = bundle["sources"][0]
+                self.assertEqual(record["safe_reason_code"], "privacy_rejected")
+                self.assertNotIn("press", json.dumps(record, ensure_ascii=False))
+
     def test_contact_data_split_across_html_nodes_is_scrubbed(self) -> None:
         first = self.plan["sources"][0]["url"]
-        body = b"<p>press<span>@</span>example<span>.</span>org and 212<span>-</span>555<span>-</span>0100</p>"
+        body = (
+            b"<main><p>press<span>@</span>example<span>.</span>org and 212<span>-</span>555<span>-</span>0100. "
+            b"The official source describes the company and its current product catalog. "
+            b"Its public page also explains the current business offering.</p></main>"
+        )
         bundle = self.reader(
             transport=Transport({first: lambda request: response(request, body=body)})
         ).read_plan(self.plan["source_plan_id"])
@@ -436,12 +515,49 @@ class Phase6PublicReaderTests(unittest.TestCase):
         self.assertNotIn("0100", record["summary"])
         self.assertIn("[redacted]", record["summary"])
 
+    def test_unicode_obfuscated_contact_data_is_scrubbed_before_persistence(self) -> None:
+        first = self.plan["sources"][0]["url"]
+        body = (
+            "<main><p>press＠example．org and press@example。org and "
+            "press@пример.рф and press@exаmple.com and "
+            "press\u200b@\u200bexample\u200b.\u200borg and "
+            "212\u200b-\u200b555\u200b-\u200b0100. "
+            "The official source describes the company and its current product catalog. "
+            "Its public page also explains the current business offering.</p></main>"
+        ).encode()
+        bundle = self.reader(
+            transport=Transport({first: lambda request: response(request, body=body)})
+        ).read_plan(self.plan["source_plan_id"])
+        record = bundle["sources"][0]
+        self.assertEqual(record["status"], "success")
+        serialized = json.dumps(record, ensure_ascii=False)
+        self.assertNotIn("press", serialized)
+        self.assertNotIn("0100", serialized)
+        self.assertNotIn("\u200b", record["summary"])
+        self.assertGreaterEqual(record["summary"].count("[redacted]"), 6)
+
+    def test_combining_mark_contact_data_fails_closed_without_partial_redaction(self) -> None:
+        first = self.plan["sources"][0]["url"]
+        body = (
+            "<main><p>press@exa\u0301mple.com. "
+            "The official source describes the company and its current product catalog. "
+            "Its public page also explains the current business offering.</p></main>"
+        ).encode()
+        bundle = self.reader(
+            transport=Transport({first: lambda request: response(request, body=body)})
+        ).read_plan(self.plan["source_plan_id"])
+        record = bundle["sources"][0]
+        self.assertEqual(record["safe_reason_code"], "privacy_rejected")
+        self.assertNotIn("press", json.dumps(record, ensure_ascii=False))
+
     def test_obfuscated_contact_routes_and_bare_urls_are_scrubbed(self) -> None:
         first = self.plan["sources"][0]["url"]
         body = (
-            b"<p>press [at] example [dot] org; 212.555.0100; "
+            b"<main><p>press [at] example [dot] org; 212.555.0100; "
             b"www.unapproved.invalid/contact; unapproved.invalid/contact; "
             b"https://unapproved.invalid/contact; example.com; official evidence.</p>"
+            b"<p>The official evidence describes the company and its current product catalog. "
+            b"Its public page also explains the current business offering.</p></main>"
         )
         bundle = self.reader(
             transport=Transport({first: lambda request: response(request, body=body)})
@@ -459,7 +575,7 @@ class Phase6PublicReaderTests(unittest.TestCase):
 
     def test_temporary_password_visible_text_is_rejected(self) -> None:
         first = self.plan["sources"][0]["url"]
-        body = b"<p>Temporary password: hunter2</p>"
+        body = b"<main><p>Temporary password: hunter2</p></main>"
         bundle = self.reader(
             transport=Transport({first: lambda request: response(request, body=body)})
         ).read_plan(self.plan["source_plan_id"])
@@ -470,20 +586,102 @@ class Phase6PublicReaderTests(unittest.TestCase):
     def test_hidden_and_malformed_executable_text_is_not_extracted(self) -> None:
         first = self.plan["sources"][0]["url"]
         body = (
-            b"<p>Visible official evidence.</p>"
+            b"<main><p>Visible official evidence describes the company and its current product catalog.</p>"
             b"<div hidden>hidden-marker-one</div>"
             b"<div aria-hidden='true'>hidden-marker-two</div>"
             b"<div style='display: none'>hidden-marker-three</div>"
             b"<script>hidden-marker-four</style>hidden-marker-five</script>"
-            b"<p>Visible closing evidence.</p>"
+            b"<p>The official page also explains its current business offering and operations.</p></main>"
         )
         bundle = self.reader(
             transport=Transport({first: lambda request: response(request, body=body)})
         ).read_plan(self.plan["source_plan_id"])
         summary = bundle["sources"][0]["summary"]
         self.assertIn("Visible official evidence", summary)
-        self.assertIn("Visible closing evidence", summary)
+        self.assertIn("current business offering", summary)
         self.assertNotIn("hidden-marker", summary)
+
+    def test_summary_prefers_main_research_content_over_navigation_chrome(self) -> None:
+        first = self.plan["sources"][0]["url"]
+        navigation = " ".join(["navigation-marker menu search catalog"] * 80)
+        body = (
+            "<html><body>"
+            f"<header><nav>{navigation}</nav></header>"
+            "<main><h1>Official company profile</h1>"
+            "<p>The company designs and manufactures outdoor products in Miami. "
+            "Its official page also explains the current business offering and operations.</p></main>"
+            "<footer>footer-navigation-marker</footer>"
+            "</body></html>"
+        ).encode()
+        bundle = self.reader(
+            transport=Transport({first: lambda request: response(request, body=body)})
+        ).read_plan(self.plan["source_plan_id"])
+        summary = bundle["sources"][0]["summary"]
+        self.assertIn("designs and manufactures outdoor products", summary)
+        self.assertNotIn("navigation-marker", summary)
+        self.assertNotIn("footer-navigation-marker", summary)
+
+    def test_navigation_only_text_fails_closed_without_retained_metadata(self) -> None:
+        first = self.plan["sources"][0]["url"]
+        cases = {
+            "semantic-nav": "<nav>Menu Search Catalog Collections</nav>",
+            "aria-nav": "<div role='navigation'>Menu Search Catalog Collections</div>",
+            "generic-menu-labels": "<div>" + ("Menu Search Catalog Collections " * 40) + "</div>",
+            "punctuated-title-case-menu": (
+                "<div>Shop New Arrivals, Products, Collections, Gifts, Stores, About Us.</div>"
+            ),
+            "punctuated-lowercase-menu": (
+                "<div>menu search catalog collections featured new arrivals offers.</div>"
+            ),
+            "padded-title-case-menu": (
+                "<main><div>Shop New Arrivals and Explore Products for all our favorite styles.</div></main>"
+            ),
+            "padded-lowercase-menu": (
+                "<div role='main'>shop new arrivals and explore products for all our favorite styles.</div>"
+            ),
+            "drawer-menu-prose": (
+                "<article><div class='drawer-menu'>Open the menu to explore new arrivals, bestselling "
+                "rings, necklaces, bracelets, and gifts.</div></article>"
+            ),
+            "malformed-preferred-boundary": (
+                "<main><article></main><div>Open the menu to explore new arrivals, bestselling "
+                "rings, necklaces, bracelets, and gifts.</div>"
+            ),
+            "direct-main-padded-prose": (
+                "<main>Shop New Arrivals and Explore Products for all our favorite styles. "
+                "Browse featured collections and discover more gifts for favorite moments.</main>"
+            ),
+            "paragraph-navigation-prose": (
+                "<main><p>Shop New Arrivals and Explore Products for all our favorite styles. "
+                "Browse featured collections and discover more gifts for favorite moments.</p></main>"
+            ),
+        }
+        for label, html in cases.items():
+            with self.subTest(label=label):
+                bundle = self.reader(
+                    transport=Transport({
+                        first: lambda request, body=html.encode(): response(request, body=body)
+                    })
+                ).read_plan(self.plan["source_plan_id"])
+                record = bundle["sources"][0]
+                self.assertEqual((record["status"], record["safe_reason_code"]), ("failed", "content_rejected"))
+                self.assertEqual(record["summary"], "")
+                self.assertIsNone(record["body_sha256"])
+                self.assertEqual(record["body_byte_length"], 0)
+                self.assertIsNone(record["extracted_text_sha256"])
+                self.assertEqual(record["extracted_text_byte_length"], 0)
+
+    def test_plain_text_source_content_cannot_become_research_evidence(self) -> None:
+        first = self.plan["sources"][0]["url"]
+        body = b"Open the menu to explore new arrivals, bestselling rings, necklaces, bracelets, and gifts."
+        bundle = self.reader(
+            transport=Transport({
+                first: lambda request: response(request, body=body, content_type="text/plain")
+            })
+        ).read_plan(self.plan["source_plan_id"])
+        record = bundle["sources"][0]
+        self.assertEqual((record["status"], record["safe_reason_code"]), ("failed", "content_rejected"))
+        self.assertEqual(record["summary"], "")
 
     def test_request_contract_carries_only_bounded_exact_destination_data(self) -> None:
         resolver = Resolver()

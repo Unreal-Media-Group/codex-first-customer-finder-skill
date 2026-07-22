@@ -17,12 +17,14 @@ if str(CORE) not in sys.path:
 from common import ValidationError  # noqa: E402
 from validate_phase6_real_contract import (  # noqa: E402
     AUTHORIZED_PLAN_HASHES,
+    _real_package_payload,
     build_real_customer_dossier,
     build_real_lead_intelligence_package,
     build_real_result_projection,
     derive_real_account_id,
     derive_real_global_identity_id,
     derive_real_result_id,
+    is_substantive_real_summary,
     load_real_source_manifest,
     validate_real_customer_dossier,
     validate_real_lead_intelligence_package,
@@ -95,7 +97,10 @@ def bundle(plan: dict, *, failed: set[str] | None = None) -> dict:
                 "conflict_state": "none",
             })
             continue
-        summary = f"Official public business evidence for {source['source_class']}."
+        summary = (
+            f"The official source documents {source['source_class']} for the organization. "
+            "It provides current public business evidence for the approved research plan."
+        )
         body = f"body:{source['url']}".encode()
         text = summary.encode()
         records.append({
@@ -307,6 +312,13 @@ class Phase6RealContractTests(unittest.TestCase):
         self.assertNotIn('"body"', serialized)
         self.assertNotIn('"extracted_text"', serialized)
 
+    def test_strict_research_bundle_requires_html_source_evidence(self) -> None:
+        changed = copy.deepcopy(self.research)
+        changed["sources"][0]["content_type"] = "text/plain"
+        validate_real_research_bundle(changed, self.plan)
+        with self.assertRaisesRegex(ValidationError, "HTML"):
+            validate_real_research_bundle(changed, self.plan, require_substantive=True)
+
     def test_research_bundle_rejects_unapproved_redirect_contact_and_extra_raw_field(self) -> None:
         changed = copy.deepcopy(self.research)
         changed["sources"][0]["redirect_chain"] = ["https://unapproved.example.net/"]
@@ -324,12 +336,29 @@ class Phase6RealContractTests(unittest.TestCase):
     def test_research_bundle_rejects_obfuscated_contact_routes_urls_and_credentials(self) -> None:
         prohibited = (
             "press [at] example [dot] org",
+            "press＠example．org",
+            "press@example。org",
+            "press@пример.рф",
+            "press @ пример.рф",
+            "press (at) пример (dot) рф",
+            "press at пример dot рф",
+            "press@exаmple.com",
+            "press@exa\u0301mple.com",
+            "press\u200b@\u200bexample\u200b.\u200borg",
             "Call 212.555.0100 for details.",
+            "Call 212\u200b-\u200b555\u200b-\u200b0100 for details.",
             "Visit www.unapproved.invalid/contact for details.",
             "https://unapproved.invalid/contact",
             "unapproved.invalid/contact",
             "example.com",
             "Temporary password: hunter2",
+            "api.key=super-secret-material",
+            "api\u200b_key=super-secret-material",
+            "api\u034f_key=super-secret-material",
+            "api_k\u034fey=super-secret-material",
+            "api_kеy=super-secret-material",
+            "api_kЕy=super-secret-material",
+            "АPI_KEY=super-secret-material",
         )
         for value in prohibited:
             with self.subTest(value=value):
@@ -337,6 +366,22 @@ class Phase6RealContractTests(unittest.TestCase):
                 changed["sources"][0]["summary"] = value
                 with self.assertRaises(ValidationError):
                     validate_real_research_bundle(changed, self.plan)
+
+    def test_substantive_summary_gate_rejects_punctuated_navigation_labels(self) -> None:
+        navigation = (
+            "Shop New Arrivals, Products, Collections, Gifts, Stores, About Us.",
+            "Menu Search Catalog Collections Featured New Arrivals Offers.",
+            "menu search catalog collections featured new arrivals offers.",
+        )
+        for value in navigation:
+            with self.subTest(value=value):
+                self.assertFalse(is_substantive_real_summary(value))
+        self.assertTrue(
+            is_substantive_real_summary(
+                "The company designs and manufactures outdoor products in Miami. "
+                "Its official page explains the current business offering and product portfolio."
+            )
+        )
 
     def test_failed_source_records_are_safe_and_product_evidence_is_required(self) -> None:
         failed_nonproduct = bundle(self.plan, failed={self.plan["sources"][0]["url"]})
@@ -358,6 +403,48 @@ class Phase6RealContractTests(unittest.TestCase):
                 version=1,
             )
 
+    def test_navigation_summaries_are_not_new_bundle_or_category_evidence(self) -> None:
+        navigation = ("Menu Search Catalog Collections Featured New Arrivals " * 20).strip()
+        changed = copy.deepcopy(self.research)
+        for source in changed["sources"]:
+            if source["status"] == "success":
+                source["summary"] = navigation[:1_000]
+        with self.assertRaisesRegex(ValidationError, "substantive"):
+            validate_real_research_bundle(changed, self.plan, require_substantive=True)
+        with self.assertRaisesRegex(ValidationError, "product evidence"):
+            build_real_customer_dossier(
+                plan=self.plan,
+                research_bundle=changed,
+                history=self.history,
+                approved_result=self.result,
+                approval_id="dapproval-real-test",
+                search_request_id="search-real-test",
+                history_fingerprint=hashlib.sha256(canonical_bytes(self.history)).hexdigest(),
+                research_cutoff=COMPLETED,
+                maximum_evidence_age_days=365,
+                version=1,
+            )
+
+    def test_source_summaries_are_inventory_only_until_claim_level_verification(self) -> None:
+        public_evidence = {
+            item["evidence_id"] for item in self.dossier["evidence_inventory"]
+            if item["evidence_kind"] == "public_source"
+        }
+        claim_refs = {
+            ref for category in self.dossier["categories"]
+            if category["category"] != "evidence_coverage"
+            for claim in category["claims"]
+            for ref in claim["evidence_refs"]
+        }
+        broad_categories = [
+            item for item in self.dossier["categories"]
+            if item["category"] not in {"governance_and_history", "evidence_coverage"}
+        ]
+        self.assertTrue(public_evidence)
+        self.assertTrue(public_evidence.isdisjoint(claim_refs))
+        self.assertTrue(all(item["coverage_state"] == "not_found" for item in broad_categories))
+        self.assertTrue(all(item["claims"] == [] for item in broad_categories))
+
     def test_real_dossier_has_exact_coverage_truth_and_inert_authority(self) -> None:
         self.assertEqual(self.dossier["schema_version"], 2)
         self.assertFalse(self.dossier["synthetic"])
@@ -375,6 +462,15 @@ class Phase6RealContractTests(unittest.TestCase):
             "additional_material_facts",
         ])
         self.assertFalse(self.dossier["qualification"]["demand_evidence_found"])
+        audience = next(
+            item for item in self.dossier["categories"]
+            if item["category"] == "audiences_market_and_reputation"
+        )
+        self.assertEqual(audience["coverage_state"], "not_found")
+        self.assertEqual(
+            [item["category"] for item in self.dossier["categories"] if item["coverage_state"] == "complete"],
+            ["governance_and_history", "evidence_coverage"],
+        )
         self.assertEqual(self.dossier["review_state"], "pending_research_quality_review")
         self.assertTrue(self.dossier["authority"]["local_data_handoff_only"])
         self.assertTrue(all(
@@ -396,6 +492,111 @@ class Phase6RealContractTests(unittest.TestCase):
         changed["authority"]["outreach"] = True
         with self.assertRaises(ValidationError):
             validate_real_customer_dossier(changed, history=self.history, approved_result=self.result, source_plan=self.plan)
+
+    def test_new_release_rejects_forged_inventory_summary_category_claim(self) -> None:
+        changed = copy.deepcopy(self.dossier)
+        public_evidence = next(
+            item for item in changed["evidence_inventory"]
+            if item["evidence_kind"] == "public_source"
+        )
+        identity = next(
+            item for item in changed["categories"]
+            if item["category"] == "identity_and_relationships"
+        )
+        identity.clear()
+        identity.update({
+            "category": "identity_and_relationships",
+            "coverage_state": "complete",
+            "claims": [{
+                "claim_id": "claim-real-forged-inventory-summary",
+                "category": "identity_and_relationships",
+                "subject_node_id": changed["entities"][0]["node_id"],
+                "typed_value": {"type": "string", "value": "Forged broad summary claim."},
+                "basis": "inferred_low_confidence",
+                "evidence_refs": [public_evidence["evidence_id"]],
+                "confidence_reason": "A retained source summary was incorrectly promoted.",
+                "uncertainty": "The source summary has no claim-level verification.",
+                "source_date": public_evidence["source_date"],
+                "observed_at": public_evidence["observed_at"],
+                "freshness_state": "current",
+            }],
+        })
+        validate_real_customer_dossier(
+            changed,
+            history=self.history,
+            approved_result=self.result,
+            source_plan=self.plan,
+        )
+        changed["review_state"] = "research_quality_accepted"
+        changed["release_state"] = "released_local_data_only"
+        with self.assertRaisesRegex(ValidationError, "inventory-only"):
+            build_real_lead_intelligence_package(
+                changed,
+                history=self.history,
+                approved_result=self.result,
+                source_plan=self.plan,
+            )
+        package = _real_package_payload(changed)
+        package["canonical_hash"] = hashlib.sha256(canonical_bytes(package)).hexdigest()
+        with self.assertRaisesRegex(ValidationError, "inventory-only"):
+            validate_real_lead_intelligence_package(package, source_plan=self.plan)
+
+    def test_strict_release_requires_exact_mechanical_category_claims(self) -> None:
+        for category_name, replace in (
+            ("governance_and_history", True),
+            ("evidence_coverage", False),
+        ):
+            with self.subTest(category=category_name):
+                changed = copy.deepcopy(self.dossier)
+                public_evidence = next(
+                    item for item in changed["evidence_inventory"]
+                    if item["evidence_kind"] == "public_source"
+                )
+                category = next(
+                    item for item in changed["categories"]
+                    if item["category"] == category_name
+                )
+                forged_claim = {
+                    "claim_id": f"claim-real-forged-{category_name}",
+                    "category": category_name,
+                    "subject_node_id": changed["entities"][0]["node_id"],
+                    "typed_value": {"type": "string", "value": "Forged retained summary claim."},
+                    "basis": "inferred_low_confidence",
+                    "evidence_refs": [public_evidence["evidence_id"]],
+                    "confidence_reason": "A retained summary was incorrectly promoted.",
+                    "uncertainty": "No claim-level verifier established this value.",
+                    "source_date": public_evidence["source_date"],
+                    "observed_at": public_evidence["observed_at"],
+                    "freshness_state": "current",
+                }
+                category["claims"] = [forged_claim] if replace else [*category["claims"], forged_claim]
+                validate_real_customer_dossier(
+                    changed,
+                    history=self.history,
+                    approved_result=self.result,
+                    source_plan=self.plan,
+                )
+                with self.assertRaisesRegex(ValidationError, "canonical inventory-only"):
+                    validate_real_customer_dossier(
+                        changed,
+                        history=self.history,
+                        approved_result=self.result,
+                        source_plan=self.plan,
+                        require_inventory_only=True,
+                    )
+                changed["review_state"] = "research_quality_accepted"
+                changed["release_state"] = "released_local_data_only"
+                with self.assertRaisesRegex(ValidationError, "canonical inventory-only"):
+                    build_real_lead_intelligence_package(
+                        changed,
+                        history=self.history,
+                        approved_result=self.result,
+                        source_plan=self.plan,
+                    )
+                package = _real_package_payload(changed)
+                package["canonical_hash"] = hashlib.sha256(canonical_bytes(package)).hexdigest()
+                with self.assertRaisesRegex(ValidationError, "canonical inventory-only"):
+                    validate_real_lead_intelligence_package(package, source_plan=self.plan)
 
     def test_real_package_is_deterministic_graph_ready_and_conflict_safe(self) -> None:
         released = copy.deepcopy(self.dossier)

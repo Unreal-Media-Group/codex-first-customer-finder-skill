@@ -9,6 +9,7 @@ import hashlib
 import json
 import math
 import re
+import unicodedata
 from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -122,12 +123,147 @@ REAL_PUBLIC_TEXT_DOMAIN_PATTERN = re.compile(
     r"(?i)(?<![a-z0-9@._-])(?:www\.)?[a-z0-9-]+(?:\.[a-z0-9-]+)*"
     r"\.(?:[a-z]{2,63}|xn--[a-z0-9-]{2,59})(?::\d{1,5})?(?:[/?#][^\s<>'\"]*)?"
 )
+REAL_AT_TOKEN_PATTERN = re.compile(r"[^\s<>'\"@]+@[^\s<>'\"@]+", re.UNICODE)
+REAL_UNICODE_OBFUSCATED_EMAIL_PATTERN = re.compile(
+    r"(?iu)(?<!\w)[\w.+-]{1,64}\s*"
+    r"(?:@|\[\s*at\s*\]|\(\s*at\s*\)|\{\s*at\s*\}|\bat\b)\s*"
+    r"[\w-]+(?:\s*(?:\[\s*dot\s*\]|\(\s*dot\s*\)|\{\s*dot\s*\}|\bdot\b|\.)\s*[\w-]+)+"
+    r"(?!\w)"
+)
+REAL_ASSIGNMENT_KEY_PATTERN = re.compile(r"(?<!\w)([^\s:=]{2,64})\s*[:=]", re.UNICODE)
+_REAL_PROSE_SENTENCE_PATTERN = re.compile(r"[^.!?]+[.!?](?=\s|$)")
+_REAL_PROSE_WORD_PATTERN = re.compile(r"[^\W\d_]+(?:['’\-][^\W\d_]+)*", re.UNICODE)
+_REAL_NAVIGATION_WORDS = {
+    "about", "account", "all", "arrival", "arrivals", "best", "cart", "catalog",
+    "catalogs", "close", "collection", "collections", "contact", "featured", "gift",
+    "gifts", "home", "man", "men", "menu", "new", "offer", "offers", "open",
+    "product", "products", "sale", "search", "seller", "sellers", "shop", "store",
+    "stores", "us", "woman", "women",
+}
+_REAL_NAVIGATION_LEAD_WORDS = {
+    "browse", "choose", "click", "discover", "explore", "open", "search", "select", "shop",
+    "tap", "view",
+}
+_REAL_IDNA_DOT_TRANSLATION = str.maketrans({"\u3002": ".", "\uff0e": ".", "\uff61": "."})
+_REAL_CONFUSABLE_TRANSLATION = str.maketrans({
+    "а": "a", "с": "c", "е": "e", "і": "i", "ј": "j", "к": "k", "м": "m",
+    "о": "o", "р": "p", "ѕ": "s", "т": "t", "у": "y", "х": "x",
+    "А": "A", "В": "B", "Е": "E", "І": "I", "Ј": "J", "К": "K", "М": "M",
+    "Н": "H", "О": "O", "Р": "P", "С": "C", "Ѕ": "S", "Т": "T", "У": "Y",
+    "Х": "X",
+    "Α": "A", "Β": "B", "Ε": "E", "Η": "H", "Ι": "I", "Κ": "K", "Μ": "M",
+    "Ν": "N", "Ο": "O", "Ρ": "P", "Τ": "T", "Υ": "Y", "Χ": "X",
+    "α": "a", "β": "b", "ε": "e", "ι": "i", "κ": "k", "ν": "v", "ο": "o",
+    "ρ": "p", "τ": "t", "υ": "y", "χ": "x",
+})
+_REAL_DEFAULT_IGNORABLE_RANGES = (
+    (0x00AD, 0x00AD),
+    (0x034F, 0x034F),
+    (0x061C, 0x061C),
+    (0x115F, 0x1160),
+    (0x17B4, 0x17B5),
+    (0x180B, 0x180F),
+    (0x200B, 0x200F),
+    (0x202A, 0x202E),
+    (0x2060, 0x206F),
+    (0x3164, 0x3164),
+    (0xFE00, 0xFE0F),
+    (0xFEFF, 0xFEFF),
+    (0xFFA0, 0xFFA0),
+    (0xFFF0, 0xFFF8),
+    (0x1BCA0, 0x1BCA3),
+    (0x1D173, 0x1D17A),
+    (0xE0000, 0xE0FFF),
+)
+
+
+def _is_real_default_ignorable(character: str) -> bool:
+    codepoint = ord(character)
+    return any(start <= codepoint <= end for start, end in _REAL_DEFAULT_IGNORABLE_RANGES)
+
+
+def _normalize_real_public_text(value: str) -> str:
+    normalized = unicodedata.normalize("NFKC", value.translate(_REAL_IDNA_DOT_TRANSLATION))
+    normalized = normalized.translate(_REAL_IDNA_DOT_TRANSLATION)
+    return "".join(
+        character for character in normalized
+        if unicodedata.category(character) != "Cf" and not _is_real_default_ignorable(character)
+    )
+
+
+def _privacy_inspection_real_public_text(value: str) -> str:
+    decomposed = unicodedata.normalize("NFKD", value.translate(_REAL_IDNA_DOT_TRANSLATION))
+    return "".join(
+        character for character in decomposed
+        if not unicodedata.category(character).startswith("M")
+        and unicodedata.category(character) != "Cf"
+        and not _is_real_default_ignorable(character)
+    ).translate(_REAL_IDNA_DOT_TRANSLATION)
+
+
+def _has_real_credential_assignment(value: str) -> bool:
+    for key in REAL_ASSIGNMENT_KEY_PATTERN.findall(value):
+        skeleton = _privacy_inspection_real_public_text(key).translate(
+            _REAL_CONFUSABLE_TRANSLATION
+        )
+        compact = re.sub(r"[^a-z0-9]", "", skeleton.casefold())
+        if any(part in compact for part in (
+            "apikey", "accesstoken", "clientsecret", "privatekey",
+            "password", "passcode", "bearer",
+        )):
+            return True
+    return False
+
+
+def _has_unsafe_unicode_contact_route(value: str) -> bool:
+    return any(
+        not match.group(0).isascii()
+        and REAL_AT_TOKEN_PATTERN.fullmatch(match.group(0)) is None
+        for match in REAL_UNICODE_OBFUSCATED_EMAIL_PATTERN.finditer(value)
+    )
 
 
 def scrub_real_public_text(value: str) -> str:
     """Remove contact routes and URLs; reject credential-like visible text."""
-    if not isinstance(value, str) or REAL_CREDENTIAL_PATTERN.search(value):
+    if not isinstance(value, str):
         raise ValidationError("Public source text contains prohibited credential material.")
+    value = _normalize_real_public_text(value)
+    inspection = _privacy_inspection_real_public_text(value)
+    credential_inspection = inspection.translate(_REAL_CONFUSABLE_TRANSLATION)
+    if (
+        REAL_CREDENTIAL_PATTERN.search(value)
+        or REAL_CREDENTIAL_PATTERN.search(credential_inspection)
+        or _has_real_credential_assignment(value)
+        or _has_real_credential_assignment(credential_inspection)
+        or any(not key.isascii() for key in REAL_ASSIGNMENT_KEY_PATTERN.findall(value))
+    ):
+        raise ValidationError("Public source text contains prohibited credential material.")
+    if (
+        _has_unsafe_unicode_contact_route(value)
+        or _has_unsafe_unicode_contact_route(inspection)
+    ):
+        raise ValidationError("Public source text contains prohibited private material.")
+    contact_in_inspection = any(pattern.search(inspection) for pattern in (
+        REAL_AT_TOKEN_PATTERN,
+        REAL_OBFUSCATED_EMAIL_PATTERN,
+        EMAIL_PATTERN,
+        REAL_PHONE_PATTERN,
+        REAL_EMBEDDED_URL_PATTERN,
+        REAL_BARE_URL_PATTERN,
+        REAL_PUBLIC_TEXT_DOMAIN_PATTERN,
+    ))
+    contact_in_value = any(pattern.search(value) for pattern in (
+        REAL_AT_TOKEN_PATTERN,
+        REAL_OBFUSCATED_EMAIL_PATTERN,
+        EMAIL_PATTERN,
+        REAL_PHONE_PATTERN,
+        REAL_EMBEDDED_URL_PATTERN,
+        REAL_BARE_URL_PATTERN,
+        REAL_PUBLIC_TEXT_DOMAIN_PATTERN,
+    ))
+    if contact_in_inspection and (not contact_in_value or inspection != value):
+        raise ValidationError("Public source text contains prohibited private material.")
+    value = REAL_AT_TOKEN_PATTERN.sub("[redacted]", value)
     value = REAL_OBFUSCATED_EMAIL_PATTERN.sub("[redacted]", value)
     value = EMAIL_PATTERN.sub("[redacted]", value)
     value = REAL_PHONE_PATTERN.sub("[redacted]", value)
@@ -135,17 +271,52 @@ def scrub_real_public_text(value: str) -> str:
     value = REAL_BARE_URL_PATTERN.sub("[redacted]", value)
     value = REAL_PUBLIC_TEXT_DOMAIN_PATTERN.sub("[redacted]", value)
     value = " ".join(value.split())
+    inspection = _privacy_inspection_real_public_text(value)
     if (
-        EMAIL_PATTERN.search(value)
+        REAL_AT_TOKEN_PATTERN.search(value)
+        or REAL_AT_TOKEN_PATTERN.search(inspection)
+        or EMAIL_PATTERN.search(value)
+        or EMAIL_PATTERN.search(inspection)
         or REAL_OBFUSCATED_EMAIL_PATTERN.search(value)
+        or REAL_OBFUSCATED_EMAIL_PATTERN.search(inspection)
         or REAL_PHONE_PATTERN.search(value)
+        or REAL_PHONE_PATTERN.search(inspection)
         or REAL_CREDENTIAL_PATTERN.search(value)
+        or REAL_CREDENTIAL_PATTERN.search(inspection)
+        or _has_real_credential_assignment(value)
+        or _has_real_credential_assignment(inspection)
         or REAL_EMBEDDED_URL_PATTERN.search(value)
+        or REAL_EMBEDDED_URL_PATTERN.search(inspection)
         or REAL_BARE_URL_PATTERN.search(value)
+        or REAL_BARE_URL_PATTERN.search(inspection)
         or REAL_PUBLIC_TEXT_DOMAIN_PATTERN.search(value)
+        or REAL_PUBLIC_TEXT_DOMAIN_PATTERN.search(inspection)
     ):
         raise ValidationError("Public source text contains prohibited private material.")
     return value
+
+
+def is_substantive_real_summary(value: Any) -> bool:
+    """Return whether a bounded summary contains prose rather than menu labels."""
+    if not isinstance(value, str):
+        return False
+    normalized = " ".join(value.split())
+    qualifying_sentences = 0
+    for sentence in _REAL_PROSE_SENTENCE_PATTERN.findall(normalized):
+        words = _REAL_PROSE_WORD_PATTERN.findall(sentence)
+        navigation_words = sum(
+            word.casefold() in _REAL_NAVIGATION_WORDS for word in words
+        )
+        if (
+            len(words) >= 6
+            and sum(character.isalpha() for word in words for character in word) >= 40
+            and len({word.casefold() for word in words}) >= 5
+            and sum(word[0].islower() for word in words) >= 3
+            and not (navigation_words >= 4 and navigation_words * 2 >= len(words))
+            and words[0].casefold() not in _REAL_NAVIGATION_LEAD_WORDS
+        ):
+            qualifying_sentences += 1
+    return qualifying_sentences >= 2
 
 
 def _canonical_hash(value: Any) -> str:
@@ -171,11 +342,25 @@ def _check_real_private_material(
         return
     if not isinstance(value, str):
         return
+    value = _normalize_real_public_text(value)
+    inspection = _privacy_inspection_real_public_text(value)
+    credential_inspection = inspection.translate(_REAL_CONFUSABLE_TRANSLATION)
     if (
-        EMAIL_PATTERN.search(value)
+        REAL_AT_TOKEN_PATTERN.search(value)
+        or REAL_AT_TOKEN_PATTERN.search(inspection)
+        or EMAIL_PATTERN.search(value)
+        or EMAIL_PATTERN.search(inspection)
         or REAL_OBFUSCATED_EMAIL_PATTERN.search(value)
+        or REAL_OBFUSCATED_EMAIL_PATTERN.search(inspection)
         or CREDENTIAL_PATTERN.search(value)
+        or CREDENTIAL_PATTERN.search(credential_inspection)
         or REAL_CREDENTIAL_PATTERN.search(value)
+        or REAL_CREDENTIAL_PATTERN.search(credential_inspection)
+        or _has_real_credential_assignment(value)
+        or _has_real_credential_assignment(credential_inspection)
+        or _has_unsafe_unicode_contact_route(value)
+        or _has_unsafe_unicode_contact_route(inspection)
+        or any(not key.isascii() for key in REAL_ASSIGNMENT_KEY_PATTERN.findall(value))
     ):
         raise ValidationError(f"{label} contains prohibited contact or credential material.")
     looks_like_date = False
@@ -197,13 +382,27 @@ def _check_real_private_material(
         not looks_like_date
         and not is_digest
         and not is_identifier
-        and (PHONE_PATTERN.search(value) or REAL_PHONE_PATTERN.search(value))
+        and (
+            PHONE_PATTERN.search(value)
+            or PHONE_PATTERN.search(inspection)
+            or REAL_PHONE_PATTERN.search(value)
+            or REAL_PHONE_PATTERN.search(inspection)
+        )
     ):
         raise ValidationError(f"{label} contains a prohibited telephone value.")
     embedded_urls = REAL_EMBEDDED_URL_PATTERN.findall(value)
+    inspection_urls = REAL_EMBEDDED_URL_PATTERN.findall(inspection)
     if embedded_urls and not (len(embedded_urls) == 1 and embedded_urls[0] == value):
         raise ValidationError(f"{label} contains an embedded unvalidated URL.")
-    if not embedded_urls and REAL_BARE_URL_PATTERN.search(value):
+    if inspection_urls and not (
+        len(inspection_urls) == 1
+        and inspection_urls[0] == inspection
+        and inspection == value
+    ):
+        raise ValidationError(f"{label} contains an embedded unvalidated URL.")
+    if not embedded_urls and (
+        REAL_BARE_URL_PATTERN.search(value) or REAL_BARE_URL_PATTERN.search(inspection)
+    ):
         raise ValidationError(f"{label} contains an embedded unvalidated URL.")
 
 
@@ -643,7 +842,14 @@ def validate_real_result_projection(
     return candidate, decision
 
 
-def validate_real_research_bundle(value: Any, plan_value: Any) -> dict[str, Any]:
+def validate_real_research_bundle(
+    value: Any,
+    plan_value: Any,
+    *,
+    require_substantive: bool = False,
+) -> dict[str, Any]:
+    if not isinstance(require_substantive, bool):
+        raise ValidationError("Real research substantive-summary policy must be boolean.")
     plan = validate_real_source_plan(plan_value)
     bundle = _exact_keys(
         value,
@@ -731,6 +937,10 @@ def validate_real_research_bundle(value: Any, plan_value: Any) -> dict[str, Any]
                 raise ValidationError("Successful real source record has incomplete bounded metadata.")
             if scrub_real_public_text(record["summary"]) != record["summary"]:
                 raise ValidationError("Successful real source summary contains prohibited material.")
+            if require_substantive and record["content_type"] != "text/html":
+                raise ValidationError("Substantive real source evidence must be HTML.")
+            if require_substantive and not is_substantive_real_summary(record["summary"]):
+                raise ValidationError("Successful real source summary is not substantive research evidence.")
             source_date = _iso_date(record["source_date"], f"real source record {index} source_date")
             if source_date > completed.date():
                 raise ValidationError("Real source date cannot be future-dated.")
@@ -776,44 +986,69 @@ def _freshness(
     return "stale" if (cutoff.date() - _iso_date(source_date, "source date")).days > maximum_age_days else "current"
 
 
-def _category_sources(source_class: str) -> set[str]:
-    mapping = {
-        "official organization and corporate overview": {
-            "identity_and_relationships", "company_and_commercial_context", "operations_and_digital_footprint"
-        },
-        "official brand-owned site": {"operations_and_digital_footprint", "brand_and_messaging"},
-        "official company and brand information": {
-            "identity_and_relationships", "company_and_commercial_context", "brand_and_messaging"
-        },
-        "official product portfolio": {
-            "company_and_commercial_context", "operations_and_digital_footprint",
-            "audiences_market_and_reputation", "brand_and_messaging", "opportunity_and_fit"
-        },
-        "official product detail": {
-            "operations_and_digital_footprint", "audiences_market_and_reputation",
-            "brand_and_messaging", "opportunity_and_fit"
-        },
-        "official investor and corporate profile": {
-            "identity_and_relationships", "company_and_commercial_context", "additional_material_facts"
-        },
-        "official organization site": {
-            "identity_and_relationships", "company_and_commercial_context",
-            "operations_and_digital_footprint", "brand_and_messaging"
-        },
-        "official company history and ownership context": {
-            "identity_and_relationships", "company_and_commercial_context", "additional_material_facts"
-        },
-        "official brand and product portfolio": {
-            "company_and_commercial_context", "operations_and_digital_footprint",
-            "audiences_market_and_reputation", "brand_and_messaging", "opportunity_and_fit"
-        },
-        "official press and current activity": {"activity_and_signals", "additional_material_facts"},
-        "official careers and operational signals": {"operations_and_digital_footprint", "activity_and_signals"},
-        "official public business roles and leadership": {
-            "identity_and_relationships", "public_people_and_contact_paths"
-        },
-    }
-    return mapping[source_class]
+def _real_inventory_only_categories(
+    *,
+    result_id: str,
+    organization_node_id: str,
+    history_status: str,
+    history_evidence_id: str,
+    evidence_refs: list[str],
+    approved_source_count: int,
+    successful_source_count: int,
+    research_cutoff: str,
+    cutoff_date: str,
+) -> list[dict[str, Any]]:
+    categories: list[dict[str, Any]] = []
+    for category in CATEGORIES:
+        if category == "governance_and_history":
+            claim = {
+                "claim_id": f"claim-real-governance-{result_id}",
+                "category": category,
+                "subject_node_id": organization_node_id,
+                "typed_value": {"type": "string", "value": history_status},
+                "basis": "observed",
+                "evidence_refs": [history_evidence_id],
+                "confidence_reason": "The durable history-first classifier produced the exact bound state.",
+                "uncertainty": "This state is limited to the recorded history fingerprint.",
+                "source_date": cutoff_date,
+                "observed_at": research_cutoff,
+                "freshness_state": "current",
+            }
+            categories.append({"category": category, "coverage_state": "complete", "claims": [claim]})
+            continue
+        if category == "evidence_coverage":
+            claim = {
+                "claim_id": f"claim-real-coverage-{result_id}",
+                "category": category,
+                "subject_node_id": organization_node_id,
+                "typed_value": {
+                    "type": "object",
+                    "value": {
+                        "approved_sources": approved_source_count,
+                        "successful_sources": successful_source_count,
+                        "failed_sources": approved_source_count - successful_source_count,
+                    },
+                },
+                "basis": "observed",
+                "evidence_refs": evidence_refs,
+                "confidence_reason": "The exact source plan and bounded reader produced these counts.",
+                "uncertainty": "Failed or blocked sources remain explicit and were not retried.",
+                "source_date": cutoff_date,
+                "observed_at": research_cutoff,
+                "freshness_state": "current",
+            }
+            categories.append({"category": category, "coverage_state": "complete", "claims": [claim]})
+            continue
+        categories.append({
+            "category": category,
+            "coverage_state": "not_found",
+            "gap_explanation": (
+                "The bounded source summaries are evidence inventory only; no claim-level "
+                "verification established this category and no value was guessed."
+            ),
+            "claims": [],
+        })
+    return categories
 
 
 def build_real_customer_dossier(
@@ -846,8 +1081,12 @@ def build_real_customer_dossier(
     if approved_result != expected_result:
         raise ValidationError("Real dossier approved result is not the exact selected runtime result.")
     successful = [record for record in bundle["sources"] if record["status"] == "success"]
-    product_sources = [
+    substantive = [
         record for record in successful
+        if is_substantive_real_summary(record["summary"])
+    ]
+    product_sources = [
+        record for record in substantive
         if "product" in record["source_class"] or "brand and product" in record["source_class"]
     ]
     if not product_sources:
@@ -859,10 +1098,8 @@ def build_real_customer_dossier(
     org_node_id = f"organization-real-{hashlib.sha256(account_id.encode('utf-8')).hexdigest()[:20]}"
 
     evidence: list[dict[str, Any]] = []
-    source_to_evidence: dict[str, str] = {}
     for record in successful:
         evidence_id = f"evidence-real-{hashlib.sha256(record['requested_url'].encode('utf-8')).hexdigest()[:20]}"
-        source_to_evidence[record["requested_url"]] = evidence_id
         evidence.append({
             "evidence_id": evidence_id,
             "evidence_kind": "public_source",
@@ -931,96 +1168,17 @@ def build_real_customer_dossier(
             "evidence_refs": [related_evidence],
         })
 
-    category_records: dict[str, list[dict[str, Any]]] = {category: [] for category in CATEGORIES}
-    for record in successful:
-        for category in _category_sources(record["source_class"]):
-            category_records[category].append(record)
-    category_records["governance_and_history"] = []
-    category_records["evidence_coverage"] = successful
-    categories: list[dict[str, Any]] = []
-    for category in CATEGORIES:
-        records = category_records[category]
-        if category == "governance_and_history":
-            claim = {
-                "claim_id": f"claim-real-governance-{result_id}",
-                "category": category,
-                "subject_node_id": org_node_id,
-                "typed_value": {"type": "string", "value": approved_result["history_classification"]["status"]},
-                "basis": "observed",
-                "evidence_refs": [history_evidence_id],
-                "confidence_reason": "The durable history-first classifier produced the exact bound state.",
-                "uncertainty": "This state is limited to the recorded history fingerprint.",
-                "source_date": cutoff.date().isoformat(),
-                "observed_at": research_cutoff,
-                "freshness_state": "current",
-            }
-            categories.append({"category": category, "coverage_state": "complete", "claims": [claim]})
-            continue
-        if category == "evidence_coverage":
-            refs = [item["evidence_id"] for item in evidence]
-            claim = {
-                "claim_id": f"claim-real-coverage-{result_id}",
-                "category": category,
-                "subject_node_id": org_node_id,
-                "typed_value": {
-                    "type": "object",
-                    "value": {
-                        "approved_sources": len(plan["sources"]),
-                        "successful_sources": len(successful),
-                        "failed_sources": len(plan["sources"]) - len(successful),
-                    },
-                },
-                "basis": "observed",
-                "evidence_refs": refs,
-                "confidence_reason": "The exact source plan and bounded reader produced these counts.",
-                "uncertainty": "Failed or blocked sources remain explicit and were not retried.",
-                "source_date": cutoff.date().isoformat(),
-                "observed_at": research_cutoff,
-                "freshness_state": "current",
-            }
-            categories.append({"category": category, "coverage_state": "complete", "claims": [claim]})
-            continue
-        if not records:
-            categories.append({
-                "category": category,
-                "coverage_state": "not_found",
-                "gap_explanation": "No successful approved source established this category within the bounded proof; no value was guessed.",
-                "claims": [],
-            })
-            continue
-        refs = [source_to_evidence[record["requested_url"]] for record in records]
-        summaries = " ".join(
-            f"{record['source_class']}: {record['summary']}" for record in records
-        )[:1_900].strip()
-        basis = "inferred_low_confidence" if category in {"audiences_market_and_reputation", "opportunity_and_fit"} else "observed"
-        uncertainty = (
-            "Official product context supports potential fit only; no demand, budget, buying intent, or UGC exclusion is inferred."
-            if category == "opportunity_and_fit"
-            else "The claim is limited to bounded visible text from the exact approved public sources."
-        )
-        has_stale = any(
-            (cutoff.date() - _iso_date(record["source_date"], "category source_date")).days
-            > maximum_evidence_age_days
-            for record in records
-        )
-        claim = {
-            "claim_id": f"claim-real-{category}-{result_id}",
-            "category": category,
-            "subject_node_id": org_node_id,
-            "typed_value": {"type": "string", "value": summaries},
-            "basis": basis,
-            "evidence_refs": refs,
-            "confidence_reason": "The cited exact official sources were fetched and summarized under the bounded reader contract.",
-            "uncertainty": uncertainty,
-            "source_date": records[0]["source_date"],
-            "observed_at": records[0]["observed_at"],
-            "freshness_state": (
-                "conflicted"
-                if any(record["conflict_state"] == "conflicted" for record in records)
-                else "stale" if has_stale else "current"
-            ),
-        }
-        categories.append({"category": category, "coverage_state": "complete", "claims": [claim]})
+    categories = _real_inventory_only_categories(
+        result_id=result_id,
+        organization_node_id=org_node_id,
+        history_status=approved_result["history_classification"]["status"],
+        history_evidence_id=history_evidence_id,
+        evidence_refs=[item["evidence_id"] for item in evidence],
+        approved_source_count=len(plan["sources"]),
+        successful_source_count=len(successful),
+        research_cutoff=research_cutoff,
+        cutoff_date=cutoff.date().isoformat(),
+    )
 
     dossier = {
         "schema_version": REAL_CONTRACT_VERSION,
@@ -1078,6 +1236,7 @@ def build_real_customer_dossier(
         history=history,
         approved_result=approved_result,
         source_plan=plan,
+        require_inventory_only=True,
     )
 
 
@@ -1133,7 +1292,10 @@ def validate_real_customer_dossier(
     history: Any,
     approved_result: Any,
     source_plan: Any,
+    require_inventory_only: bool = False,
 ) -> dict[str, Any]:
+    if not isinstance(require_inventory_only, bool):
+        raise ValidationError("Real dossier inventory-only policy must be boolean.")
     required = {
         "schema_version",
         "synthetic",
@@ -1420,6 +1582,31 @@ def validate_real_customer_dossier(
             if claim["freshness_state"] != expected_freshness:
                 raise ValidationError(f"Real dossier claim freshness must be {expected_freshness}.")
 
+    if require_inventory_only:
+        expected_history_evidence_id = f"evidence-history-{history_hash[:20]}"
+        expected_evidence_refs = [
+            f"evidence-real-{hashlib.sha256(record['requested_url'].encode('utf-8')).hexdigest()[:20]}"
+            for record in dossier["source_coverage"]
+            if record["status"] == "success"
+        ] + [expected_history_evidence_id]
+        expected_categories = _real_inventory_only_categories(
+            result_id=binding["result_id"],
+            organization_node_id=(
+                f"organization-real-{hashlib.sha256(binding['account_id'].encode('utf-8')).hexdigest()[:20]}"
+            ),
+            history_status=approved_result["history_classification"]["status"],
+            history_evidence_id=expected_history_evidence_id,
+            evidence_refs=expected_evidence_refs,
+            approved_source_count=len(plan["sources"]),
+            successful_source_count=len(successful_records),
+            research_cutoff=dossier["research_cutoff"],
+            cutoff_date=cutoff.date().isoformat(),
+        )
+        if canonical_bytes(categories) != canonical_bytes(expected_categories):
+            raise ValidationError(
+                "New real dossiers must match the canonical inventory-only claim projection."
+            )
+
     relationships = dossier["relationships"]
     if not isinstance(relationships, list) or len(relationships) > PACKAGE_MAX_EDGES:
         raise ValidationError("Real dossier relationships are outside their bounded limit.")
@@ -1550,6 +1737,7 @@ def build_real_lead_intelligence_package(
         history=history,
         approved_result=approved_result,
         source_plan=source_plan,
+        require_inventory_only=True,
     )
     if dossier["review_state"] != "research_quality_accepted" or dossier["release_state"] != "released_local_data_only":
         raise ValidationError("Real package release requires an accepted exact dossier version.")
@@ -1638,7 +1826,9 @@ def validate_real_lead_intelligence_package(value: Any, *, source_plan: Any) -> 
         raise ValidationError("Real lead package maximum evidence age is invalid.")
     if not isinstance(package["history_fingerprint"], str) or not _HEX64.fullmatch(package["history_fingerprint"]):
         raise ValidationError("Real lead package history fingerprint is invalid.")
-    _validate_duplicate_history(package["duplicate_history"], "real package duplicate_history")
+    duplicate = _validate_duplicate_history(
+        package["duplicate_history"], "real package duplicate_history"
+    )
     qualification = _exact_keys(
         package["qualification"],
         "real package qualification",
@@ -1846,6 +2036,49 @@ def validate_real_lead_intelligence_package(value: Any, *, source_plan: Any) -> 
         expected_freshness = "conflicted" if conflicted else "stale" if stale else "current"
         if claim["freshness_state"] != expected_freshness:
             raise ValidationError(f"Real package claim freshness must be {expected_freshness}.")
+
+    expected_history_evidence_id = f"evidence-history-{package['history_fingerprint'][:20]}"
+    expected_evidence_refs = [
+        f"evidence-real-{hashlib.sha256(record['requested_url'].encode('utf-8')).hexdigest()[:20]}"
+        for record in source_coverage
+        if record["status"] == "success"
+    ] + [expected_history_evidence_id]
+    expected_categories = _real_inventory_only_categories(
+        result_id=binding["result_id"],
+        organization_node_id=(
+            f"organization-real-{hashlib.sha256(binding['account_id'].encode('utf-8')).hexdigest()[:20]}"
+        ),
+        history_status=duplicate["status"],
+        history_evidence_id=expected_history_evidence_id,
+        evidence_refs=expected_evidence_refs,
+        approved_source_count=len(plan["sources"]),
+        successful_source_count=len(successful_records),
+        research_cutoff=package["research_cutoff"],
+        cutoff_date=cutoff.date().isoformat(),
+    )
+    expected_coverage_states = [
+        {
+            "category": category["category"],
+            "coverage_state": category["coverage_state"],
+            "gap_explanation": category.get("gap_explanation"),
+        }
+        for category in expected_categories
+    ]
+    expected_claims = sorted(
+        (
+            claim
+            for category in expected_categories
+            for claim in category["claims"]
+        ),
+        key=lambda claim: claim["claim_id"],
+    )
+    if (
+        canonical_bytes(package["coverage_states"]) != canonical_bytes(expected_coverage_states)
+        or canonical_bytes(package["claims"]) != canonical_bytes(expected_claims)
+    ):
+        raise ValidationError(
+            "Real packages must match the canonical inventory-only claim projection."
+        )
     for coverage in package["coverage_states"]:
         count = claims_by_category[coverage["category"]]
         if (coverage["coverage_state"] == "complete") != (count > 0):

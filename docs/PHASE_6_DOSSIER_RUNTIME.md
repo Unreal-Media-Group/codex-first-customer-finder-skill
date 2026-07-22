@@ -2,9 +2,9 @@
 
 This runtime connects the finalized synthetic Phase 6B contracts to the local Mission Control
 approval and review surface. Synthetic fixtures remain the default. The additive v2 real path retains
-two exhausted pairs and one current exact user-authorized public-business pair documented in
-`PHASE_6_REAL_PUBLIC_PROOF.md`; only the TUUCI-then-Miansai v3 route is executable, and it adds no
-general discovery or crawling capability. Runtime state is
+three exhausted exact user-authorized public-business pairs documented in
+`PHASE_6_REAL_PUBLIC_PROOF.md`; the default service currently exposes no executable real-proof route
+and adds no general discovery or crawling capability. Runtime state is
 local and gitignored. The service never invokes another agent, generates an asset, contacts anyone,
 writes externally, deploys, or modifies Unreal OS.
 
@@ -24,8 +24,14 @@ The historical v1 route exhausted both exact alternatives without a candidate: J
 closed at robots-policy availability, and the sole CELSIUS infrastructure recovery ended as
 `source_read_failed_no_retry`. The v2 4ocean/Badia route is also terminal without a candidate. Both
 requests and all four exhausted source plans remain valid only so durable history can be reopened;
-none may retry. The v3 TUUCI/Miansai pair is the only executable real-proof route. No additional
-target, URL, retry, or substitution is authorized.
+none may retry. The v3 TUUCI/Miansai pair is also spent. TUUCI ended without a candidate and may not
+retry. Miansai produced one immutable candidate, and the exact human review recorded
+`changes_requested` because navigation-heavy retained summaries did not substantiate the broader
+dossier categories; no final dossier or package was created. The corrected reader prefers semantic
+main/article paragraph content, suppresses site chrome, and fails closed on weak or unsafe retained
+evidence. Retained source summaries are evidence inventory only and cannot substantiate broader
+category claims without claim-level verification. No additional target, URL, retry, or substitution
+is authorized.
 `PHASE_6_REAL_PUBLIC_PROOF.md` records all route states and the exact remaining gate.
 
 ## Search and durable history
@@ -106,6 +112,13 @@ unregister or fail another actor's live claim.
 Every candidate uses the exact eleven Phase 6B categories. A category is populated with typed,
 evidence-linked claims or carries an explicit gap. Runtime cutoff replaces fixture time, and claim
 freshness is recomputed as conflicted first, stale second, otherwise current.
+
+For the bounded real-public reader, source class and summary prose do not themselves satisfy that
+claim contract. Only durable governance/history and mechanical evidence-coverage facts are populated;
+all broader categories remain explicit gaps unless a future separately reviewed claim-level verifier
+establishes them. New-candidate and package validators recompute that complete canonical projection;
+additional, replaced, or relabeled claims fail closed. Historical candidate validation remains
+read-compatible but grants no release authority.
 
 The candidate is immutable and starts in `pending_research_quality_review`. A synthetic candidate
 uses a separate allowed simulated reviewer. A real candidate rejects simulated-actor review and can

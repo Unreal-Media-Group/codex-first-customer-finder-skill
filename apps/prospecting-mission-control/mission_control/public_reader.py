@@ -21,6 +21,7 @@ from urllib.parse import urljoin, urlsplit
 from common import ValidationError  # noqa: E402
 from validate_phase6_real_contract import (  # noqa: E402
     REAL_SOURCE_KIND_BY_CLASS,
+    is_substantive_real_summary,
     scrub_real_public_text,
     validate_real_research_bundle,
     validate_real_source_manifest,
@@ -41,8 +42,19 @@ class _ReadFailure(Exception):
 
 class _VisibleTextParser(HTMLParser):
     _IGNORED = {
-        "script", "style", "template", "noscript", "svg", "canvas", "iframe", "object"
+        "script", "style", "template", "noscript", "svg", "canvas", "iframe", "object",
+        "nav", "header", "footer", "aside", "menu", "dialog", "a", "button", "form",
+        "select", "option",
     }
+    _IGNORED_ROLES = {
+        "navigation", "banner", "contentinfo", "search", "dialog", "menu", "menubar", "toolbar",
+    }
+    _IGNORED_CONTAINER_HINTS = {
+        "breadcrumb", "dialog", "drawer", "footer", "header", "menu", "modal", "nav",
+        "navigation", "pagination", "search", "sidebar", "toolbar", "utility",
+    }
+    _PREFERRED = {"main", "article"}
+    _PREFERRED_ROLES = {"main"}
     _VOID = {
         "area", "base", "br", "col", "embed", "hr", "img", "input", "link", "meta",
         "param", "source", "track", "wbr",
@@ -51,14 +63,28 @@ class _VisibleTextParser(HTMLParser):
     def __init__(self) -> None:
         super().__init__(convert_charrefs=True)
         self.suppressed: list[str] = []
-        self.parts: list[str] = []
+        self.preferred_depth = 0
+        self.preferred_boundaries: list[str] = []
+        self.paragraph_depth = 0
+        self.current_paragraph_parts: list[str] = []
+        self.paragraphs: list[str] = []
+        self.malformed = False
 
     def handle_starttag(self, tag: str, attrs: list[tuple[str, str | None]]) -> None:
         tag = tag.lower()
         attributes = {name.lower(): value for name, value in attrs}
         style = "".join((attributes.get("style") or "").casefold().split())
+        container_tokens = set(re.findall(
+            r"[a-z0-9]+",
+            " ".join(
+                attributes.get(name) or ""
+                for name in ("class", "id", "aria-label")
+            ).casefold(),
+        ))
         hidden = (
             tag in self._IGNORED
+            or (attributes.get("role") or "").casefold() in self._IGNORED_ROLES
+            or bool(container_tokens & self._IGNORED_CONTAINER_HINTS)
             or "hidden" in attributes
             or (attributes.get("aria-hidden") or "").casefold() == "true"
             or "display:none" in style
@@ -66,14 +92,43 @@ class _VisibleTextParser(HTMLParser):
         )
         if tag not in self._VOID and (self.suppressed or hidden):
             self.suppressed.append(tag)
+            return
+        if tag in self._PREFERRED or (attributes.get("role") or "").casefold() in self._PREFERRED_ROLES:
+            self.preferred_depth += 1
+            self.preferred_boundaries.append(tag)
+        if tag == "p" and self.preferred_depth:
+            if self.paragraph_depth:
+                self.malformed = True
+            self.paragraph_depth += 1
+            self.current_paragraph_parts = []
 
     def handle_endtag(self, tag: str) -> None:
-        if self.suppressed and tag.lower() == self.suppressed[-1]:
-            self.suppressed.pop()
+        tag = tag.lower()
+        if self.suppressed:
+            if tag == self.suppressed[-1]:
+                self.suppressed.pop()
+            return
+        if tag == "p" and self.paragraph_depth:
+            paragraph = " ".join(" ".join(self.current_paragraph_parts).split())
+            if paragraph:
+                self.paragraphs.append(paragraph)
+            self.current_paragraph_parts = []
+            self.paragraph_depth -= 1
+        elif tag == "p":
+            self.malformed = True
+        if self.preferred_boundaries and tag == self.preferred_boundaries[-1]:
+            if self.paragraph_depth:
+                self.malformed = True
+            self.preferred_boundaries.pop()
+            self.preferred_depth -= 1
+        elif tag in self.preferred_boundaries or tag in self._PREFERRED:
+            self.malformed = True
+            self.preferred_boundaries.clear()
+            self.preferred_depth = 0
 
     def handle_data(self, data: str) -> None:
-        if not self.suppressed:
-            self.parts.append(data)
+        if not self.suppressed and self.preferred_depth and self.paragraph_depth:
+            self.current_paragraph_parts.append(data)
 
 
 class _PinnedHTTPSConnection(http.client.HTTPSConnection):
@@ -546,6 +601,8 @@ class PublicReader:
                 )
                 text, content_type = self._decode(fetched["body"], fetched["headers"])
                 extracted = self._extract(text, content_type, plan["budgets"]["max_extracted_text_bytes"])
+                if not is_substantive_real_summary(extracted[:1_000]):
+                    raise _ReadFailure("content_rejected", fetched["redirect_chain"])
                 if self._monotonic() >= state["run_deadline"]:
                     raise _ReadFailure("deadline", fetched["redirect_chain"])
                 observed = self._wall_now(last_observed)
@@ -569,7 +626,7 @@ class PublicReader:
             "completed_at": _format_time(completed),
             "sources": records,
         }
-        validate_real_research_bundle(bundle, plan)
+        validate_real_research_bundle(bundle, plan, require_substantive=True)
         return bundle
 
     def _wall_now(self, minimum: datetime | None = None) -> datetime:
@@ -743,14 +800,22 @@ class PublicReader:
             raise _ReadFailure("content_rejected") from exc
 
     def _extract(self, text: str, content_type: str, maximum: int) -> str:
-        if content_type == "text/html":
-            parser = _VisibleTextParser()
-            try:
-                parser.feed(text)
-                parser.close()
-            except (UnicodeError, ValueError) as exc:
-                raise _ReadFailure("content_rejected") from exc
-            text = " ".join(parser.parts)
+        if content_type != "text/html":
+            raise _ReadFailure("content_rejected")
+        parser = _VisibleTextParser()
+        try:
+            parser.feed(text)
+            parser.close()
+        except (UnicodeError, ValueError) as exc:
+            raise _ReadFailure("content_rejected") from exc
+        if (
+            parser.malformed
+            or parser.preferred_boundaries
+            or parser.paragraph_depth
+            or not parser.paragraphs
+        ):
+            raise _ReadFailure("content_rejected")
+        text = " ".join(parser.paragraphs)
         text = " ".join(text.split())
         if len(text.encode("utf-8")) > maximum:
             raise _ReadFailure("body_limit")

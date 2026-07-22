@@ -4,7 +4,7 @@
 **Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`
 **Downstream compatibility target:** A governed agent graph, including a possible future Unreal OS
 consumer. This repository does not implement or modify Unreal OS.
-**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is independently reviewed and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The exact public-read proof's additive v2 contract, bounded reader, durable runtime, pre-live independent review, complete test suite, and loopback browser QA pass. The CELSIUS/Jazwares and 4ocean/Badia pairs are terminal without a candidate and may not retry. The separately authorized TUUCI/Miansai v3 route is the sole executable real-proof route; its implementation, independent review, and loopback browser QA are complete, but commit, push, remote verification, and durable exact-result approval remain pre-live gates. No v3 live read has occurred. Automated evidence QA and genuine exact-version human acceptance still require a candidate. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
+**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is independently reviewed and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The exact public-read proof's additive v2 contract, bounded reader, durable runtime, pre-live independent review, complete test suite, and loopback browser QA pass. CELSIUS/Jazwares and 4ocean/Badia are terminal without a candidate and may not retry. TUUCI is terminal without a candidate; Miansai produced immutable candidate `dcandidate-umg-0001`, whose exact human review recorded `changes_requested` because navigation-heavy summaries did not substantiate broader dossier categories. No package was released. The default runtime is sealed with no executable real-proof route. Reader-retained source summaries are evidence inventory only; source class and prose shape cannot populate broader dossier claims without claim-level verification. The full Phase 6 exit gate requires a newly authorized exact target/source plan, a new candidate, automated evidence review, genuine exact-version human acceptance, and atomic local release. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 **Operating principle:** The skills find, qualify, deduplicate, and comprehensively research potential
 customers. Deterministic code validates the evidence and emits a versioned, graph-ready lead-
@@ -516,10 +516,11 @@ dossier runtime now proves additive SQLite v4 activation, durable history-first 
 account identity, exact source-plan approval, single-use claims, immutable candidates, terminal
 review, and inert graph-package release. The additive real-source contract, versioned exact
 two-target manifest, bounded standard-library reader, and result-bound runtime are implemented and
-independently reviewed under separate authorization. The historical CELSIUS/Jazwares and
-4ocean/Badia routes are terminal without a candidate and may not retry. The exact TUUCI/Miansai v3
-route is the sole executable route, and no additional target, URL, retry, or substitution is
-authorized. The full Phase 6 exit gate requires one authorized exact target to produce a candidate
+independently reviewed under separate authorization. CELSIUS/Jazwares and 4ocean/Badia are terminal
+without a candidate and may not retry. TUUCI is terminal without a candidate; Miansai's immutable
+candidate received `changes_requested`, and no package was released. The default runtime has no
+executable real-proof route, and no additional target, URL, retry, or substitution is authorized.
+The full Phase 6 exit gate requires one newly authorized exact target to produce a candidate
 that passes automated
 review, receives genuine exact-version human acceptance, and releases its local package atomically.
 

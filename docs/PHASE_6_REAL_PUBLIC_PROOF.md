@@ -26,9 +26,9 @@ The exhausted `search-real-live-proof-v2` route contains exactly these formerly 
 | 1 | 4ocean PBC | `phase6-live-proof-4ocean-v1` | `a5f8e5419da79dad34c9686a0bee4588e6c44d1b2bcebe764e0d13f7dbe67b06` | `result-real-v1-18bb9c083e574dfe499ea6e9` | `account-v1-7e159cfaee4fd296693c39ee` |
 | 2 | Badia Spices | `phase6-live-proof-badia-v1` | `97657c3b4899af8a906314a734d8a89b389ed0367c9845b987713ec8c0ffa533` | `result-real-v1-24943333c909566d80517671` | `account-v1-b8c95659f44173d6390e3acb` |
 
-The separately authorized `search-real-live-proof-v3` route contains exactly these current alternatives:
+The spent `search-real-live-proof-v3` route contains exactly these historical alternatives:
 
-| Current order | Organization | Plan | Plan hash | Canonical bytes | Result | Account |
+| Historical order | Organization | Plan | Plan hash | Canonical bytes | Result | Account |
 | --- | --- | --- | --- | ---: | --- | --- |
 | 1 | The Ultimate Umbrella Company, Inc. / Tuuci | `phase6-live-proof-tuuci-v1` | `bebc6febbce3d5d8b8c74afb5d23142b6aa820dbc287c526af106b20b646ad51` | 1474 | `result-real-v1-f2fd1af5859f5cbec1ef87f5` | `account-v1-319e190f1842af5a8c7c580c` |
 | 2 | Miansai | `phase6-live-proof-miansai-v1` | `3cfcbdf8df08e9aadae4eb9a4575cd941b31d927a93f0f09cf2882efc63d7cf5` | 1382 | `result-real-v1-a70c37b08ed9c9ad23ff2b4a` | `account-v1-b368242de54e01b48b0c0ad3` |
@@ -36,8 +36,9 @@ The separately authorized `search-real-live-proof-v3` route contains exactly the
 All plans use `include_any=[product_photography, product_video]` and
 `exclude=[ugc_ad]`. That filter is search intent, not evidence of demand, budget, buying intent, or
 UGC aversion. Before a public read, both targets pass through the durable identity, suppression,
-relationship, cooldown, duplicate, and re-engagement classifier. The v3 route permits TUUCI first
-and Miansai only after TUUCI becomes terminal without a candidate. A TUUCI candidate stops the pair.
+relationship, cooldown, duplicate, and re-engagement classifier. The v3 route permitted TUUCI first
+and Miansai only after TUUCI became terminal without a candidate. A TUUCI candidate would have
+stopped the pair.
 No additional target, URL, retry, or substitution is authorized.
 
 ## Live proof outcome
@@ -57,15 +58,24 @@ the already-terminal `candidate_creation_failed` class exposed by that run; the 
 that class as no-retry, and the post-proof correction maps an equivalent future post-read contract
 failure to `source_read_failed_no_retry` without rewriting historical audit state.
 
-The preserved gitignored SQLite state now contains two searches, four selected input result records,
-six approval events, and six terminal runs. It contains zero candidates, review events, final dossier
-versions, or packages. `PRAGMA integrity_check` returns `ok`, and `PRAGMA foreign_key_check` returns no
-rows. No proof worker, server, or listener remains running.
+The v3 route is spent. TUUCI's sole attempt ended as `interrupted_execution_recovered` without a
+candidate and is not authorized to retry. Miansai's five exact sources succeeded and produced
+immutable candidate `dcandidate-umg-0001` with content hash
+`f3c197c28aa4c65fd829cea7112d7b5143a5e10487908abe9df877a74d279441` and byte length `37054`.
+Mechanical integrity and security review passed, but the retained 1,000-character summaries were
+navigation-heavy and did not substantiate the broader dossier categories. The user recorded the
+exact terminal `changes_requested` decision for that candidate. No final dossier or package was
+created.
 
-None of the four exhausted targets may retry. Only the exact TUUCI/Miansai v3 route is executable.
-Its implementation, independent review, and loopback browser QA are complete. Commit, push, remote
-verification, and durable exact-result approval remain pre-live gates; no v3 live read has occurred.
-Automated evidence review and genuine exact-version human review require a resulting candidate.
+The preserved gitignored SQLite state now contains three searches, six selected input result records,
+eight approval events, eight runs, one immutable candidate, and one terminal review event. It contains
+zero final dossier versions or packages. `PRAGMA integrity_check` returns `ok`, and
+`PRAGMA foreign_key_check` returns no rows. No proof worker, server, or listener remains running.
+
+None of the six attempted targets may retry. The default runtime has no executable real-proof route.
+A new exact public business, source plan, URLs, classes, versioned route, and durable result-bound
+authority are required before another live read. The full Phase 6 gate still requires a new candidate,
+automated evidence review, genuine exact-version human acceptance, and atomic local release.
 
 ## Durable authority and execution
 
@@ -118,21 +128,33 @@ plans from the exact manifest. For every robots or source request it:
 - fails closed for missing or malformed robots policy, denial, access control, unsupported status,
   attachment disposition, compression, ambiguous framing, unsupported or missing content type,
   invalid charset, header/body/text limits, or monotonic deadline exhaustion; and
-- parses visible HTML text inertly, ignores executable/non-visible elements and attributes, removes
-  visible URLs and contact values (including values split across HTML nodes), rejects credential-like
-  material, and never returns raw body or extracted text.
+- parses visible HTML text inertly, accepts only balanced paragraph prose inside semantic
+  `main`/`article` or `role=main` content, suppresses header, navigation, footer, aside, menu, dialog,
+  interactive controls, and equivalent accessibility-role chrome, and ignores executable/non-visible
+  elements and attributes;
+- rejects `text/plain`, malformed semantic boundaries, and retained text without at least two bounded
+  qualifying sentences; removes safely recognizable visible URLs and contact values, fails closed on
+  ambiguous Unicode contact routes or credential-like assignments, and never returns raw body or
+  extracted text.
 
 The durable source record contains only exact provenance, safe status, dates, content type, SHA-256
-hashes, byte lengths, a bounded scrubbed summary, and conflict state. A failed record contains no
-body hash, text hash, content summary, or transport detail.
+hashes, byte lengths, a bounded scrubbed summary, and conflict state. These summaries are evidence
+inventory only: source class and prose shape do not create or complete business-research claims.
+Claim-level verification is required before a broader category may be populated. Generic product
+pages do not establish audience, market, reputation, demand, or buying intent. A failed record contains
+no body hash, text hash, content summary, or transport detail.
 
 ## Dossier and release contract
 
 Real dossiers and packages are `schema_version=2` and `synthetic=false`; the v1 synthetic schemas
 remain unchanged. Every dossier has the canonical eleven categories. Each category contains typed,
-evidence-linked, freshness-aware claims or an explicit gap. At least one successful approved product
-source is required before the target can be described as a low-confidence potential product-creative
-fit. The qualification always states that demand evidence was not found.
+evidence-linked, freshness-aware claims or an explicit gap. Under this bounded reader, only durable
+governance/history and mechanical evidence-coverage facts are claim-verified; the remaining categories
+stay explicit gaps. At least one successful approved product source is still required before the target
+can be described as a low-confidence potential product-creative fit. That qualification is not a
+category claim and always states that demand evidence was not found. Strict new-candidate and package
+validation recomputes the exact two claims and nine gap records, so added or replaced claims fail
+closed while the immutable historical candidate remains readable in compatibility mode only.
 
 The pending dossier, final dossier, and package all carry an authority object in which
 `local_data_handoff_only` is true and generation, contact, outreach, external writes, agent

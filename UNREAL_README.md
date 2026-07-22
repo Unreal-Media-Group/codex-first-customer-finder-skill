@@ -39,12 +39,17 @@ filters, binds exact source-plan approval, produces immutable eleven-category ca
 one inert local package only after terminal exact-version review. This runtime still does not satisfy
 the full Phase 6 exit gate. A separately authorized additive v2 real-source path uses a bounded
 standard-library public reader, produces a scrubbed pending dossier, and keeps human acceptance as
-the final release gate. Its historical CELSIUS/Jazwares and 4ocean/Badia routes are exhausted
-without a candidate and cannot retry. The separately authorized v3 route is limited to TUUCI then
-Miansai and is the only executable real-proof route; its implementation, independent review, and
-loopback browser QA are complete, while commit, push, remote verification, and durable exact-result
-approval remain pre-live gates. No v3 live read has occurred. An exact target must produce a
-candidate before automated evidence QA and a genuine exact-version human decision can run.
+the final release gate. Its historical CELSIUS/Jazwares and 4ocean/Badia routes are exhausted without
+a candidate and cannot retry. The TUUCI/Miansai v3 route is also spent: TUUCI ended without a
+candidate, and Miansai's exact candidate received a human `changes_requested` decision because
+navigation-heavy summaries did not substantiate broader dossier categories. No package was released.
+The reader now accepts bounded semantic main/article paragraph prose, suppresses site chrome, and
+fails closed on weak or unsafe retained evidence. Source summaries remain evidence inventory and do
+not populate broader category claims without claim-level verification. The default runtime has no
+executable real-proof route. A newly authorized exact target and source plan must produce a new
+candidate before
+automated evidence QA, genuine exact-version human acceptance, and local package release can complete
+the Phase 6 gate.
 Creative generation, outreach, external persistence,
 orchestration, and outcome optimization are downstream responsibilities outside this repository.
 

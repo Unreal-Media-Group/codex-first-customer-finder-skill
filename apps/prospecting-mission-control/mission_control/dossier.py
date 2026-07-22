@@ -204,7 +204,7 @@ class DossierService:
     _active_lock = threading.RLock()
     _active_runs: dict[str, set[str]] = {}
     _completing_runs: dict[str, set[tuple[str, str, str]]] = {}
-    _real_execution_request_id: str | None = REAL_LATEST_PROOF_REQUEST_ID
+    _real_execution_request_id: str | None = None
 
     def __init__(
         self,
@@ -2431,7 +2431,7 @@ class DossierService:
             self.public_reader = reader
         try:
             bundle = reader.read_plan(plan_id)
-            return validate_real_research_bundle(bundle, plan)
+            return validate_real_research_bundle(bundle, plan, require_substantive=True)
         except ValidationError as exc:
             raise _RealResearchContractError(
                 409, "The bounded public research result failed its contract."
