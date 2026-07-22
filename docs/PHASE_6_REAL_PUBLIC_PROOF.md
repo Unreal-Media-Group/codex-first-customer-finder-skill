@@ -1,8 +1,8 @@
 # Phase 6 exact public-business proof
 
 Phase 6 adds explicitly versioned real-source paths beside the frozen synthetic contracts. Each
-route is limited to two user-authorized public-business alternatives, one business unit, one
-opportunity filter, and the exact URLs in the repository manifest. It is not a crawler, a general
+route is limited to its exact user-authorized public-business target sequence, one business unit,
+one opportunity filter, and the exact URLs in the repository manifest. It is not a crawler, a general
 web research tool, an outreach system, or authority for any downstream action.
 
 ## Exact authorization
@@ -33,13 +33,19 @@ The spent `search-real-live-proof-v3` route contains exactly these historical al
 | 1 | The Ultimate Umbrella Company, Inc. / Tuuci | `phase6-live-proof-tuuci-v1` | `bebc6febbce3d5d8b8c74afb5d23142b6aa820dbc287c526af106b20b646ad51` | 1474 | `result-real-v1-f2fd1af5859f5cbec1ef87f5` | `account-v1-319e190f1842af5a8c7c580c` |
 | 2 | Miansai | `phase6-live-proof-miansai-v1` | `3cfcbdf8df08e9aadae4eb9a4575cd941b31d927a93f0f09cf2882efc63d7cf5` | 1382 | `result-real-v1-a70c37b08ed9c9ad23ff2b4a` | `account-v1-b368242de54e01b48b0c0ad3` |
 
+The authorized `search-real-live-proof-v4` route contains exactly one target and one attempt:
+
+| Authorized order | Organization | Plan | Plan hash | Canonical bytes | Result | Account |
+| --- | --- | --- | --- | ---: | --- | --- |
+| 1 | Coolibar, Inc. | `phase6-live-proof-coolibar-v1` | `11ecd3ca38a6da32235afcef3f7f43e819d480a1183ccb6c4b5a26b1ac3834c3` | 1473 | `result-real-v1-0f4401ad53aadba4d9a7338f` | `account-v1-70f245df6d088152054ae33d` |
+
 All plans use `include_any=[product_photography, product_video]` and
 `exclude=[ugc_ad]`. That filter is search intent, not evidence of demand, budget, buying intent, or
-UGC aversion. Before a public read, both targets pass through the durable identity, suppression,
+UGC aversion. Before a public read, every target passes through the durable identity, suppression,
 relationship, cooldown, duplicate, and re-engagement classifier. The v3 route permitted TUUCI first
 and Miansai only after TUUCI became terminal without a candidate. A TUUCI candidate would have
-stopped the pair.
-No additional target, URL, retry, or substitution is authorized.
+stopped the pair. The v4 route has no alternative or fallback.
+No additional target, URL, retry, or substitution beyond the exact v4 plan is authorized.
 
 ## Live proof outcome
 
@@ -67,14 +73,19 @@ navigation-heavy and did not substantiate the broader dossier categories. The us
 exact terminal `changes_requested` decision for that candidate. No final dossier or package was
 created.
 
+The v4 Coolibar route is committed but has not yet consumed its single attempt. Before its first
+public request, the reviewed implementation must pass all repository gates, be pushed and verified
+against `origin/unreal`, and receive one exact seven-day result-bound durable approval. It may read
+only its committed robots URL and five exact source URLs under the approved budgets.
+
 The preserved gitignored SQLite state now contains three searches, six selected input result records,
 eight approval events, eight runs, one immutable candidate, and one terminal review event. It contains
 zero final dossier versions or packages. `PRAGMA integrity_check` returns `ok`, and
 `PRAGMA foreign_key_check` returns no rows. No proof worker, server, or listener remains running.
 
-None of the six attempted targets may retry. The default runtime has no executable real-proof route.
-A new exact public business, source plan, URLs, classes, versioned route, and durable result-bound
-authority are required before another live read. The full Phase 6 gate still requires a new candidate,
+None of the six attempted targets may retry. The default runtime has no executable real-proof route;
+the exact v4 route becomes executable only through the explicitly configured bounded proof service.
+The full Phase 6 gate still requires the Coolibar attempt to produce a new candidate,
 automated evidence review, genuine exact-version human acceptance, and atomic local release.
 
 ## Durable authority and execution
@@ -95,9 +106,11 @@ The runtime order is:
 
 Target progression is monotonic. A later selected target cannot enter its authority flow until every
 earlier selected target is terminal without a candidate or non-executable. A candidate stops the
-pair; the later alternative cannot run. Once a later target enters that flow, an earlier target
+route; the later alternative cannot run. Once a later target enters that flow, an earlier target
 cannot be reopened. The only recovery is one new approval and one new run
-when the target's first and sole pre-recovery run was genuinely startup-recovered as interrupted. If
+for the historical v1-v3 routes when the target's first and sole pre-recovery run was genuinely
+startup-recovered as interrupted. V4's interrupted first claim consumes its only attempt and never
+receives recovery authority. If
 a later target has already entered authority, every later alternative must also be terminal with no
 candidate. Eligibility requires the exact
 append-only claim/recovery audit pair, no candidate or released package for the target, and no prior
@@ -150,7 +163,7 @@ The exhausted proof routes and their immutable artifacts remain `schema_version=
 `synthetic=false`; the v1 synthetic schemas also remain unchanged. Their inventory-only validators
 still recompute the exact two mechanical claims and nine gaps for historical compatibility.
 
-Every future newly authorized real route must instead configure the additive
+Every additive v3 real route, including v4, must configure the
 `schema_version=3` callable claim projector before search or any public read. Its exact output covers all nine
 nonmechanical categories with ordered source attempts, binds observed values to hashed substrings of
 successful scrubbed source summaries, and permits only product-photo/video inferences backed by
@@ -190,9 +203,16 @@ separation, cancellation and revocation ordering, restart durability, pending re
 package release, historical-route execution denial, versioned route compatibility, single-attempt
 claim and reader ownership, candidate-stops-failover ordering, single-recovery exhaustion,
 append-only recovery evidence, terminal-state mismatch rejection, and the loopback approval packet.
-The current warning-strict repository runner passes `385/385`; both official skill validators pass.
+The current warning-strict repository runner passes `387/387`; both official skill validators pass.
 V3 Chromium QA at desktop and `375x812` verified TUUCI-then-Miansai ordering, authority control
 only on the first eligible target, no horizontal overflow, visible keyboard focus, announced validation
 errors, a clean normal-flow console, and loopback-only requests without invoking a public read. A
 claim-verified fixture replay additionally rendered the projection/review hashes, verified-claim and
 explicit-gap counts, inert authority, and cross-business-unit denial without a public read.
+
+V4 Chromium QA at desktop and `375x812` verified that the exact route displayed Coolibar alone,
+excluded TUUCI and Miansai, exposed one goal-authority control but no run control before approval,
+had no horizontal overflow, preserved a visible three-pixel keyboard-focus outline, announced a
+bounded-key validation error, and returned to a clean normal-flow console. The cleared network trace
+contained one loopback GET and no public request. The temporary SQLite state, server, browser, and
+listener were stopped and removed.

@@ -246,13 +246,38 @@ class Phase6RealContractTests(unittest.TestCase):
                 "source_plan_hash": "3cfcbdf8df08e9aadae4eb9a4575cd941b31d927a93f0f09cf2882efc63d7cf5",
             },
         ]
-        self.assertEqual(self.plans[-2:], expected_v3)
-        exact_v3 = {
+        expected_v4 = {
+            "contract_version": 2,
+            "synthetic": False,
+            "source_plan_id": "phase6-live-proof-coolibar-v1",
+            "organization_name": "Coolibar, Inc.",
+            "location_basis": "Miami, Florida",
+            "canonical_domain": "coolibar.com",
+            "approved_related_domains": [],
+            "stable_identity_seed": "coolibar-inc|coolibar.com",
+            "business_unit": "unreal-media-group",
+            "opportunity_filter": opportunity_filter,
+            "approved_origins": ["https://www.coolibar.com"],
+            "robots_policy_urls": ["https://www.coolibar.com/robots.txt"],
+            "sources": [
+                {"url": "https://www.coolibar.com/", "source_class": "official organization site"},
+                {"url": "https://www.coolibar.com/pages/about-us", "source_class": "official company and brand information"},
+                {"url": "https://www.coolibar.com/pages/why-coolibar", "source_class": "official company and brand information"},
+                {"url": "https://www.coolibar.com/collections/top-sellers", "source_class": "official product portfolio"},
+                {"url": "https://www.coolibar.com/blogs/news/from-minneapolis-to-miami-coolibar-finalizes-corporate-headquarters-move", "source_class": "official press and current activity"},
+            ],
+            "budgets": budgets,
+            "source_plan_hash": "11ecd3ca38a6da32235afcef3f7f43e819d480a1183ccb6c4b5a26b1ac3834c3",
+        }
+        self.assertEqual(self.plans[-3:-1], expected_v3)
+        self.assertEqual(self.plans[-1], expected_v4)
+        exact_plans = {
             "phase6-live-proof-tuuci-v1": (1474, "global-v1-f8de1b187e050aa62fe792a5", "account-v1-319e190f1842af5a8c7c580c", "result-real-v1-f2fd1af5859f5cbec1ef87f5"),
             "phase6-live-proof-miansai-v1": (1382, "global-v1-8cab981850777a7beb94e28b", "account-v1-b368242de54e01b48b0c0ad3", "result-real-v1-a70c37b08ed9c9ad23ff2b4a"),
+            "phase6-live-proof-coolibar-v1": (1473, "global-v1-45b1afeeb9b6376cb42a27ba", "account-v1-70f245df6d088152054ae33d", "result-real-v1-0f4401ad53aadba4d9a7338f"),
         }
         plans_by_id = {plan["source_plan_id"]: plan for plan in self.plans}
-        for plan_id, (length, global_id, account_id, result_id) in exact_v3.items():
+        for plan_id, (length, global_id, account_id, result_id) in exact_plans.items():
             with self.subTest(plan_id=plan_id):
                 plan = plans_by_id[plan_id]
                 self.assertEqual(len(canonical_bytes(plan)), length)

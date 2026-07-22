@@ -380,6 +380,67 @@
         "max_extracted_text_bytes": 200000
       },
       "source_plan_hash": "3cfcbdf8df08e9aadae4eb9a4575cd941b31d927a93f0f09cf2882efc63d7cf5"
+    },
+    {
+      "contract_version": 2,
+      "synthetic": false,
+      "source_plan_id": "phase6-live-proof-coolibar-v1",
+      "organization_name": "Coolibar, Inc.",
+      "location_basis": "Miami, Florida",
+      "canonical_domain": "coolibar.com",
+      "approved_related_domains": [],
+      "stable_identity_seed": "coolibar-inc|coolibar.com",
+      "business_unit": "unreal-media-group",
+      "opportunity_filter": {
+        "include_any": [
+          "product_photography",
+          "product_video"
+        ],
+        "exclude": [
+          "ugc_ad"
+        ]
+      },
+      "approved_origins": [
+        "https://www.coolibar.com"
+      ],
+      "robots_policy_urls": [
+        "https://www.coolibar.com/robots.txt"
+      ],
+      "sources": [
+        {
+          "url": "https://www.coolibar.com/",
+          "source_class": "official organization site"
+        },
+        {
+          "url": "https://www.coolibar.com/pages/about-us",
+          "source_class": "official company and brand information"
+        },
+        {
+          "url": "https://www.coolibar.com/pages/why-coolibar",
+          "source_class": "official company and brand information"
+        },
+        {
+          "url": "https://www.coolibar.com/collections/top-sellers",
+          "source_class": "official product portfolio"
+        },
+        {
+          "url": "https://www.coolibar.com/blogs/news/from-minneapolis-to-miami-coolibar-finalizes-corporate-headquarters-move",
+          "source_class": "official press and current activity"
+        }
+      ],
+      "budgets": {
+        "connect_timeout_seconds": 5,
+        "read_timeout_seconds": 8,
+        "request_deadline_seconds": 15,
+        "run_deadline_seconds": 120,
+        "max_redirects_per_source": 3,
+        "max_requests_total": 12,
+        "max_header_bytes": 32768,
+        "max_body_bytes": 1500000,
+        "max_robots_bytes": 262144,
+        "max_extracted_text_bytes": 200000
+      },
+      "source_plan_hash": "11ecd3ca38a6da32235afcef3f7f43e819d480a1183ccb6c4b5a26b1ac3834c3"
     }
   ]
 }

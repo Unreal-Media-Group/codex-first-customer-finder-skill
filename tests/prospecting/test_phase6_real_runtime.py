@@ -42,6 +42,7 @@ DOSSIER_FIXTURE = ROOT / "fixtures" / "prospecting" / "phase6" / "dossier-fixtur
 HISTORY_FIXTURE = ROOT / "fixtures" / "prospecting" / "phase6" / "dossier-history.json"
 REAL_MANIFEST = ROOT / "shared" / "prospecting-core" / "manifests" / "phase6-live-proof-source-plans.json"
 FIXED = datetime(2026, 7, 21, 20, 0, tzinfo=timezone.utc)
+TEST_PAIR_REQUEST_ID = "search-real-live-proof-v3"
 
 
 class Clock:
@@ -87,8 +88,8 @@ def research_bundle(plan: dict, *, fail_product: bool = False) -> dict:
             continue
         body = f"official body {source['url']}".encode()
         text = (
-            f"The official source describes {plan['organization_name']} and its product portfolio. "
-            "It provides current public business evidence for the approved research plan."
+            "The official company source describes a current product portfolio with multiple public product categories. "
+            "The approved page provides dated public business evidence about products, operations, and brand activity."
         ).encode()
         kind = {
             "official organization and corporate overview": "public_business_profile",
@@ -216,11 +217,15 @@ def claim_projection(plan: dict, bundle: dict, approved_result: dict) -> dict:
 
 
 class AuthorizedDossierService(DossierService):
+    _real_execution_request_id = TEST_PAIR_REQUEST_ID
+
+
+class LatestAuthorizedDossierService(DossierService):
     _real_execution_request_id = REAL_LATEST_PROOF_REQUEST_ID
 
 
 class Env:
-    def __init__(self, directory: Path) -> None:
+    def __init__(self, directory: Path, *, request_id: str = TEST_PAIR_REQUEST_ID) -> None:
         self.clock = Clock()
         self.path = directory / "phase6-real.sqlite3"
         self.repository = FixtureRepository(clock=self.clock, next_id=CounterIds(), fixture_path=PHASE3_FIXTURE)
@@ -231,10 +236,15 @@ class Env:
         plans_by_id = {plan["source_plan_id"]: plan for plan in self.all_plans}
         self.plans = [
             plans_by_id[plan_id]
-            for plan_id in REAL_PROOF_ROUTES[REAL_LATEST_PROOF_REQUEST_ID]["source_plan_ids"]
+            for plan_id in REAL_PROOF_ROUTES[request_id]["source_plan_ids"]
         ]
         self.reader = FakeReader(self.all_plans)
-        self.dossier = AuthorizedDossierService(
+        service_class = (
+            LatestAuthorizedDossierService
+            if request_id == REAL_LATEST_PROOF_REQUEST_ID
+            else AuthorizedDossierService
+        )
+        self.dossier = service_class(
             self.enrichment,
             fixture_path=DOSSIER_FIXTURE,
             history_path=HISTORY_FIXTURE,
@@ -271,7 +281,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         search = self.env.search()
         self.assertEqual(search["request"]["contract_version"], 2)
         self.assertFalse(search["request"]["synthetic"])
-        self.assertEqual(search["request"]["request_id"], REAL_LATEST_PROOF_REQUEST_ID)
+        self.assertEqual(search["request"]["request_id"], TEST_PAIR_REQUEST_ID)
         self.assertEqual(
             [item["candidate"]["source_plan_id"] for item in search["results"]],
             [item["source_plan_id"] for item in self.env.plans],
@@ -283,6 +293,85 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         second = self.env.search("real-search-two")
         self.assertTrue(all(not item["selected"] for item in second["results"]))
         self.assertTrue(all(item["decision"]["history_classification"]["status"] == "existing_no_new_trigger" for item in second["results"]))
+
+    def test_latest_route_is_exact_single_target_coolibar_v4(self) -> None:
+        self.assertEqual(REAL_LATEST_PROOF_REQUEST_ID, "search-real-live-proof-v4")
+        self.assertEqual(
+            REAL_PROOF_ROUTES[REAL_LATEST_PROOF_REQUEST_ID],
+            {
+                "idempotency_identity": "phase6-real:search:umg:live-proof-v4",
+                "source_plan_ids": ("phase6-live-proof-coolibar-v1",),
+            },
+        )
+        directory = self.directory / "v4"
+        directory.mkdir()
+        env = Env(directory, request_id=REAL_LATEST_PROOF_REQUEST_ID)
+        exhausted = env.dossier._real_search_request(
+            "unreal-media-group", request_id=TEST_PAIR_REQUEST_ID
+        )
+        env.dossier._require_exact_real_search_request(exhausted, "unreal-media-group")
+        with self.assertRaisesRegex(MissionControlError, "exhausted real-proof route"):
+            env.dossier._require_current_real_execution_request(
+                exhausted, "unreal-media-group"
+            )
+        search = env.search("v4-search")
+        self.assertEqual(len(search["results"]), 1)
+        result = search["results"][0]
+        self.assertTrue(result["selected"])
+        self.assertEqual(result["result_id"], "result-real-v1-0f4401ad53aadba4d9a7338f")
+        self.assertEqual(result["global_identity_id"], "global-v1-45b1afeeb9b6376cb42a27ba")
+        self.assertEqual(result["account_id"], "account-v1-70f245df6d088152054ae33d")
+        approval = env.approve(search)
+        run, created = env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "v4-run"
+        )
+        self.assertTrue(created)
+        candidate = env.dossier.complete_dossier(
+            "noah", "unreal-media-group", run["dossier_run_id"]
+        )
+        self.assertEqual(env.reader.calls, ["phase6-live-proof-coolibar-v1"])
+        self.assertEqual(candidate["dossier"]["review_state"], "pending_research_quality_review")
+        self.assertEqual(env.dossier.packages("noah", "unreal-media-group"), [])
+
+    def test_coolibar_v4_interruption_consumes_its_only_attempt(self) -> None:
+        directory = self.directory / "v4-interrupted"
+        directory.mkdir()
+        env = Env(directory, request_id=REAL_LATEST_PROOF_REQUEST_ID)
+        search = env.search("v4-interrupted-search")
+        approval = env.approve(search)
+        run, _ = env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "v4-only-attempt"
+        )
+        env.dossier._unregister_active(run["dossier_run_id"])
+
+        reopened = Env(directory, request_id=REAL_LATEST_PROOF_REQUEST_ID)
+        with closing(reopened.store._connect()) as connection:
+            recovered = connection.execute(
+                "SELECT state,failure_class FROM dossier_runs WHERE dossier_run_id=?",
+                (run["dossier_run_id"],),
+            ).fetchone()
+        self.assertEqual(
+            (recovered["state"], recovered["failure_class"]),
+            ("failed", "interrupted_execution_recovered"),
+        )
+        result = search["results"][0]
+        self.assertFalse(reopened.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], result["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "attempt.*already been used"):
+            reopened.approve(search, expected=approval["approval_event_id"])
+        with closing(reopened.store._connect()) as connection:
+            approval_count = connection.execute(
+                "SELECT COUNT(*) AS count FROM dossier_approval_events WHERE result_record_id=?",
+                (result["result_record_id"],),
+            ).fetchone()["count"]
+            run_count = connection.execute(
+                "SELECT COUNT(*) AS count FROM dossier_runs WHERE result_record_id=?",
+                (result["result_record_id"],),
+            ).fetchone()["count"]
+        self.assertEqual((approval_count, run_count), (1, 1))
+        self.assertEqual(env.reader.calls, [])
+        self.assertEqual(reopened.reader.calls, [])
 
     def test_exhausted_routes_remain_verifiable_and_v3_is_test_enabled_only(self) -> None:
         self.assertIsNone(DossierService._real_execution_request_id)
@@ -309,11 +398,15 @@ class Phase6RealRuntimeTests(unittest.TestCase):
                         historical, "unreal-media-group"
                     )
         self.assertEqual(
-            self.env.dossier._real_search_request("unreal-media-group")["source_plan_ids"],
+            self.env.dossier._real_search_request(
+                "unreal-media-group", request_id=TEST_PAIR_REQUEST_ID
+            )["source_plan_ids"],
             ["phase6-live-proof-tuuci-v1", "phase6-live-proof-miansai-v1"],
         )
         self.assertEqual(
-            self.env.dossier._real_search_request("unreal-media-group")["idempotency_identity"],
+            self.env.dossier._real_search_request(
+                "unreal-media-group", request_id=TEST_PAIR_REQUEST_ID
+            )["idempotency_identity"],
             "phase6-real:search:umg:live-proof-v3",
         )
 
@@ -359,7 +452,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         self.assertEqual(status, 200)
         self.assertIn("No executable real-proof route is configured", landing)
         self.assertIn("new versioned route requires new exact target", landing)
-        self.assertNotIn("Evaluate the exact two authorized targets", landing)
+        self.assertNotIn("Evaluate the exact authorized target set", landing)
         self.assertEqual(self.env.reader.calls, [])
 
     def test_real_route_without_claim_projector_fails_before_search_or_read(self) -> None:
@@ -1368,8 +1461,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         status, landing = app.get("/phase6-dossiers", context)
         self.assertEqual(status, 200)
         self.assertIn("Exact authorized public-business proof", landing)
-        self.assertIn("TUUCI then Miansai", landing)
-        self.assertNotIn("4ocean then Badia", landing)
+        self.assertIn("exact repository-authorized target set", landing)
         self.assertIn("@media(max-width:640px)", landing)
         status, search_page = app.post("/phase6-real-searches", {
             "csrf_token": "real-csrf",

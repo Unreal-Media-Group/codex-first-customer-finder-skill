@@ -1,20 +1,21 @@
 # Phase 6 governed dossier runtime
 
 This runtime connects the finalized synthetic Phase 6B contracts to the local Mission Control
-approval and review surface. Synthetic fixtures remain the default. The historical v2 real path retains
-three exhausted exact user-authorized public-business pairs documented in
-`PHASE_6_REAL_PUBLIC_PROOF.md`; the default service currently exposes no executable real-proof route
-and adds no general discovery or crawling capability. The additive v3 claim-verified contract is
-ready for a future newly authorized route: it requires a configured repository skill/tool projector
+approval and review surface. Synthetic fixtures remain the default. The real path retains three
+exhausted exact user-authorized routes and one authorized single-target Coolibar v4 route documented
+in `PHASE_6_REAL_PUBLIC_PROOF.md`; the default service still exposes no executable real-proof route
+and adds no general discovery or crawling capability. The additive v3 claim-verified contract
+requires a configured repository skill/tool projector
 before search or any public read, then deterministically validates its output. Runtime state is
 local and gitignored. The service never invokes another agent, generates an asset, contacts anyone,
 writes externally, deploys, or modifies Unreal OS.
 
-Each versioned proof pair advances monotonically. Later authority waits for every earlier eligible
-target to become terminal without a candidate or non-executable; any candidate stops the pair. When
-the target's first and sole pre-recovery run was genuinely startup-recovered as interrupted, it
-permits one new recovery approval and run. If later authority has already progressed, every later
-alternative must first be terminal without a candidate.
+Each versioned proof route advances monotonically. Later authority waits for every earlier eligible
+target to become terminal without a candidate or non-executable; any candidate stops the route. When
+the target's first and sole pre-recovery run was genuinely startup-recovered as interrupted, the
+historical v1-v3 routes permit one new recovery approval and run. V4 permits no recovery: an
+interrupted first claim consumes Coolibar's sole attempt. If later authority has already progressed,
+every later alternative must first be terminal without a candidate.
 Recovery requires the exact append-only claim/recovery audit pair, no candidate or released package
 for the target, and no prior recovery approval or run.
 Source-policy, access, redirect, destination, content, privacy, and budget failures are never
@@ -32,8 +33,8 @@ retry. Miansai produced one immutable candidate, and the exact human review reco
 dossier categories; no final dossier or package was created. The corrected reader prefers semantic
 main/article paragraph content, suppresses site chrome, and fails closed on weak or unsafe retained
 evidence. Retained source summaries are evidence inventory only and cannot substantiate broader
-category claims without claim-level verification. No additional target, URL, retry, or substitution
-is authorized.
+category claims without claim-level verification. V4 contains only Coolibar, one attempt, and no
+fallback. No additional target, URL, retry, or substitution beyond its exact plan is authorized.
 `PHASE_6_REAL_PUBLIC_PROOF.md` records all route states and the exact remaining gate.
 
 ## Search and durable history
@@ -81,9 +82,10 @@ archive-and-recreate instruction.
 One process-local active-run registry distinguishes a live synchronous claim from crash recovery in
 the supported threaded loopback server. A second service in that process cannot falsely recover a
 live claim. A committed running claim with no process-local owner is terminalized on startup and
-requires a new approval. Recovery eligibility validates its exact claim and startup-recovery audit
-events, and audit events are append-only. A run relabeled from another terminal state, or any target
-that already has a candidate, final dossier, or package, fails closed. Multiple independent
+the historical v1-v3 routes require a new approval before their one bounded recovery. V4 remains
+terminal and cannot receive new authority. Recovery eligibility validates its exact claim and
+startup-recovery audit events, and audit events are append-only. A run relabeled from another
+terminal state, or any target that already has a candidate, final dossier, or package, fails closed. Multiple independent
 processes sharing one state file remain unsupported.
 
 ## Exact approval, claim, and cancellation

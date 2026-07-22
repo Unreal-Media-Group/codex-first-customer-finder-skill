@@ -80,8 +80,17 @@ REAL_PROOF_ROUTES = {
             "phase6-live-proof-miansai-v1",
         ),
     },
+    "search-real-live-proof-v4": {
+        "idempotency_identity": "phase6-real:search:umg:live-proof-v4",
+        "source_plan_ids": ("phase6-live-proof-coolibar-v1",),
+    },
 }
-REAL_LATEST_PROOF_REQUEST_ID = "search-real-live-proof-v3"
+REAL_LATEST_PROOF_REQUEST_ID = "search-real-live-proof-v4"
+REAL_INTERRUPTION_RECOVERY_REQUEST_IDS = frozenset({
+    "search-real-live-proof-v1",
+    "search-real-live-proof-v2",
+    "search-real-live-proof-v3",
+})
 APPROVAL_LIFETIME = timedelta(days=7)
 IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
 IDEMPOTENCY = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
@@ -831,6 +840,19 @@ class DossierService:
         if not runs:
             return True
         if not failed:
+            return bool(for_new_authority and decision != "approved")
+        search = connection.execute(
+            "SELECT searches.* FROM dossier_results AS results "
+            "JOIN dossier_searches AS searches "
+            "ON searches.search_id=results.search_id "
+            "AND searches.business_unit=results.business_unit "
+            "WHERE results.result_record_id=?",
+            (result_record_id,),
+        ).fetchone()
+        if search is None:
+            return False
+        request = DossierService._check_snapshot(search, "request", "search request")
+        if request.get("request_id") not in REAL_INTERRUPTION_RECOVERY_REQUEST_IDS:
             return bool(for_new_authority and decision != "approved")
         if len(interrupted) != 1 or not DossierService._verified_interrupted_run(
             connection, interrupted[0]

@@ -310,7 +310,9 @@ and emits canonical local packages with all downstream authority flags denied. T
 the exhausted CELSIUS/Jazwares, 4ocean/Badia, and TUUCI/Miansai routes for historical validation.
 TUUCI ended without a candidate; Miansai produced one immutable candidate whose exact human decision
 is `changes_requested`, so no final dossier or package exists. The default service exposes no
-executable real-proof route. Reader-generated HTML evidence prefers semantic main/article content,
+executable real-proof route. The exact v4 route contains only Coolibar's committed plan, one attempt,
+and no fallback; it becomes executable only through the explicitly configured bounded proof service
+after review, remote verification, and exact durable approval. Reader-generated HTML evidence prefers semantic main/article content,
 suppresses navigation chrome, and must contain bounded paragraph prose before it can enter the
 evidence inventory. Source class and summary shape never populate broader dossier claims. The
 additive v3 validator requires every nonmechanical category to name its attempted exact sources,
@@ -338,17 +340,18 @@ contract validation. An accepted review atomically creates the immutable final d
 and audit event; every read recomputes its request fingerprint and revalidates the complete
 run/approval/result/search/candidate/final/package/source-plan chain. Non-accepted terminal reviews
 have no release. The historical real v2 route uses a separate exact manifest and validators. Every
-future real route also requires the v3 claim projector to be configured before search or reading;
+additive v3 real route also requires the claim projector to be configured before search or reading;
 the reader and projector execute only after a result-bound goal-authority claim and outside SQLite.
 The runtime persists no raw body or extracted text and rejects simulated-actor acceptance. Target progression is monotonic within each
 exact route at authority, claim, read, persistence, and UI boundaries. The CELSIUS/Jazwares and
-4ocean/Badia requests remain reopenable but non-executable. One bounded new-approval/new-run recovery
-exists only when an authorized route's target has a first and
+4ocean/Badia requests remain reopenable but non-executable. For v1-v3 only, one bounded
+new-approval/new-run recovery exists only when an authorized route's target has a first and
 sole pre-recovery run was a verified startup interruption. Once later authority has progressed, that
 recovery also requires every later alternative to be terminal without a candidate. The exception is
 bound to append-only claim/recovery audit evidence and the absence of any target candidate or
-release. A committed claim consumes the target attempt; cancellation may unlock the next exact
-alternative but cannot reauthorize the same target, and source-policy failures never retry.
+release. V4 has no recovery exception: an interrupted Coolibar claim consumes its sole attempt. A
+committed claim consumes the target attempt; cancellation may unlock the next exact alternative but
+cannot reauthorize the same target, and source-policy failures never retry.
 See `docs/PHASE_6_DOSSIER_RUNTIME.md` and
 `docs/PHASE_6_REAL_PUBLIC_PROOF.md`.
 

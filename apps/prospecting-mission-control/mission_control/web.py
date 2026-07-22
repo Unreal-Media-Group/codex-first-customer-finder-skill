@@ -272,7 +272,7 @@ class WebApplication:
                 idempotency_key=form.get("idempotency_key", ""),
             )
             status = (
-                "The exact two-target real-proof search was classified against durable history. No public read occurred."
+                "The exact real-proof target set was classified against durable history. No public read occurred."
                 if created else
                 "Idempotent replay returned the existing exact real-proof search without a public read."
             )
@@ -853,10 +853,10 @@ class WebApplication:
 <p class="notice">No executable real-proof route is configured. Previously authorized attempts remain durable and cannot be retried. A new versioned route requires new exact target and source-plan authorization.</p>"""
             else:
                 real_form = f"""<h2>Exact authorized public-business proof</h2>
-<p class="notice">This route evaluates only TUUCI then Miansai against durable history using the fixed product-photo/video include and UGC-ad exclude filter. It performs no public read until the exact result receives its separately recorded goal authority.</p>
+<p class="notice">This route evaluates only its exact repository-authorized target set against durable history using the fixed product-photo/video include and UGC-ad exclude filter. It performs no public read until the exact result receives its separately recorded goal authority.</p>
 <form method="post" action="/phase6-real-searches">{self.hidden(actor, business_unit)}
 <label for="phase6-real-search-key">Real-proof search idempotency key</label><input id="phase6-real-search-key" name="idempotency_key" maxlength="100" required>
-<button type="submit">Evaluate the exact two authorized targets</button></form>"""
+<button type="submit">Evaluate the exact authorized target set</button></form>"""
         body = f"""<p class="notice"><strong>Durable history-first Phase 6 search.</strong> History, identity, suppression, relationship, cooldown, and re-engagement classification runs before opportunity filtering, qualification, and target capping. Search intent is not evidence of demand.</p>
 <form method="post" action="/phase6-searches" aria-describedby="phase6-filter-help">{self.hidden(actor, business_unit)}
 <p id="phase6-filter-help">Controlled values: product_photography, product_video, ugc_ad. Leave both fields blank for the unfiltered route.</p>

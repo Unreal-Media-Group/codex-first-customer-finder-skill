@@ -50,9 +50,11 @@ contract now requires a configured skill/tool claim projector before search or a
 binds each observed claim to an exact hashed summary substring, derives category gaps and bounded
 product-photo/video inferences, and embeds an automated evidence-review attestation for exact
 candidate and package revalidation. Frozen v2 proof artifacts remain read-compatible. The default
-runtime has no executable real-proof route. A newly authorized exact target and source plan must
-produce a new v3 candidate that passes automated evidence QA before genuine exact-version human
-acceptance and local package release can complete
+runtime has no executable real-proof route. The separately authorized v4 route binds Coolibar's one
+exact source plan and single attempt, with no retry or fallback; it becomes executable only through
+the explicitly configured bounded proof service after review, push verification, and exact durable
+approval. That attempt must produce a v3 candidate that passes automated evidence QA before genuine
+exact-version human acceptance and local package release can complete
 the Phase 6 gate.
 Creative generation, outreach, external persistence,
 orchestration, and outcome optimization are downstream responsibilities outside this repository.
