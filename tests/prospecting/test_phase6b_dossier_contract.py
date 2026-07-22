@@ -321,6 +321,17 @@ class Phase6BContractTests(unittest.TestCase):
             with self.subTest(value=dossier["dossier_id"]), self.assertRaises(ValidationError):
                 validate_customer_dossier(dossier, history=self.history_for(dossier["business_unit"]), approved_result=self.approved_result(dossier))
 
+    def test_microsecond_utc_history_timestamp_is_not_a_telephone_value(self) -> None:
+        history = self.history_for("unreal-media-group")
+        history["generated_at"] = "2026-07-22T03:27:19.123456Z"
+        evaluation = filter_candidates(
+            copy.deepcopy(self.requests["search-umg-creative"]),
+            self.candidates_for("unreal-media-group"),
+            history,
+            today=date(2026, 7, 22),
+        )
+        self.assertEqual(evaluation["business_unit"], "unreal-media-group")
+
     def test_package_is_canonical_deterministic_and_reference_complete(self) -> None:
         dossier = self.validate_dossier("dossier-umg-orbit")
         approved = self.approved_result(dossier)

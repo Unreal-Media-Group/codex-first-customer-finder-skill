@@ -291,11 +291,19 @@ def _check_private_material(value: Any, label: str = "Phase 6B data") -> None:
         return
     if EMAIL_PATTERN.search(value) or CREDENTIAL_PATTERN.search(value):
         raise ValidationError(f"{label} contains prohibited contact or credential material.")
+    looks_like_date = False
     try:
-        date.fromisoformat(value[:10])
-        looks_like_date = len(value) in {10, 20, 25}
+        if len(value) == 10:
+            date.fromisoformat(value)
+            looks_like_date = True
+        else:
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            looks_like_date = (
+                parsed.tzinfo is not None
+                and parsed.utcoffset() == timezone.utc.utcoffset(parsed)
+            )
     except ValueError:
-        looks_like_date = False
+        pass
     is_digest = re.fullmatch(r"[0-9a-f]{64}", value) is not None
     if not looks_like_date and not is_digest and PHONE_PATTERN.search(value):
         raise ValidationError(f"{label} contains a prohibited telephone value.")
