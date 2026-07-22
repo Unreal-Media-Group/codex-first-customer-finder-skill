@@ -17,6 +17,7 @@ from pathlib import Path
 
 from .application import ACTOR_SCOPE, BUSINESS_UNITS, MissionControl, MissionControlError, safe_evidence_url, state_domain, utc_now
 from .agent import AGENT_ID, RegisteredAgentService, default_state_path
+from .dossier import DossierService
 from .enrichment import EnrichmentService
 from .shadow import SCHEDULE_MANAGER, ShadowLoopService, ShadowScheduler
 from .store import SqliteStore
@@ -50,12 +51,12 @@ table{{width:100%;border-collapse:collapse;background:var(--panel)}} th,td{{padd
 @media(max-width:640px){{table,thead,tbody,tr,th,td{{display:block}} thead{{position:absolute;left:-9999px}} td{{border-top:0}} nav{{flex-direction:column}}}}
 </style></head><body>
 <header><p><strong>Prospecting Manual Mission Control</strong></p>
-<p class="notice"><strong>Synthetic local review surface.</strong> Campaign and governed prospect-review state resets on restart; registered worker runs, Phase 5 shadow schedules, and Phase 6A approvals and briefs are durable in a local, gitignored SQLite file. The worker executes local synthetic fixtures only. Actor selection simulates policy; it is not production authentication. No external research, creative, likeness, or outbound capability exists.</p>
-<nav aria-label="Primary"><a href="/campaigns?{query}">Campaigns</a><a href="/runs?{query}">Run history</a><a href="/worker-runs?{query}">Worker runs</a><a href="/review-tasks?{query}">Review tasks</a><a href="/prospects?{query}&amp;queue=new">Prospect queues</a><a href="/registry?{query}">Agent registry</a><a href="/shadow-schedules?{query}">Shadow schedules</a><a href="/phase6-approvals?{query}">Fixture approvals</a><a href="/phase6-enrichments?{query}">Fixture briefs</a></nav>
-<form method="get" action="/campaigns"><label for="scope_actor">Fixture review actor (not authentication)</label><select id="scope_actor" name="actor">{''.join(f'<option value="{e(name)}"{" selected" if name == actor else ""}>{e(name)}</option>' for name in ACTOR_SCOPE)}</select><label for="scope_unit">Business-unit scope</label><select id="scope_unit" name="business_unit">{''.join(f'<option value="{e(unit)}"{" selected" if unit == business_unit else ""}>{e(unit)}</option>' for unit in sorted(BUSINESS_UNITS))}</select><button type="submit">Change local review scope</button></form>
+<p class="notice"><strong>Synthetic local review surface.</strong> Registered runs, schedules, exact approvals, dossiers, and local-only packages are durable in a gitignored SQLite file. Synthetic fixtures remain the default proof path. Actor selection simulates policy; it is not production authentication. No creative, likeness, outreach, external-write, deployment, or downstream-agent authority exists.</p>
+<nav aria-label="Primary"><a href="/campaigns?{query}">Campaigns</a><a href="/runs?{query}">Run history</a><a href="/worker-runs?{query}">Worker runs</a><a href="/review-tasks?{query}">Review tasks</a><a href="/prospects?{query}&amp;queue=new">Prospect queues</a><a href="/registry?{query}">Agent registry</a><a href="/shadow-schedules?{query}">Shadow schedules</a><a href="/phase6-approvals?{query}">Fixture approvals</a><a href="/phase6-enrichments?{query}">Fixture briefs</a><a href="/phase6-dossiers?{query}">Customer dossiers</a><a href="/phase6-packages?{query}">Local packages</a></nav>
+<form method="get" action="/campaigns"><label for="scope_actor">Local review actor (not authentication)</label><select id="scope_actor" name="actor">{''.join(f'<option value="{e(name)}"{" selected" if name == actor else ""}>{e(name)}</option>' for name in ACTOR_SCOPE)}</select><label for="scope_unit">Business-unit scope</label><select id="scope_unit" name="business_unit">{''.join(f'<option value="{e(unit)}"{" selected" if unit == business_unit else ""}>{e(unit)}</option>' for unit in sorted(BUSINESS_UNITS))}</select><button type="submit">Change local review scope</button></form>
 <p>Review actor: <strong>{e(actor)}</strong> · Business unit: <strong>{e(business_unit)}</strong></p></header>
 <main id="main"><h1>{e(title)}</h1>{status_html}{body}</main>
-<footer><small>Local synthetic registered worker · fixture-only shadow execution and enrichment · durable local state · zero cost cap · no credentials, external network client, production approval, creative, likeness, or outreach.</small></footer></body></html>"""
+<footer><small>Local registered worker · governed synthetic research and dossier review · durable local state · zero cost cap · no credentials, creative, likeness, outreach, external writes, deployment, or downstream invocation.</small></footer></body></html>"""
 
 
 class WebApplication:
@@ -67,6 +68,7 @@ class WebApplication:
         state_path: Path | None = None,
         shadow_service: ShadowLoopService | None = None,
         enrichment_service: EnrichmentService | None = None,
+        dossier_service: DossierService | None = None,
     ):
         self.control = mission_control or MissionControl()
         self.csrf_token = csrf_token or secrets.token_urlsafe(32)
@@ -84,6 +86,14 @@ class WebApplication:
             self.agent,
             fixture_path=Path(__file__).resolve().parents[3]
             / "fixtures" / "prospecting" / "phase6" / "brief-fixtures.json",
+            clock=getattr(self.control.repository, "clock", utc_now),
+        )
+        self.dossier = dossier_service or DossierService(
+            self.enrichment,
+            fixture_path=Path(__file__).resolve().parents[3]
+            / "fixtures" / "prospecting" / "phase6" / "dossier-fixtures.json",
+            history_path=Path(__file__).resolve().parents[3]
+            / "fixtures" / "prospecting" / "phase6" / "dossier-history.json",
             clock=getattr(self.control.repository, "clock", utc_now),
         )
 
@@ -144,6 +154,14 @@ class WebApplication:
             return 200, self.phase6_enrichment_detail(actor, business_unit, parts[1])
         if len(parts) == 2 and parts[0] == "phase6-briefs" and IDENTIFIER.fullmatch(parts[1]):
             return 200, self.phase6_brief_detail(actor, business_unit, parts[1])
+        if path == "/phase6-dossiers":
+            return 200, self.phase6_dossiers(actor, business_unit)
+        if len(parts) == 2 and parts[0] == "phase6-searches" and IDENTIFIER.fullmatch(parts[1]):
+            return 200, self.phase6_search_detail(actor, business_unit, parts[1])
+        if len(parts) == 2 and parts[0] == "phase6-dossier-candidates" and IDENTIFIER.fullmatch(parts[1]):
+            return 200, self.phase6_dossier_candidate_detail(actor, business_unit, parts[1])
+        if path == "/phase6-packages":
+            return 200, self.phase6_packages(actor, business_unit)
         if path == "/shadow-schedules":
             return 200, self.shadow_schedules(actor, business_unit)
         if path == "/shadow-schedules/new":
@@ -227,6 +245,78 @@ class WebApplication:
             return 200, self.phase6_brief_detail(
                 actor, business_unit, parts[1],
                 "Research-quality review recorded. It grants no generation or execution authority.",
+            )
+        if path == "/phase6-searches":
+            parse_values = lambda key: [item.strip() for item in form.get(key, "").split(",") if item.strip()]
+            search, created = self.dossier.create_search(
+                actor,
+                business_unit,
+                include_any=parse_values("include_any") or None,
+                exclude=parse_values("exclude") or None,
+                idempotency_key=form.get("idempotency_key", ""),
+            )
+            status = (
+                "History-first opportunity filtering completed and was recorded durably."
+                if created else
+                "Idempotent replay returned the existing durable search."
+            )
+            return 200, self.phase6_search_detail(
+                actor, business_unit, search["search_id"], status
+            )
+        if path == "/phase6-dossier-approvals":
+            approval = self.dossier.record_approval(
+                actor,
+                business_unit,
+                form.get("search_id", ""),
+                form.get("result_id", ""),
+                decision=form.get("decision", ""),
+                reason=form.get("reason", ""),
+                expected_leaf_id=form.get("expected_leaf_id", "") or None,
+            )
+            return 201, self.phase6_search_detail(
+                actor,
+                business_unit,
+                approval["search_id"],
+                f"Exact dossier authority event recorded: {approval['decision']}.",
+            )
+        if path == "/phase6-dossier-runs":
+            candidate, created = self.dossier.start_dossier(
+                actor,
+                business_unit,
+                form.get("approval_event_id", ""),
+                form.get("idempotency_key", ""),
+            )
+            status = (
+                "Dossier candidate created for independent research-quality review."
+                if created else
+                "Idempotent replay returned the existing dossier candidate."
+            )
+            return 200, self.phase6_dossier_candidate_detail(
+                actor, business_unit, candidate["candidate_version_id"], status
+            )
+        if len(parts) == 3 and parts[0] == "phase6-dossier-runs" and IDENTIFIER.fullmatch(parts[1]) and parts[2] == "cancel":
+            run = self.dossier.cancel_dossier(actor, business_unit, parts[1])
+            return 200, self.phase6_dossiers(
+                actor, business_unit, f"Dossier run {run['dossier_run_id']} cancelled before completion."
+            )
+        if len(parts) == 3 and parts[0] == "phase6-dossier-candidates" and IDENTIFIER.fullmatch(parts[1]) and parts[2] == "review":
+            outcome, created = self.dossier.review_candidate(
+                actor,
+                business_unit,
+                parts[1],
+                decision=form.get("decision", ""),
+                reason=form.get("reason", ""),
+                idempotency_key=form.get("idempotency_key", ""),
+            )
+            status = (
+                "Terminal review recorded atomically. An accepted version released one inert local package."
+                if created and outcome["review"]["decision"] == "accepted" else
+                "Terminal research-quality review recorded; no downstream action authority was granted."
+                if created else
+                "Idempotent replay returned the existing terminal review."
+            )
+            return 200, self.phase6_dossier_candidate_detail(
+                actor, business_unit, parts[1], status
             )
         if path == "/shadow-schedules":
             refs = []
@@ -709,6 +799,133 @@ class WebApplication:
 <h2>Append-only review history</h2>{f'<table><thead><tr><th>Event</th><th>Decision</th><th>Reviewer</th><th>Reason</th><th>Recorded</th><th>Authority</th></tr></thead><tbody>{review_rows}</tbody></table>' if review_rows else '<p class="notice">No research-quality review exists.</p>'}
 <h2>Research-quality review only</h2>{review_controls}"""
         return page(f"Campaign brief {brief_id}", body, actor=actor, business_unit=business_unit, status=status)
+
+    def phase6_dossiers(
+        self, actor: str, business_unit: str, status: str = ""
+    ) -> str:
+        searches = self.dossier.searches(actor, business_unit)
+        query = urlencode({"actor": actor, "business_unit": business_unit})
+        rows = "".join(
+            f'<tr><td><a href="/phase6-searches/{e(item["search_id"])}?{query}">{e(item["search_id"])}</a></td>'
+            f'<td>{e(item["request"].get("opportunity_filter") or "No opportunity filter")}</td>'
+            f'<td>{sum(1 for result in item["results"] if result["selected"])}</td>'
+            f'<td>{e(item["history_hash"])}</td><td>{e(item["created_at"])}</td></tr>'
+            for item in searches
+        )
+        default_include = "product_photography, product_video" if business_unit == "unreal-media-group" else ""
+        default_exclude = "ugc_ad" if business_unit == "unreal-media-group" else ""
+        body = f"""<p class="notice"><strong>Durable history-first Phase 6 search.</strong> History, identity, suppression, relationship, cooldown, and re-engagement classification runs before opportunity filtering, qualification, and target capping. Search intent is not evidence of demand.</p>
+<form method="post" action="/phase6-searches" aria-describedby="phase6-filter-help">{self.hidden(actor, business_unit)}
+<p id="phase6-filter-help">Controlled values: product_photography, product_video, ugc_ad. Leave both fields blank for the unfiltered route.</p>
+<label for="phase6-include">Include any opportunity types</label><input id="phase6-include" name="include_any" maxlength="200" value="{e(default_include)}">
+<label for="phase6-exclude">Exclude opportunity types</label><input id="phase6-exclude" name="exclude" maxlength="200" value="{e(default_exclude)}">
+<label for="phase6-search-key">Idempotency key</label><input id="phase6-search-key" name="idempotency_key" maxlength="100" required>
+<button type="submit">Run governed local search</button></form>
+<h2>Durable searches</h2>{f'<table><thead><tr><th>Search</th><th>Filter</th><th>Selected</th><th>History fingerprint</th><th>Created</th></tr></thead><tbody>{rows}</tbody></table>' if rows else '<p class="notice">No Phase 6 dossier search has run for this business unit.</p>'}"""
+        return page("Customer dossier search", body, actor=actor, business_unit=business_unit, status=status)
+
+    def phase6_search_detail(
+        self, actor: str, business_unit: str, search_id: str, status: str = ""
+    ) -> str:
+        search = self.dossier.get_search(actor, business_unit, search_id)
+        approvals = self.dossier.approvals(actor, business_unit)
+        children = {item["supersedes_id"] for item in approvals if item["supersedes_id"]}
+        leaf_by_result = {
+            item["result_record_id"]: item
+            for item in approvals
+            if item["approval_event_id"] not in children
+        }
+        rows = []
+        for item in search["results"]:
+            decision = item["decision"]
+            leaf = leaf_by_result.get(item["result_record_id"])
+            controls = ""
+            if item["selected"] and actor != search["initiating_actor"]:
+                expected = leaf["approval_event_id"] if leaf else ""
+                controls = f"""<form method="post" action="/phase6-dossier-approvals">{self.hidden(actor, business_unit)}
+<input type="hidden" name="search_id" value="{e(search_id)}"><input type="hidden" name="result_id" value="{e(item['result_id'])}">
+<input type="hidden" name="expected_leaf_id" value="{e(expected)}">
+<label for="decision-{e(item['result_record_id'])}">Authority decision</label><select id="decision-{e(item['result_record_id'])}" name="decision"><option value="approved">Approve exact dossier research</option><option value="rejected">Reject</option><option value="revoked">Revoke</option><option value="invalidated">Invalidate</option></select>
+<label for="reason-{e(item['result_record_id'])}">Reason</label><textarea id="reason-{e(item['result_record_id'])}" name="reason" maxlength="2000" required></textarea><button type="submit">Record exact authority event</button></form>"""
+            elif (
+                item["selected"]
+                and leaf
+                and leaf["valid_now"]
+                and not leaf["consumed"]
+                and actor == search["initiating_actor"]
+            ):
+                controls = f"""<form method="post" action="/phase6-dossier-runs">{self.hidden(actor, business_unit)}
+<input type="hidden" name="approval_event_id" value="{e(leaf['approval_event_id'])}">
+<label for="dossier-key-{e(item['result_record_id'])}">Dossier idempotency key</label><input id="dossier-key-{e(item['result_record_id'])}" name="idempotency_key" maxlength="100" required>
+<button type="submit">Create pending dossier candidate</button></form>"""
+            elif item["selected"] and leaf and leaf["consumed"] and actor == search["initiating_actor"]:
+                controls = '<p class="notice">This exact approval has already been consumed. A new research attempt requires a new approval and candidate version.</p>'
+            elif item["selected"] and leaf and actor == search["initiating_actor"]:
+                controls = '<p class="notice">The current authority leaf is not executable; it may be rejected, revoked, invalidated, or expired.</p>'
+            elif item["selected"] and actor == search["initiating_actor"]:
+                controls = '<p class="notice">A separate allowed reviewer must approve this exact selected result before research.</p>'
+            rows.append(
+                f'<tr><td>{e(item["candidate"]["company_name"])}</td><td>{e(item["result_id"])}</td>'
+                f'<td>{e(item["account_id"])}</td><td>{e(decision["history_classification"]["status"])}</td>'
+                f'<td>{e(", ".join(decision["matched_opportunities"]))}</td><td>{e(decision["filter_state"])}</td>'
+                f'<td>{e(decision["qualification_state"])}</td><td>{e(item["selected"])}</td>'
+                f'<td>{e(leaf["decision"] if leaf else "No authority")}</td><td>{controls}</td></tr>'
+            )
+        body = f"""<p class="notice">This immutable search is bound to a validated history snapshot before filtering. Changing the filter never makes an existing identity new.</p>
+<dl><dt>Search</dt><dd>{e(search_id)}</dd><dt>Initiating actor</dt><dd>{e(search['initiating_actor'])}</dd><dt>History fingerprint</dt><dd>{e(search['history_hash'])}</dd><dt>Opportunity filter</dt><dd>{e(search['request'].get('opportunity_filter') or 'Not requested')}</dd></dl>
+<table><thead><tr><th>Company</th><th>Result</th><th>Derived account</th><th>History</th><th>Opportunities</th><th>Filter</th><th>Qualification</th><th>Selected</th><th>Authority</th><th>Governed control</th></tr></thead><tbody>{''.join(rows)}</tbody></table>"""
+        return page(f"Phase 6 search {search_id}", body, actor=actor, business_unit=business_unit, status=status)
+
+    def phase6_dossier_candidate_detail(
+        self, actor: str, business_unit: str, candidate_id: str, status: str = ""
+    ) -> str:
+        item = self.dossier.get_candidate(actor, business_unit, candidate_id)
+        dossier = item["dossier"]
+        coverage_rows = "".join(
+            f'<tr><td>{e(category["category"])}</td><td>{e(category["coverage_state"])}</td>'
+            f'<td>{e(category.get("gap_explanation", ""))}</td><td>{len(category["claims"])}</td></tr>'
+            for category in dossier["categories"]
+        )
+        review = self.dossier.review_for_candidate(actor, business_unit, candidate_id)
+        if review and review["package"]:
+            package = review["package"]
+            controls = (
+                f'<p class="status" role="status">Accepted and released as immutable local package '
+                f'<strong>{e(package["package_id"])}</strong>. Every downstream action authority is false.</p>'
+            )
+        elif review:
+            controls = (
+                f'<p class="notice"><strong>Terminal review recorded:</strong> '
+                f'{e(review["review"]["decision"])} by {e(review["review"]["reviewer_actor"])}. '
+                'This exact candidate cannot receive another review or release.</p>'
+            )
+        elif actor == item["proposer_actor"]:
+            controls = '<p class="notice"><strong>Read-only for the proposer.</strong> A different allowed reviewer must make the one terminal exact-version decision.</p>'
+        else:
+            controls = f"""<form method="post" action="/phase6-dossier-candidates/{e(candidate_id)}/review">{self.hidden(actor, business_unit)}
+<label for="dossier-review-decision">Terminal decision</label><select id="dossier-review-decision" name="decision"><option value="accepted">Accept exact research version</option><option value="changes_requested">Request changes</option><option value="rejected">Reject</option></select>
+<label for="dossier-review-reason">Reason</label><textarea id="dossier-review-reason" name="reason" maxlength="2000" required></textarea>
+<label for="dossier-review-key">Review idempotency key</label><input id="dossier-review-key" name="idempotency_key" maxlength="100" required>
+<button type="submit">Record one terminal review</button></form>"""
+        body = f"""<p class="notice"><strong>Exact immutable dossier candidate.</strong> It is local data only and cannot generate, contact, send, write externally, invoke an agent, or deploy.</p>
+<dl><dt>Candidate version</dt><dd>{e(candidate_id)}</dd><dt>Dossier</dt><dd>{e(dossier['dossier_id'])} v{dossier['version']}</dd><dt>Result</dt><dd>{e(item['result_id'])}</dd><dt>Derived account</dt><dd>{e(item['account_id'])}</dd><dt>Content hash</dt><dd>{e(item['content_hash'])}</dd><dt>Byte length</dt><dd>{item['byte_length']}</dd><dt>State</dt><dd>{e(dossier['review_state'])}</dd></dl>
+<h2>Eleven-category coverage</h2><table><thead><tr><th>Category</th><th>Coverage</th><th>Explicit gap</th><th>Claims</th></tr></thead><tbody>{coverage_rows}</tbody></table>
+<h2>Evidence inventory</h2><pre>{e(json.dumps(dossier['evidence_inventory'], indent=2, sort_keys=True))}</pre>
+<h2>Complete graph-ready candidate</h2><pre>{e(json.dumps(dossier, indent=2, sort_keys=True))}</pre>
+<h2>Independent exact-version review</h2>{controls}"""
+        return page(f"Dossier candidate {candidate_id}", body, actor=actor, business_unit=business_unit, status=status)
+
+    def phase6_packages(self, actor: str, business_unit: str) -> str:
+        packages = self.dossier.packages(actor, business_unit)
+        rows = "".join(
+            f'<tr><td>{e(item["package_id"])}</td><td>{e(item["package"]["dossier_id"])}</td>'
+            f'<td>{e(item["content_hash"])}</td><td>{item["byte_length"]}</td>'
+            f'<td><pre>{e(json.dumps(item["package"]["authority"], sort_keys=True))}</pre></td></tr>'
+            for item in packages
+        )
+        body = f"""<p class="notice">Immutable, deterministic, graph-ready local data packages. They contain structured nodes, edges, claims, provenance, history, coverage, and no executable downstream authority.</p>
+{f'<table><thead><tr><th>Package</th><th>Dossier</th><th>Stored hash</th><th>Bytes</th><th>Authority</th></tr></thead><tbody>{rows}</tbody></table>' if rows else '<p class="notice">No package exists. A package is created only inside an accepted terminal-review transaction.</p>'}"""
+        return page("Local lead-intelligence packages", body, actor=actor, business_unit=business_unit)
 
     def shadow_schedules(self, actor: str, business_unit: str) -> str:
         items = self.shadow.schedules(actor, business_unit)

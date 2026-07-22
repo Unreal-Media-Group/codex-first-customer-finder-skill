@@ -511,8 +511,11 @@ These are starting caps, not permanent performance targets.
 **Status:** Phase 6A's synthetic fixture brief foundation is independently reviewed and finalized at
 commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first schemas,
 documentation, synthetic fixtures, deterministic validation, and tests are independently reviewed
-and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The full Phase 6 exit gate is not complete, and live
-public-source research remains unauthorized.
+and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The governed synthetic
+dossier runtime now proves additive SQLite v4 activation, durable history-first filtering, derived
+account identity, exact source-plan approval, single-use claims, immutable candidates, terminal
+review, and inert graph-package release. The full Phase 6 exit gate is not complete; the bounded
+real-source reader, authorized live proof, and genuine exact-version acceptance remain separate gates.
 
 ## Objective
 
@@ -657,14 +660,16 @@ is information, not permission to generate, contact, send, store externally, or 
    claim-level provenance, stable identities, and public-business-contact restrictions.
 4. Prove the expanded contract with synthetic fixtures, deterministic validation, and both business
    units before enabling any live source.
-5. Obtain separate authorization for the exact Phase 6B source classes, network-read boundary,
+5. Integrate the frozen contract with the durable local approval, history, candidate-review, and
+   exact-version release boundary without weakening v1 compatibility.
+6. Obtain separate authorization for the exact Phase 6B source classes, network-read boundary,
    budgets, retention rules, and stop conditions.
-6. Implement bounded public-source research by extending the existing skill and evidence patterns.
-7. Validate the complete path from discovery and history filtering through reviewed dossier and
+7. Implement bounded public-source research by extending the existing skill and evidence patterns.
+8. Validate the complete path from discovery and history filtering through reviewed dossier and
    local graph-package emission.
-8. Independently review privacy, evidence quality, identity, business-unit isolation, failure
+9. Independently review privacy, evidence quality, identity, business-unit isolation, failure
    behavior, and the no-action handoff boundary.
-9. Stop. Any creative, outreach, external persistence, orchestration, or outcome-learning work moves
+10. Stop. Any creative, outreach, external persistence, orchestration, or outcome-learning work moves
    to a separately authorized downstream project.
 
 ---

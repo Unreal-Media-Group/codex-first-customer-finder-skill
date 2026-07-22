@@ -33,8 +33,10 @@ foundation for the customer dossier. Phase 6B's contract-first repository-local 
 documentation, synthetic fixtures, deterministic validation, and tests now define comprehensive
 dossiers, pre-search filters, durable history, and a graph-ready local handoff; this contract-first
 work is independently reviewed and finalized at `86f83f1a94862d573f30da70a47760556b045309`
-and does not satisfy the full Phase 6 exit gate. Live
-public-source research remains separately gated. Creative generation, outreach, external persistence,
+and now has a governed synthetic runtime that activates additive SQLite v4, runs durable history-first
+filters, binds exact source-plan approval, produces immutable eleven-category candidates, and releases
+one inert local package only after terminal exact-version review. This runtime still does not satisfy
+the full Phase 6 exit gate. Live public-source research remains separately gated. Creative generation, outreach, external persistence,
 orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 ## Local installation
@@ -59,6 +61,7 @@ Use `--skills-dir PATH` for an isolated location. The original `scripts/install.
 - [Phase 5 Shadow Loop](docs/PHASE_5_SHADOW_LOOP.md)
 - [Phase 6A Synthetic Lead-Intelligence Brief Foundation](docs/PHASE_6_ENRICHMENT_BRIEF.md)
 - [Phase 6B Dossier Contract-First Foundation](docs/PHASE_6B_DOSSIER_CONTRACT.md)
+- [Phase 6 Governed Dossier Runtime](docs/PHASE_6_DOSSIER_RUNTIME.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Safe upstream synchronization](docs/UPSTREAM_SYNC.md)
 - [Program roadmap](docs/specs/UNREAL_PROSPECTING_SKILLS_PROGRAM_ROADMAP.md)

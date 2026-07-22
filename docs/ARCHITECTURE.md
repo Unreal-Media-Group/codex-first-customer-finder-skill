@@ -305,6 +305,25 @@ and emits canonical local packages with all downstream authority flags denied. L
 future consumer that stores or routes the released package remain separate work with separate
 authority.
 
+The governed synthetic dossier runtime connects that frozen contract to local SQLite without
+changing the Phase 6B schemas. `DossierService` is the sole schema-v4 activation boundary. It records
+immutable search/history/evaluation snapshots; projects every prior durable search outcome into the
+next history snapshot; derives account identity from canonical domain plus global identity; and
+serializes exact source-plan approval, single-use claims, cancellation, completion, and one terminal
+candidate review. A valid v4 reopen validates exact columns and required indexes/triggers without a
+rewrite. The v3-to-v4 transaction preserves populated Phase 6A bytes and rolls back completely on
+failure.
+
+Runtime identifiers, idempotency namespaces, and dossier-family version sequences are business-unit
+scoped. A process-local active-run registry prevents a second service in the supported threaded server from treating a live claim as a
+crash, while an ownerless committed claim fails closed at restart. Current fixture evidence is
+compared to the immutable approved source plan at claim and completion, but historical approval reads
+do not depend on mutable fixture bytes. Runtime research cutoff and freshness are recomputed before
+contract validation. An accepted review atomically creates the immutable final dossier, one package,
+and audit event; every read recomputes its request fingerprint and revalidates the complete
+run/approval/result/search/candidate/final/package/source-plan chain. Non-accepted terminal reviews
+have no release. See `docs/PHASE_6_DOSSIER_RUNTIME.md`.
+
 ## Ownership
 
 | Concern | Canonical location |
@@ -325,6 +344,7 @@ authority.
 | Phase 6A synthetic brief metadata | `fixtures/prospecting/phase6/` |
 | Phase 6B dossier and graph-package contracts | `shared/prospecting-core/schemas/*phase6b*`, `customer-dossier.schema.json`, `lead-intelligence-package.schema.json`, `shared/prospecting-core/scripts/validate_phase6b_contract.py` |
 | Phase 6B synthetic dossier/history fixtures | `fixtures/prospecting/phase6/dossier-*.json` |
+| Phase 6 governed dossier runtime | `apps/prospecting-mission-control/mission_control/dossier.py`, `store.py`, `web.py` |
 | Original upstream skill | `first-customer-finder/` |
 
 Skill report scripts are thin delegates. The installer places the shared core once at `unreal-prospecting-core`, preventing two business skills from drifting.

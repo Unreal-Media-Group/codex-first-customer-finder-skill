@@ -9,14 +9,15 @@ authority to generate, contact, send, deploy, or write externally.
 
 ## Boundary
 
-Phase 6B contract-first work is limited to three JSON schemas, one standard-library validator,
-synthetic `.example` fixtures, tests, and documentation. The Phase 1 campaign and history formats and
-their validators remain frozen. Phase 3–6A application code and SQLite state are unchanged.
+The finalized Phase 6B contract-first commit is limited to three JSON schemas, one standard-library
+validator, synthetic `.example` fixtures, tests, and documentation. The later governed runtime in
+`docs/PHASE_6_DOSSIER_RUNTIME.md` consumes these contracts without weakening them. The Phase 1
+campaign and history formats and their validators remain frozen.
 
 The test fixture is not a production approval system. Its `approved_result` object represents an
-exact synthetic result binding so the dossier/package contract can be validated in isolation. A
-future runtime integration must use the independently finalized Phase 6A durable approval boundary
-and requires separate authorization.
+exact synthetic result binding so the dossier/package contract can be validated in isolation. The
+governed synthetic runtime derives account identity and binds one exact selected result, history
+snapshot, source plan, proposer, and separate reviewer in durable SQLite authority state.
 
 ## Pre-search opportunity intent
 
@@ -131,7 +132,7 @@ python3 shared/prospecting-core/scripts/validate_phase6b_contract.py \
 
 ## Remaining authorization gates
 
-The complete Phase 6 exit gate is not satisfied by this foundation. Live/public-source reads,
-runtime integration with Phase 6A approvals, real customer research, storage, human release workflow,
+The complete Phase 6 exit gate is not satisfied by this foundation or its synthetic runtime.
+Live/public-source reads, real customer research and exact live-dossier human acceptance,
 downstream graph consumption, creative generation, likeness use, outreach, CRM/external writes,
 deployment, and every later phase remain unauthorized.
