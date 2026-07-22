@@ -51,6 +51,23 @@ DOSSIER_APPROVAL_SCOPE = "phase6_dossier_research"
 REAL_GOAL_AUTHORITY = "user-goal-authority"
 REAL_HUMAN_REVIEWER = "user-human-reviewer"
 REAL_NO_RETRY_FAILURES = {"candidate_creation_failed", "source_read_failed_no_retry"}
+REAL_PROOF_ROUTES = {
+    "search-real-live-proof-v1": {
+        "idempotency_identity": "phase6-real:search:umg:live-proof-v1",
+        "source_plan_ids": (
+            "phase6-live-proof-celsius-v1",
+            "phase6-live-proof-jazwares-v1",
+        ),
+    },
+    "search-real-live-proof-v2": {
+        "idempotency_identity": "phase6-real:search:umg:live-proof-v2",
+        "source_plan_ids": (
+            "phase6-live-proof-4ocean-v1",
+            "phase6-live-proof-badia-v1",
+        ),
+    },
+}
+REAL_CURRENT_PROOF_REQUEST_ID = "search-real-live-proof-v2"
 APPROVAL_LIFETIME = timedelta(days=7)
 IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
 IDEMPOTENCY = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
@@ -173,6 +190,7 @@ class DossierService:
 
     _active_lock = threading.RLock()
     _active_runs: dict[str, set[str]] = {}
+    _completing_runs: dict[str, set[tuple[str, str, str]]] = {}
 
     def __init__(
         self,
@@ -226,6 +244,25 @@ class DossierService:
     def _active_snapshot(self) -> set[str]:
         with self._active_lock:
             return set(self._active_runs.get(self._active_key, set()))
+
+    def _begin_completion(self, actor: str, business_unit: str, run_id: str) -> bool:
+        token = (actor, business_unit, run_id)
+        with self._active_lock:
+            completing = self._completing_runs.setdefault(self._active_key, set())
+            if token in completing:
+                return False
+            completing.add(token)
+            return True
+
+    def _end_completion(self, actor: str, business_unit: str, run_id: str) -> None:
+        token = (actor, business_unit, run_id)
+        with self._active_lock:
+            completing = self._completing_runs.get(self._active_key)
+            if completing is None:
+                return
+            completing.discard(token)
+            if not completing:
+                self._completing_runs.pop(self._active_key, None)
 
     def _now_dt(self) -> datetime:
         return _utc(self.clock())
@@ -454,21 +491,26 @@ class DossierService:
             raise MissionControlError(409, "The real result does not resolve to one exact authorized source plan.")
         return copy.deepcopy(matches[0])
 
-    def _real_search_request(self, business_unit: str) -> dict[str, Any]:
-        plans = [
-            copy.deepcopy(plan) for plan in self.real_plans.values()
-            if plan["business_unit"] == business_unit
-        ]
-        if business_unit != "unreal-media-group" or len(plans) != 2:
+    def _real_search_request(
+        self,
+        business_unit: str,
+        *,
+        request_id: str = REAL_CURRENT_PROOF_REQUEST_ID,
+    ) -> dict[str, Any]:
+        route = REAL_PROOF_ROUTES.get(request_id)
+        if business_unit != "unreal-media-group" or route is None:
             raise MissionControlError(409, "No exact real-proof search route is authorized for this business unit.")
+        plans = [self._real_plan_for_id(plan_id) for plan_id in route["source_plan_ids"]]
+        if any(plan["business_unit"] != business_unit for plan in plans):
+            raise MissionControlError(409, "The exact real-proof route contains an invalid business unit.")
         filters = {json.dumps(plan["opportunity_filter"], sort_keys=True) for plan in plans}
         if len(filters) != 1:
             raise MissionControlError(409, "The exact real-proof filters are inconsistent.")
         return {
             "contract_version": 2,
             "synthetic": False,
-            "request_id": "search-real-live-proof-v1",
-            "idempotency_identity": "phase6-real:search:umg:live-proof-v1",
+            "request_id": request_id,
+            "idempotency_identity": route["idempotency_identity"],
             "business_unit": business_unit,
             "campaign": {
                 "business_unit": business_unit,
@@ -478,14 +520,42 @@ class DossierService:
                 "maximum_evidence_age_days": 365,
             },
             "opportunity_filter": copy.deepcopy(plans[0]["opportunity_filter"]),
-            "source_plan_ids": [plan["source_plan_id"] for plan in plans],
+            "source_plan_ids": list(route["source_plan_ids"]),
         }
 
     def _require_exact_real_search_request(
         self, request: dict[str, Any], business_unit: str
     ) -> None:
-        if request != self._real_search_request(business_unit):
+        request_id = request.get("request_id")
+        if (
+            not isinstance(request_id, str)
+            or request_id not in REAL_PROOF_ROUTES
+            or request != self._real_search_request(business_unit, request_id=request_id)
+        ):
             raise MissionControlError(409, "The exact real-proof search request changed.")
+
+    def _require_current_real_execution_request(
+        self, request: dict[str, Any], business_unit: str
+    ) -> None:
+        self._require_exact_real_search_request(request, business_unit)
+        if request.get("request_id") != REAL_CURRENT_PROOF_REQUEST_ID:
+            raise MissionControlError(409, "The historical real-proof route is not executable.")
+
+    def _require_current_real_execution_search(
+        self,
+        connection: sqlite3.Connection,
+        search_id: str,
+        business_unit: str,
+    ) -> sqlite3.Row:
+        search = connection.execute(
+            "SELECT * FROM dossier_searches WHERE search_id=? AND business_unit=?",
+            (search_id, business_unit),
+        ).fetchone()
+        if search is None:
+            raise MissionControlError(409, "The exact real-proof search is unavailable.")
+        request = self._check_snapshot(search, "request", "search request")
+        self._require_current_real_execution_request(request, business_unit)
+        return search
 
     def _prior_real_target_blocker(
         self,
@@ -520,12 +590,19 @@ class DossierService:
             projected = self._result_row(prior_result)
             if not projected["selected"]:
                 continue
-            active_run = connection.execute(
-                "SELECT dossier_run_id FROM dossier_runs WHERE result_record_id=? AND state='running'",
+            prior_runs = connection.execute(
+                "SELECT * FROM dossier_runs WHERE result_record_id=? ORDER BY rowid",
                 (prior_result["result_record_id"],),
-            ).fetchone()
-            if active_run is not None:
+            ).fetchall()
+            if any(
+                not self._verified_run_transition(connection, run)
+                for run in prior_runs
+            ):
+                return "An earlier eligible real-proof target has inconsistent transition evidence."
+            if any(run["state"] == "running" for run in prior_runs):
                 return "An earlier eligible real-proof target is still running."
+            if any(run["state"] == "succeeded" for run in prior_runs):
+                return "An earlier eligible real-proof target produced a candidate; later targets are not executable."
             leaf = self._approval_leaf(connection, prior_result["result_record_id"])
             if leaf is None:
                 return "An earlier eligible real-proof target must become terminal before this target."
@@ -720,8 +797,10 @@ class DossierService:
         ]
         if failed and (len(failed) != 1 or failed != interrupted):
             return False
-        if not failed:
+        if not runs:
             return True
+        if not failed:
+            return bool(for_new_authority and decision != "approved")
         if len(interrupted) != 1 or not DossierService._verified_interrupted_run(
             connection, interrupted[0]
         ):
@@ -948,6 +1027,10 @@ class DossierService:
             if search is None or result is None:
                 raise MissionControlError(403, "Business-unit access denied or real result not found.")
             if search["initiating_actor"] != actor:
+                return False
+            request = self._check_snapshot(search, "request", "search request")
+            self._require_exact_real_search_request(request, business_unit)
+            if request.get("request_id") != REAL_CURRENT_PROOF_REQUEST_ID:
                 return False
             projected = self._result_row(result)
             if projected["candidate"].get("synthetic") is not False or not projected["selected"]:
@@ -1877,7 +1960,7 @@ class DossierService:
             if search is None:
                 raise MissionControlError(403, "Business-unit access denied or Phase 6 search not found.")
             request = self._check_snapshot(search, "request", "search request")
-            self._require_exact_real_search_request(request, business_unit)
+            self._require_current_real_execution_request(request, business_unit)
             if request.get("synthetic") is not False or search["initiating_actor"] != actor:
                 raise MissionControlError(403, "Only the bound proposer may bind the user's exact goal authority.")
             plan = self._real_plan_for_result(result_id, business_unit)
@@ -2076,6 +2159,12 @@ class DossierService:
                     raise MissionControlError(409, "The stored dossier run lost its approval binding.")
                 self._approval_integrity(connection, existing_approval, require_leaf=False)
                 existing_plan = self._require_current_source_plan(existing_approval)
+                if existing_plan.get("synthetic") is False:
+                    self._require_current_real_execution_search(
+                        connection,
+                        existing_approval["search_id"],
+                        business_unit,
+                    )
                 if (
                     existing_plan.get("synthetic") is False
                     and not self._verified_run_transition(connection, existing)
@@ -2107,6 +2196,9 @@ class DossierService:
             result, _search = self._approval_integrity(connection, approval, require_leaf=True)
             plan = self._require_current_source_plan(approval)
             if plan.get("synthetic") is False:
+                self._require_current_real_execution_search(
+                    connection, approval["search_id"], business_unit
+                )
                 if self._real_result_has_no_retry_failure(
                     connection, approval["result_record_id"]
                 ):
@@ -2275,6 +2367,9 @@ class DossierService:
             plan = self._require_current_source_plan(approval)
             if plan.get("synthetic") is not False:
                 return None
+            self._require_current_real_execution_search(
+                connection, approval["search_id"], business_unit
+            )
             if not self._verified_run_transition(connection, run):
                 raise MissionControlError(
                     409, "The stored real dossier run has inconsistent transition evidence."
@@ -2448,6 +2543,9 @@ class DossierService:
             self._approval_integrity(connection, approval, require_leaf=False)
             source_plan = self._require_current_source_plan(approval)
             if source_plan.get("synthetic") is False:
+                self._require_current_real_execution_search(
+                    connection, approval["search_id"], business_unit
+                )
                 if not self._verified_run_transition(connection, run):
                     raise MissionControlError(
                         409, "The stored real dossier run has inconsistent transition evidence."
@@ -2536,41 +2634,46 @@ class DossierService:
             return self._candidate_row(connection, row)
 
     def complete_dossier(self, actor: str, business_unit: str, run_id: str) -> dict[str, Any]:
-        research_bundle = None
+        if not self._begin_completion(actor, business_unit, run_id):
+            raise MissionControlError(409, "The dossier run is already being completed.")
         try:
-            research_bundle = self._real_bundle_for_run(actor, business_unit, run_id)
-            result = self._complete_dossier(
-                actor,
-                business_unit,
-                run_id,
-                research_bundle=research_bundle,
-            )
-        except Exception:
-            failure_class = "candidate_creation_failed"
-            remediation = "Create a new exact approval before another research attempt."
-            if research_bundle is not None:
-                product_sources = [
-                    source for source in research_bundle["sources"]
-                    if "product" in source["source_class"]
-                ]
-                if product_sources and not any(
-                    source["status"] == "success" for source in product_sources
+            research_bundle = None
+            try:
+                research_bundle = self._real_bundle_for_run(actor, business_unit, run_id)
+                result = self._complete_dossier(
+                    actor,
+                    business_unit,
+                    run_id,
+                    research_bundle=research_bundle,
+                )
+            except Exception:
+                failure_class = "candidate_creation_failed"
+                remediation = "Create a new exact approval before another research attempt."
+                if research_bundle is not None:
+                    product_sources = [
+                        source for source in research_bundle["sources"]
+                        if "product" in source["source_class"]
+                    ]
+                    if product_sources and not any(
+                        source["status"] == "success" for source in product_sources
+                    ):
+                        failure_class = "source_read_failed_no_retry"
+                        remediation = (
+                            "The exact public-source attempt failed closed and must not be retried."
+                        )
+                if self._fail_dossier_run(
+                    actor,
+                    business_unit,
+                    run_id,
+                    failure_class=failure_class,
+                    remediation=remediation,
                 ):
-                    failure_class = "source_read_failed_no_retry"
-                    remediation = (
-                        "The exact public-source attempt failed closed and must not be retried."
-                    )
-            if self._fail_dossier_run(
-                actor,
-                business_unit,
-                run_id,
-                failure_class=failure_class,
-                remediation=remediation,
-            ):
-                self._unregister_active(run_id)
-            raise
-        self._unregister_active(run_id)
-        return result
+                    self._unregister_active(run_id)
+                raise
+            self._unregister_active(run_id)
+            return result
+        finally:
+            self._end_completion(actor, business_unit, run_id)
 
     def start_dossier(
         self, actor: str, business_unit: str, approval_event_id: str, idempotency_key: str
@@ -2579,6 +2682,8 @@ class DossierService:
             actor, business_unit, approval_event_id, idempotency_key
         )
         if run["state"] == "running":
+            if not created:
+                raise MissionControlError(409, "The dossier run is already in progress.")
             candidate = self.complete_dossier(actor, business_unit, run["dossier_run_id"])
         elif run["state"] == "succeeded":
             candidate = self.get_candidate(actor, business_unit, run["candidate_version_id"])

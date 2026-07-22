@@ -2,26 +2,29 @@
 
 This runtime connects the finalized synthetic Phase 6B contracts to the local Mission Control
 approval and review surface. Synthetic fixtures remain the default. The additive v2 real path is
-limited to the two exact user-authorized public-business plans documented in
+limited to one current pair of exact user-authorized public-business plans documented in
 `PHASE_6_REAL_PUBLIC_PROOF.md`; it adds no general discovery or crawling capability. Runtime state is
 local and gitignored. The service never invokes another agent, generates an asset, contacts anyone,
 writes externally, deploys, or modifies Unreal OS.
 
-The two proof alternatives advance monotonically. Later authority waits for every earlier eligible
-target to become terminal or non-executable. When the target's first and sole pre-recovery run was
-genuinely startup-recovered as interrupted, it permits one new recovery approval and run. If later
-authority has already progressed, every later alternative must first be terminal without a candidate.
+Each versioned proof pair advances monotonically. Later authority waits for every earlier eligible
+target to become terminal without a candidate or non-executable; any candidate stops the pair. When
+the target's first and sole pre-recovery run was genuinely startup-recovered as interrupted, it
+permits one new recovery approval and run. If later authority has already progressed, every later
+alternative must first be terminal without a candidate.
 Recovery requires the exact append-only claim/recovery audit pair, no candidate or released package
 for the target, and no prior recovery approval or run.
 Source-policy, access, redirect, destination, content, privacy, and budget failures are never
-retried. An ordinary cancellation may receive new authority but is not labeled as infrastructure
-recovery. Authority creation, claims, public-read preflight, final persistence, and visible controls
-all enforce the same rules.
+retried. A committed claim consumes that target's attempt. Cancellation may unlock the next exact
+alternative but cannot reauthorize the same target. Authority creation, claims, public-read
+preflight, final persistence, and visible controls all enforce the same rules.
 
-The authorized live proof has now exhausted both exact alternatives without a candidate: Jazwares
-failed closed at robots-policy availability, and the sole CELSIUS infrastructure recovery ended as
-`source_read_failed_no_retry`. No existing target may retry and no third target or added URL is
-authorized. `PHASE_6_REAL_PUBLIC_PROOF.md` records the durable evidence and the exact remaining gate.
+The historical v1 route exhausted both exact alternatives without a candidate: Jazwares failed
+closed at robots-policy availability, and the sole CELSIUS infrastructure recovery ended as
+`source_read_failed_no_retry`. Its request and source plans remain valid only so durable history can
+be reopened; neither target may retry. The current v2 route contains only the newly authorized
+4ocean/Badia pair. No additional target, URL, retry, or substitution is authorized.
+`PHASE_6_REAL_PUBLIC_PROOF.md` records both route states and the exact remaining gate.
 
 ## Search and durable history
 

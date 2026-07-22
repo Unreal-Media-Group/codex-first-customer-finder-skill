@@ -92,6 +92,8 @@ REAL_SOURCE_KIND_BY_CLASS = {
 AUTHORIZED_PLAN_HASHES = {
     "phase6-live-proof-celsius-v1": "d80f8ad433ad3d44f726b566539b1c1f59890087ca224d2ceed5fff636a318bf",
     "phase6-live-proof-jazwares-v1": "4ff2de65b2ffda9d2e0e75ae8821c98eeadbe5a0b46b562dd3c022098d54aaeb",
+    "phase6-live-proof-4ocean-v1": "a5f8e5419da79dad34c9686a0bee4588e6c44d1b2bcebe764e0d13f7dbe67b06",
+    "phase6-live-proof-badia-v1": "97657c3b4899af8a906314a734d8a89b389ed0367c9845b987713ec8c0ffa533",
 }
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _DOMAIN = re.compile(

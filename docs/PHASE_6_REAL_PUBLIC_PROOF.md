@@ -1,9 +1,9 @@
 # Phase 6 exact public-business proof
 
-Phase 6 adds one explicitly versioned real-source path beside the frozen synthetic contracts. It is
-limited to two user-authorized public-business alternatives, one business unit, one opportunity
-filter, and the exact URLs in the repository manifest. It is not a crawler, a general web research
-tool, an outreach system, or authority for any downstream action.
+Phase 6 adds explicitly versioned real-source paths beside the frozen synthetic contracts. Each
+route is limited to two user-authorized public-business alternatives, one business unit, one
+opportunity filter, and the exact URLs in the repository manifest. It is not a crawler, a general
+web research tool, an outreach system, or authority for any downstream action.
 
 ## Exact authorization
 
@@ -11,21 +11,33 @@ The canonical manifest is
 `shared/prospecting-core/manifests/phase6-live-proof-source-plans.json`. Its plan hashes exclude only
 the `source_plan_hash` field itself and use compact sorted-key UTF-8 JSON.
 
-| Order | Organization | Plan | Plan hash | Result | Account |
+The historical `search-real-live-proof-v1` route remains in the manifest only so its durable records
+can be validated. It is exhausted and cannot be selected by a new search.
+
+| Historical order | Organization | Plan | Plan hash | Result | Account |
 | --- | --- | --- | --- | --- | --- |
 | 1 | Celsius Holdings, Inc. / CELSIUS | `phase6-live-proof-celsius-v1` | `d80f8ad433ad3d44f726b566539b1c1f59890087ca224d2ceed5fff636a318bf` | `result-real-v1-569b9ffde583d4bfc01e77ec` | `account-v1-13c98ba8965a8319d0cf7b3a` |
 | 2 | Jazwares, LLC | `phase6-live-proof-jazwares-v1` | `4ff2de65b2ffda9d2e0e75ae8821c98eeadbe5a0b46b562dd3c022098d54aaeb` | `result-real-v1-92c0f82008a2bce7a52fbf8c` | `account-v1-f865f1fbf50fc7239a69cf17` |
 
-Both plans use `include_any=[product_photography, product_video]` and
+The current `search-real-live-proof-v2` route contains exactly these newly authorized alternatives:
+
+| Current order | Organization | Plan | Plan hash | Result | Account |
+| --- | --- | --- | --- | --- | --- |
+| 1 | 4ocean PBC | `phase6-live-proof-4ocean-v1` | `a5f8e5419da79dad34c9686a0bee4588e6c44d1b2bcebe764e0d13f7dbe67b06` | `result-real-v1-18bb9c083e574dfe499ea6e9` | `account-v1-7e159cfaee4fd296693c39ee` |
+| 2 | Badia Spices | `phase6-live-proof-badia-v1` | `97657c3b4899af8a906314a734d8a89b389ed0367c9845b987713ec8c0ffa533` | `result-real-v1-24943333c909566d80517671` | `account-v1-b8c95659f44173d6390e3acb` |
+
+All plans use `include_any=[product_photography, product_video]` and
 `exclude=[ugc_ad]`. That filter is search intent, not evidence of demand, budget, buying intent, or
 UGC aversion. Before a public read, both targets pass through the durable identity, suppression,
-relationship, cooldown, duplicate, and re-engagement classifier. No third target can be derived or
-substituted.
+relationship, cooldown, duplicate, and re-engagement classifier. The current route may read 4ocean
+first and Badia only if 4ocean becomes terminal without a candidate. No additional target, URL,
+retry, or substitution is authorized.
 
 ## Live proof outcome
 
-Both exact alternatives are exhausted without a candidate. Jazwares failed closed at robots-policy
-availability; its six failed source records contain zero source bytes, hashes, or summaries. The one
+The historical v1 alternatives are exhausted without a candidate. Jazwares failed closed at
+robots-policy availability; its six failed source records contain zero source bytes, hashes, or
+summaries. The one
 permitted CELSIUS infrastructure recovery then ended as `source_read_failed_no_retry`; all six
 approved source records failed with zero body and extracted-text bytes and no hashes or summaries.
 The failed CELSIUS records intentionally retain no transport detail, so no narrower cause is claimed.
@@ -35,16 +47,16 @@ approval events, and four terminal runs. It contains zero candidates, review tas
 final dossier versions, or packages. `PRAGMA integrity_check` returns `ok`, and
 `PRAGMA foreign_key_check` returns no rows. No proof worker, server, or listener remains running.
 
-Neither target may retry, no URL may be added, and no third business may be selected under this
-authorization. The Phase 6 exit gate therefore remains blocked until the user authorizes another
-exact public business and exact URL/source-class plan. Automated evidence review and genuine
-exact-version human review cannot run without a candidate.
+Neither historical target may retry. The current v2 route is authorized but has not yet executed.
+It must pass the committed pre-live contract, security, regression, and remote-checkpoint gates
+before its one permitted ordered attempt begins. Automated evidence review and genuine exact-version
+human review still require a current-route candidate.
 
 ## Durable authority and execution
 
 The runtime order is:
 
-1. create one immutable v2 real search and record both history-first outcomes;
+1. create one immutable v2 real search for the current route and record both history-first outcomes;
 2. derive result, global identity, and account identity from the exact committed plan;
 3. record the user's already-provided exact goal authority as `user-goal-authority`, bound to the
    complete result projection, history, request, plan snapshot, plan hash, byte lengths, and seven-day
@@ -57,8 +69,9 @@ The runtime order is:
    dossier candidate.
 
 Target progression is monotonic. A later selected target cannot enter its authority flow until every
-earlier selected target is terminal or non-executable. Once a later target enters that flow, an
-earlier target ordinarily cannot be reopened. The only recovery is one new approval and one new run
+earlier selected target is terminal without a candidate or non-executable. A candidate stops the
+pair; the later alternative cannot run. Once a later target enters that flow, an earlier target
+cannot be reopened. The only recovery is one new approval and one new run
 when the target's first and sole pre-recovery run was genuinely startup-recovered as interrupted. If
 a later target has already entered authority, every later alternative must also be terminal with no
 candidate. Eligibility requires the exact
@@ -68,10 +81,10 @@ failures never qualify. The authority endpoint, new and idempotent claims, publi
 final candidate transaction, and visible controls all recheck the same rule.
 
 Revoke-first denies a claim. A revocation after a committed claim is non-retroactive for only that
-one synchronous run and never restores or reuses the approval. Cancellation that commits before the
-final insert creates no candidate and remains an ordinary new-authority path, not an infrastructure
-recovery. A source failure records only its safe reason code and does not retry, add a URL, or choose
-a third business.
+one synchronous run and never restores or reuses the approval. A committed claim consumes the
+target's attempt. Cancellation that commits before the final insert creates no candidate and may
+unlock the next exact alternative, but it never restores the same target. A source failure records
+only its safe reason code and does not retry, add a URL, or choose a third business.
 
 ## Reader boundary
 
@@ -130,8 +143,9 @@ The tests use injected deterministic transports and make no live requests. They 
 hashes and tampering, history protection, no-demand semantics, source-record privacy, destination and
 TLS binding, robots and redirect handling, budgets and joined shutdown, SQLite transaction
 separation, cancellation and revocation ordering, restart durability, pending review, canonical
-package release, monotonic two-target progression, single-recovery exhaustion, append-only recovery
-evidence, terminal-state mismatch rejection, and the loopback approval packet. The current
-warning-strict repository runner passes `340/340`; both official skill validators pass. Real Chrome
+package release, historical-route execution denial, versioned route compatibility, single-attempt
+claim and reader ownership, candidate-stops-failover ordering, single-recovery exhaustion,
+append-only recovery evidence, terminal-state mismatch rejection, and the loopback approval packet.
+The current warning-strict repository runner passes `344/344`; both official skill validators pass. Real Chrome
 QA at desktop and `375x812` verifies the one-next-target control, no horizontal overflow, visible
 keyboard focus, a clean console, and loopback-only requests without invoking the public-read action.

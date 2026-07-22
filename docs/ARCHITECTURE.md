@@ -249,7 +249,7 @@ explicitly research-quality status only. The full contract and independent-revie
 `docs/PHASE_6_ENRICHMENT_BRIEF.md`.
 
 The finalized contract-first portion of Phase 6B defines and validates the dossier and graph-package
-shapes without live reads. The separately authorized exact two-target live proof follows this
+shapes without live reads. The separately authorized exact two-target proof route follows this
 governed boundary; neither portion adds a downstream worker:
 
 ```text
@@ -302,8 +302,9 @@ schemas, synthetic fixtures, deterministic validator, and tests are independentl
 finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The validator reuses the frozen
 Phase 1 campaign/history validation
 and duplicate classifier, applies history protections before opportunity intent and qualification,
-and emits canonical local packages with all downstream authority flags denied. The one exact
-two-target public-read proof is additive v2 work governed by the repository manifest; any future
+and emits canonical local packages with all downstream authority flags denied. The manifest retains
+the exhausted CELSIUS/Jazwares route for historical validation and defines the current exact
+4ocean/Badia route for additive v2 public-read work; any future
 source, general discovery reader, or consumer that stores or routes a released package remains
 separate work with separate authority.
 
@@ -326,13 +327,15 @@ and audit event; every read recomputes its request fingerprint and revalidates t
 run/approval/result/search/candidate/final/package/source-plan chain. Non-accepted terminal reviews
 have no release. The real v2 route uses a separate exact manifest and validators, executes its
 reader only after a result-bound goal-authority claim and outside SQLite, persists no raw body or
-extracted text, and rejects simulated-actor acceptance. Target progression is monotonic across the
-exact CELSIUS-then-Jazwares alternatives at authority, claim, read, persistence, and UI boundaries,
-with one bounded new-approval/new-run recovery only when the target's first and sole pre-recovery run
-was a verified startup interruption. Once later authority has progressed, that recovery also requires
-every later alternative to be terminal without a candidate. The exception is bound to append-only
-claim/recovery audit evidence and the absence of any target candidate or release; cancellation
-remains an ordinary authority path, while source-policy failures never retry.
+extracted text, and rejects simulated-actor acceptance. Target progression is monotonic within each
+exact route at authority, claim, read, persistence, and UI boundaries. The historical
+CELSIUS/Jazwares request remains reopenable but non-executable, while the current route contains only
+4ocean then Badia. One bounded new-approval/new-run recovery exists only when the target's first and
+sole pre-recovery run was a verified startup interruption. Once later authority has progressed, that
+recovery also requires every later alternative to be terminal without a candidate. The exception is
+bound to append-only claim/recovery audit evidence and the absence of any target candidate or
+release. A committed claim consumes the target attempt; cancellation may unlock the next exact
+alternative but cannot reauthorize the same target, and source-policy failures never retry.
 See `docs/PHASE_6_DOSSIER_RUNTIME.md` and
 `docs/PHASE_6_REAL_PUBLIC_PROOF.md`.
 

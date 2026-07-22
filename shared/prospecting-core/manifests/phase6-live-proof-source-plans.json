@@ -136,6 +136,128 @@
         "max_extracted_text_bytes": 200000
       },
       "source_plan_hash": "4ff2de65b2ffda9d2e0e75ae8821c98eeadbe5a0b46b562dd3c022098d54aaeb"
+    },
+    {
+      "contract_version": 2,
+      "synthetic": false,
+      "source_plan_id": "phase6-live-proof-4ocean-v1",
+      "organization_name": "4ocean PBC",
+      "location_basis": "Boca Raton, Florida",
+      "canonical_domain": "4ocean.com",
+      "approved_related_domains": [],
+      "stable_identity_seed": "4ocean-pbc|4ocean.com",
+      "business_unit": "unreal-media-group",
+      "opportunity_filter": {
+        "include_any": [
+          "product_photography",
+          "product_video"
+        ],
+        "exclude": [
+          "ugc_ad"
+        ]
+      },
+      "approved_origins": [
+        "https://www.4ocean.com"
+      ],
+      "robots_policy_urls": [
+        "https://www.4ocean.com/robots.txt"
+      ],
+      "sources": [
+        {
+          "url": "https://www.4ocean.com/",
+          "source_class": "official organization site"
+        },
+        {
+          "url": "https://www.4ocean.com/pages/mission",
+          "source_class": "official company history and ownership context"
+        },
+        {
+          "url": "https://www.4ocean.com/collections/all-products",
+          "source_class": "official brand and product portfolio"
+        },
+        {
+          "url": "https://www.4ocean.com/blogs/press-releases",
+          "source_class": "official press and current activity"
+        },
+        {
+          "url": "https://www.4ocean.com/blogs/notebook/50-million-pounds-removed",
+          "source_class": "official press and current activity"
+        }
+      ],
+      "budgets": {
+        "connect_timeout_seconds": 5,
+        "read_timeout_seconds": 8,
+        "request_deadline_seconds": 15,
+        "run_deadline_seconds": 120,
+        "max_redirects_per_source": 3,
+        "max_requests_total": 12,
+        "max_header_bytes": 32768,
+        "max_body_bytes": 1500000,
+        "max_robots_bytes": 262144,
+        "max_extracted_text_bytes": 200000
+      },
+      "source_plan_hash": "a5f8e5419da79dad34c9686a0bee4588e6c44d1b2bcebe764e0d13f7dbe67b06"
+    },
+    {
+      "contract_version": 2,
+      "synthetic": false,
+      "source_plan_id": "phase6-live-proof-badia-v1",
+      "organization_name": "Badia Spices",
+      "location_basis": "Doral, Florida",
+      "canonical_domain": "badiaspices.com",
+      "approved_related_domains": [],
+      "stable_identity_seed": "badia-spices|badiaspices.com",
+      "business_unit": "unreal-media-group",
+      "opportunity_filter": {
+        "include_any": [
+          "product_photography",
+          "product_video"
+        ],
+        "exclude": [
+          "ugc_ad"
+        ]
+      },
+      "approved_origins": [
+        "https://badiaspices.com"
+      ],
+      "robots_policy_urls": [
+        "https://badiaspices.com/robots.txt"
+      ],
+      "sources": [
+        {
+          "url": "https://badiaspices.com/",
+          "source_class": "official organization site"
+        },
+        {
+          "url": "https://badiaspices.com/who-we-are/",
+          "source_class": "official company history and ownership context"
+        },
+        {
+          "url": "https://badiaspices.com/our-products/",
+          "source_class": "official brand and product portfolio"
+        },
+        {
+          "url": "https://badiaspices.com/all-products/",
+          "source_class": "official product portfolio"
+        },
+        {
+          "url": "https://badiaspices.com/contact-us/",
+          "source_class": "official organization and corporate overview"
+        }
+      ],
+      "budgets": {
+        "connect_timeout_seconds": 5,
+        "read_timeout_seconds": 8,
+        "request_deadline_seconds": 15,
+        "run_deadline_seconds": 120,
+        "max_redirects_per_source": 3,
+        "max_requests_total": 12,
+        "max_header_bytes": 32768,
+        "max_body_bytes": 1500000,
+        "max_robots_bytes": 262144,
+        "max_extracted_text_bytes": 200000
+      },
+      "source_plan_hash": "97657c3b4899af8a906314a734d8a89b389ed0367c9845b987713ec8c0ffa533"
     }
   ]
 }

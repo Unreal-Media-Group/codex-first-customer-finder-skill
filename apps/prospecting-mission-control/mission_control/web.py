@@ -849,7 +849,7 @@ class WebApplication:
         real_form = ""
         if business_unit == "unreal-media-group":
             real_form = f"""<h2>Exact authorized public-business proof</h2>
-<p class="notice">This route evaluates only CELSIUS then Jazwares against durable history using the fixed product-photo/video include and UGC-ad exclude filter. It performs no public read until the exact result receives its separately recorded goal authority.</p>
+<p class="notice">This route evaluates only 4ocean then Badia against durable history using the fixed product-photo/video include and UGC-ad exclude filter. It performs no public read until the exact result receives its separately recorded goal authority.</p>
 <form method="post" action="/phase6-real-searches">{self.hidden(actor, business_unit)}
 <label for="phase6-real-search-key">Real-proof search idempotency key</label><input id="phase6-real-search-key" name="idempotency_key" maxlength="100" required>
 <button type="submit">Evaluate the exact two authorized targets</button></form>"""
@@ -913,7 +913,7 @@ class WebApplication:
 <input type="hidden" name="reason" value="The user's exact Phase 6 goal authorizes this bounded public read.">
 <button type="submit">{label}</button></form>"""
             elif is_real and item["selected"] and leaf and leaf["consumed"] and actor == search["initiating_actor"]:
-                controls = '<p class="notice">This exact goal authority has been consumed. A new attempt requires a new exact authority event and candidate version.</p>'
+                controls = '<p class="notice">This exact target attempt has been consumed and cannot be reauthorized. Refresh to inspect its durable running or terminal state.</p>'
             elif is_real and item["selected"] and leaf and actor == search["initiating_actor"]:
                 controls = '<p class="notice">The current exact goal-authority leaf is not executable or target order currently blocks it.</p>'
             elif is_real and item["selected"] and actor == search["initiating_actor"]:

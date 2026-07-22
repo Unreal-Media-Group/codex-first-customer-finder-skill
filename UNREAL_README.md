@@ -37,13 +37,13 @@ work is independently reviewed and finalized at `86f83f1a94862d573f30da70a477605
 and now has a governed synthetic runtime that activates additive SQLite v4, runs durable history-first
 filters, binds exact source-plan approval, produces immutable eleven-category candidates, and releases
 one inert local package only after terminal exact-version review. This runtime still does not satisfy
-the full Phase 6 exit gate. A separately authorized additive v2 real-source path now binds the exact
-CELSIUS-then-Jazwares proof plans, uses a bounded standard-library public reader, produces a scrubbed
-pending dossier, and keeps human acceptance as the final release gate. Its implementation and
-pre-live independent review are complete, but both exact live alternatives terminated fail-closed
-without a candidate and neither may retry. No third target or added URL is authorized. A new exact
-public-business and source-plan authorization is required before automated evidence QA and a genuine
-exact-version human decision can run. Creative generation, outreach, external persistence,
+the full Phase 6 exit gate. A separately authorized additive v2 real-source path uses a bounded
+standard-library public reader, produces a scrubbed pending dossier, and keeps human acceptance as
+the final release gate. Its historical CELSIUS/Jazwares route is exhausted without a candidate and
+cannot retry. A new versioned route now binds only the exact authorized 4ocean/Badia plans while
+preserving historical validation; no additional target, URL, retry, or substitution is authorized.
+The current pair must still produce a candidate before automated evidence QA and a genuine exact-
+version human decision can run. Creative generation, outreach, external persistence,
 orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 ## Local installation

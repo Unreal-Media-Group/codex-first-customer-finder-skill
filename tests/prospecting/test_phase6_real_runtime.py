@@ -8,6 +8,7 @@ import json
 import sqlite3
 import sys
 import tempfile
+import threading
 import unittest
 from contextlib import closing
 from datetime import datetime, timezone
@@ -23,8 +24,10 @@ for path in (APP_ROOT, CORE):
 from mission_control.agent import RegisteredAgentService  # noqa: E402
 from mission_control.application import CounterIds, FixtureRepository, MissionControlError  # noqa: E402
 from mission_control.dossier import (  # noqa: E402
+    REAL_CURRENT_PROOF_REQUEST_ID,
     REAL_GOAL_AUTHORITY,
     REAL_HUMAN_REVIEWER,
+    REAL_PROOF_ROUTES,
     DossierService,
 )
 from mission_control.enrichment import EnrichmentService  # noqa: E402
@@ -150,8 +153,13 @@ class Env:
         self.store = SqliteStore(self.path)
         self.agent = RegisteredAgentService(self.repository, self.store, clock=self.clock)
         self.enrichment = EnrichmentService(self.agent, fixture_path=BRIEF_FIXTURE, clock=self.clock)
-        self.plans = load_real_source_manifest(REAL_MANIFEST)["plans"]
-        self.reader = FakeReader(self.plans)
+        self.all_plans = load_real_source_manifest(REAL_MANIFEST)["plans"]
+        plans_by_id = {plan["source_plan_id"]: plan for plan in self.all_plans}
+        self.plans = [
+            plans_by_id[plan_id]
+            for plan_id in REAL_PROOF_ROUTES[REAL_CURRENT_PROOF_REQUEST_ID]["source_plan_ids"]
+        ]
+        self.reader = FakeReader(self.all_plans)
         self.dossier = DossierService(
             self.enrichment,
             fixture_path=DOSSIER_FIXTURE,
@@ -188,6 +196,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         search = self.env.search()
         self.assertEqual(search["request"]["contract_version"], 2)
         self.assertFalse(search["request"]["synthetic"])
+        self.assertEqual(search["request"]["request_id"], REAL_CURRENT_PROOF_REQUEST_ID)
         self.assertEqual(
             [item["candidate"]["source_plan_id"] for item in search["results"]],
             [item["source_plan_id"] for item in self.env.plans],
@@ -199,6 +208,119 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         second = self.env.search("real-search-two")
         self.assertTrue(all(not item["selected"] for item in second["results"]))
         self.assertTrue(all(item["decision"]["history_classification"]["status"] == "existing_no_new_trigger" for item in second["results"]))
+
+    def test_exhausted_v1_route_remains_verifiable_but_is_not_current(self) -> None:
+        historical = self.env.dossier._real_search_request(
+            "unreal-media-group", request_id="search-real-live-proof-v1"
+        )
+        self.env.dossier._require_exact_real_search_request(
+            historical, "unreal-media-group"
+        )
+        self.assertEqual(
+            historical["source_plan_ids"],
+            ["phase6-live-proof-celsius-v1", "phase6-live-proof-jazwares-v1"],
+        )
+        self.assertEqual(
+            self.env.dossier._real_search_request("unreal-media-group")["source_plan_ids"],
+            ["phase6-live-proof-4ocean-v1", "phase6-live-proof-badia-v1"],
+        )
+
+    def test_historical_v1_reopens_but_cannot_reenter_execution(self) -> None:
+        service = self.env.dossier
+        current_request = service._real_search_request
+
+        def legacy_request(
+            business_unit: str,
+            *,
+            request_id: str = "search-real-live-proof-v1",
+        ) -> dict:
+            return current_request(business_unit, request_id=request_id)
+
+        service._real_search_request = legacy_request
+        try:
+            search = service.create_real_search(
+                "noah",
+                "unreal-media-group",
+                idempotency_key="historical-v1-search",
+            )[0]
+        finally:
+            service._real_search_request = current_request
+
+        result = search["results"][0]
+        self.assertEqual(search["request"]["request_id"], "search-real-live-proof-v1")
+        self.assertEqual(
+            service.get_search("noah", "unreal-media-group", search["search_id"])["request"]["request_id"],
+            "search-real-live-proof-v1",
+        )
+        self.assertFalse(
+            service.real_goal_authority_ready(
+                "noah", "unreal-media-group", search["search_id"], result["result_id"]
+            )
+        )
+        with self.assertRaises(MissionControlError):
+            service.record_real_goal_approval(
+                "noah",
+                "unreal-media-group",
+                search["search_id"],
+                result["result_id"],
+                decision="approved",
+                reason="Historical authority must remain inert.",
+            )
+
+        current_gate = service._require_current_real_execution_request
+        service._require_current_real_execution_request = service._require_exact_real_search_request
+        try:
+            approval = service.record_real_goal_approval(
+                "noah",
+                "unreal-media-group",
+                search["search_id"],
+                result["result_id"],
+                decision="approved",
+                reason="Seed a legitimate pre-correction historical approval.",
+            )
+        finally:
+            service._require_current_real_execution_request = current_gate
+
+        with self.assertRaises(MissionControlError):
+            service.claim_dossier(
+                "noah", "unreal-media-group", approval["approval_event_id"], "historical-v1-run"
+            )
+
+        service._require_current_real_execution_request = service._require_exact_real_search_request
+        try:
+            run = service.claim_dossier(
+                "noah", "unreal-media-group", approval["approval_event_id"], "historical-v1-run"
+            )[0]
+        finally:
+            service._require_current_real_execution_request = current_gate
+
+        with self.assertRaises(MissionControlError):
+            service.claim_dossier(
+                "noah", "unreal-media-group", approval["approval_event_id"], "historical-v1-run"
+            )
+        reader_calls = list(self.env.reader.calls)
+        with self.assertRaises(MissionControlError):
+            service._real_bundle_for_run(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+        self.assertEqual(self.env.reader.calls, reader_calls)
+        historical_plan = next(
+            plan for plan in self.env.all_plans
+            if plan["source_plan_id"] == "phase6-live-proof-celsius-v1"
+        )
+        with self.assertRaises(MissionControlError):
+            service._complete_dossier(
+                "noah",
+                "unreal-media-group",
+                run["dossier_run_id"],
+                research_bundle=research_bundle(historical_plan),
+            )
+        with closing(self.env.store._connect()) as connection:
+            self.assertEqual(
+                connection.execute("SELECT COUNT(*) FROM dossier_candidates").fetchone()[0],
+                0,
+            )
+        service.cancel_dossier("noah", "unreal-media-group", run["dossier_run_id"])
 
     def test_goal_authority_is_truthful_exact_and_restart_durable(self) -> None:
         search = self.env.search()
@@ -275,11 +397,97 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         )
         second = self.env.approve(search, index=1)
         self.assertEqual(second["result_id"], search["results"][1]["result_id"])
-        with self.assertRaisesRegex(MissionControlError, "cannot be reopened"):
+        with self.assertRaisesRegex(MissionControlError, "bounded real-proof"):
             self.env.approve(
                 search,
                 expected=revoked["approval_event_id"],
             )
+
+    def test_real_claim_is_single_attempt_and_candidate_stops_failover(self) -> None:
+        search = self.env.search()
+        approval = self.env.approve(search)
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "single-attempt"
+        )
+        with self.assertRaisesRegex(MissionControlError, "bounded real-proof"):
+            self.env.dossier.claim_dossier(
+                "noah", "unreal-media-group", approval["approval_event_id"], "second-attempt"
+            )
+        replay, created = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "single-attempt"
+        )
+        self.assertFalse(created)
+        self.assertEqual(replay["dossier_run_id"], run["dossier_run_id"])
+        with self.assertRaisesRegex(MissionControlError, "already in progress"):
+            self.env.dossier.start_dossier(
+                "noah", "unreal-media-group", approval["approval_event_id"], "single-attempt"
+            )
+        self.assertEqual(self.env.reader.calls, [])
+
+        candidate = self.env.dossier.complete_dossier(
+            "noah", "unreal-media-group", run["dossier_run_id"]
+        )
+        self.assertEqual(len(self.env.reader.calls), 1)
+        self.assertFalse(self.env.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "bounded real-proof"):
+            self.env.approve(search, expected=approval["approval_event_id"])
+
+        revoked = self.env.approve(
+            search,
+            decision="revoked",
+            expected=approval["approval_event_id"],
+        )
+        self.assertEqual(revoked["decision"], "revoked")
+        self.assertFalse(self.env.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][1]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "produced a candidate"):
+            self.env.approve(search, index=1)
+        self.assertEqual(len(self.env.reader.calls), 1)
+        self.assertEqual(candidate["result_id"], search["results"][0]["result_id"])
+
+    def test_concurrent_completion_enters_the_public_reader_once(self) -> None:
+        search = self.env.search()
+        approval = self.env.approve(search)
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "completion-owner"
+        )
+        entered = threading.Event()
+        release = threading.Event()
+        results: list[dict] = []
+        errors: list[Exception] = []
+
+        def hold_reader() -> None:
+            entered.set()
+            release.wait(5)
+
+        def complete() -> None:
+            try:
+                results.append(self.env.dossier.complete_dossier(
+                    "noah", "unreal-media-group", run["dossier_run_id"]
+                ))
+            except Exception as exc:  # pragma: no cover - asserted below
+                errors.append(exc)
+
+        self.env.reader.before_read = hold_reader
+        worker = threading.Thread(target=complete)
+        worker.start()
+        try:
+            self.assertTrue(entered.wait(2))
+            with self.assertRaisesRegex(MissionControlError, "already being completed"):
+                self.env.dossier.complete_dossier(
+                    "noah", "unreal-media-group", run["dossier_run_id"]
+                )
+        finally:
+            release.set()
+            worker.join(5)
+        self.assertFalse(worker.is_alive())
+        self.assertEqual(errors, [])
+        self.assertEqual(len(results), 1)
+        self.assertEqual(self.env.reader.calls, [self.env.plans[0]["source_plan_id"]])
+        self.assertEqual(len(self.env.dossier.candidates("noah", "unreal-media-group")), 1)
 
     def test_one_interrupted_earlier_run_can_recover_after_terminal_alternatives(self) -> None:
         search = self.env.search()
@@ -307,7 +515,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         self.assertTrue(reopened.dossier.real_goal_authority_ready(
             "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
         ))
-        self.assertTrue(reopened.dossier.real_goal_authority_ready(
+        self.assertFalse(reopened.dossier.real_goal_authority_ready(
             "noah", "unreal-media-group", search["search_id"], search["results"][1]["result_id"]
         ))
         app = WebApplication(
@@ -323,7 +531,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         self.assertEqual(
             recovery_page.count("Bind one infrastructure-recovery authority"), 1
         )
-        self.assertIn("Bind the existing exact user-goal authority", recovery_page)
+        self.assertNotIn("Bind the existing exact user-goal authority", recovery_page)
         self.assertIn(
             f'name="expected_leaf_id" value="{first["approval_event_id"]}"',
             recovery_page,
@@ -399,18 +607,14 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         self.env.dossier.cancel_dossier(
             "noah", "unreal-media-group", cancelled_run["dossier_run_id"]
         )
-        second = self.env.approve(search, expected=first["approval_event_id"])
-        interrupted_run, _ = self.env.dossier.claim_dossier(
-            "noah", "unreal-media-group", second["approval_event_id"], "interrupted-after-cancel"
-        )
-        self.env.dossier._unregister_active(interrupted_run["dossier_run_id"])
-
+        with self.assertRaisesRegex(MissionControlError, "bounded real-proof"):
+            self.env.approve(search, expected=first["approval_event_id"])
         reopened = Env(self.directory)
         self.assertFalse(reopened.dossier.real_goal_authority_ready(
             "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
         ))
-        with self.assertRaisesRegex(MissionControlError, "one recovery has already been used"):
-            reopened.approve(search, expected=second["approval_event_id"])
+        with self.assertRaisesRegex(MissionControlError, "bounded real-proof"):
+            reopened.approve(search, expected=first["approval_event_id"])
         with closing(reopened.store._connect()) as connection:
             runs = connection.execute(
                 "SELECT state,failure_class FROM dossier_runs WHERE result_record_id=? ORDER BY rowid",
@@ -418,8 +622,9 @@ class Phase6RealRuntimeTests(unittest.TestCase):
             ).fetchall()
         self.assertEqual(
             [(row["state"], row["failure_class"]) for row in runs],
-            [("cancelled", None), ("failed", "interrupted_execution_recovered")],
+            [("cancelled", None)],
         )
+        self.assertEqual(self.env.reader.calls, [])
 
     def test_earlier_recovery_rejects_later_run_without_matching_terminal_audit(self) -> None:
         search = self.env.search()
@@ -700,7 +905,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(MissionControlError, "cannot be retried"):
             self.env.approve(search, expected=first["approval_event_id"])
 
-    def test_preauthorized_leaf_cannot_claim_after_terminal_source_failure(self) -> None:
+    def test_claim_blocks_successor_authority_and_terminal_source_failure_retry(self) -> None:
         search = self.env.search()
         first = self.env.approve(search)
         replacement = self.env.approve(
@@ -712,9 +917,8 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         run, _ = self.env.dossier.claim_dossier(
             "noah", "unreal-media-group", future["approval_event_id"], "source-failure"
         )
-        reserved = self.env.approve(
-            search, expected=future["approval_event_id"]
-        )
+        with self.assertRaisesRegex(MissionControlError, "bounded real-proof"):
+            self.env.approve(search, expected=future["approval_event_id"])
         self.env.reader.fail_product = True
         with self.assertRaisesRegex(MissionControlError, "contract"):
             self.env.dossier.complete_dossier(
@@ -722,7 +926,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
             )
         with self.assertRaisesRegex(MissionControlError, "cannot be retried"):
             self.env.dossier.claim_dossier(
-                "noah", "unreal-media-group", reserved["approval_event_id"], "reserved-after-failure"
+                "noah", "unreal-media-group", future["approval_event_id"], "reserved-after-failure"
             )
 
     def test_reader_runs_outside_sqlite_transaction_and_candidate_stays_pending(self) -> None:
