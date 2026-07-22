@@ -67,12 +67,18 @@ REAL_PROOF_ROUTES = {
         ),
     },
 }
-REAL_CURRENT_PROOF_REQUEST_ID = "search-real-live-proof-v2"
+REAL_LATEST_PROOF_REQUEST_ID = "search-real-live-proof-v2"
 APPROVAL_LIFETIME = timedelta(days=7)
 IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
 IDEMPOTENCY = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 TERMINAL_REVIEW_DECISIONS = {"accepted", "changes_requested", "rejected"}
 APPROVAL_DECISIONS = {"approved", "rejected", "revoked", "invalidated"}
+
+
+class _RealResearchContractError(MissionControlError):
+    """A completed public read whose bounded result failed local validation."""
+
+
 BUSINESS_UNIT_ID_TAGS = {
     "unreal-media-group": "umg",
     "unreal-talent": "talent",
@@ -191,6 +197,7 @@ class DossierService:
     _active_lock = threading.RLock()
     _active_runs: dict[str, set[str]] = {}
     _completing_runs: dict[str, set[tuple[str, str, str]]] = {}
+    _real_execution_request_id: str | None = None
 
     def __init__(
         self,
@@ -269,6 +276,10 @@ class DossierService:
 
     def _now(self) -> str:
         return _format_time(self._now_dt())
+
+    def real_execution_available(self) -> bool:
+        """Return whether this runtime class has an explicitly implemented unspent route."""
+        return self._real_execution_request_id is not None
 
     def _next_id(
         self, connection: sqlite3.Connection, prefix: str, business_unit: str
@@ -495,7 +506,7 @@ class DossierService:
         self,
         business_unit: str,
         *,
-        request_id: str = REAL_CURRENT_PROOF_REQUEST_ID,
+        request_id: str = REAL_LATEST_PROOF_REQUEST_ID,
     ) -> dict[str, Any]:
         route = REAL_PROOF_ROUTES.get(request_id)
         if business_unit != "unreal-media-group" or route is None:
@@ -538,8 +549,8 @@ class DossierService:
         self, request: dict[str, Any], business_unit: str
     ) -> None:
         self._require_exact_real_search_request(request, business_unit)
-        if request.get("request_id") != REAL_CURRENT_PROOF_REQUEST_ID:
-            raise MissionControlError(409, "The historical real-proof route is not executable.")
+        if request.get("request_id") != self._real_execution_request_id:
+            raise MissionControlError(409, "The exhausted real-proof route is not executable.")
 
     def _require_current_real_execution_search(
         self,
@@ -1030,7 +1041,7 @@ class DossierService:
                 return False
             request = self._check_snapshot(search, "request", "search request")
             self._require_exact_real_search_request(request, business_unit)
-            if request.get("request_id") != REAL_CURRENT_PROOF_REQUEST_ID:
+            if request.get("request_id") != self._real_execution_request_id:
                 return False
             projected = self._result_row(result)
             if projected["candidate"].get("synthetic") is not False or not projected["selected"]:
@@ -1236,8 +1247,12 @@ class DossierService:
     ) -> tuple[dict[str, Any], bool]:
         """Evaluate only the exact authorized alternatives through durable history."""
         self._authorize(actor, business_unit)
+        if self._real_execution_request_id is None:
+            raise MissionControlError(409, "No unspent real-proof route is currently authorized.")
         key = _idempotency(idempotency_key)
-        request = self._real_search_request(business_unit)
+        request = self._real_search_request(
+            business_unit, request_id=self._real_execution_request_id
+        )
         request_raw, request_hash, request_length = _canonical(
             request, label="Phase 6 real search request"
         )
@@ -2411,7 +2426,9 @@ class DossierService:
             bundle = reader.read_plan(plan_id)
             return validate_real_research_bundle(bundle, plan)
         except ValidationError as exc:
-            raise MissionControlError(409, "The bounded public research result failed its contract.") from exc
+            raise _RealResearchContractError(
+                409, "The bounded public research result failed its contract."
+            ) from exc
 
     def _candidate_payload(
         self,
@@ -2646,10 +2663,15 @@ class DossierService:
                     run_id,
                     research_bundle=research_bundle,
                 )
-            except Exception:
+            except Exception as exc:
                 failure_class = "candidate_creation_failed"
                 remediation = "Create a new exact approval before another research attempt."
-                if research_bundle is not None:
+                if isinstance(exc, _RealResearchContractError):
+                    failure_class = "source_read_failed_no_retry"
+                    remediation = (
+                        "The exact public-source attempt failed closed and must not be retried."
+                    )
+                elif research_bundle is not None:
                     product_sources = [
                         source for source in research_bundle["sources"]
                         if "product" in source["source_class"]

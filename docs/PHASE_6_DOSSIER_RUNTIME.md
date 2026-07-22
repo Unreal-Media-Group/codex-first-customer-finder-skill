@@ -1,8 +1,8 @@
 # Phase 6 governed dossier runtime
 
 This runtime connects the finalized synthetic Phase 6B contracts to the local Mission Control
-approval and review surface. Synthetic fixtures remain the default. The additive v2 real path is
-limited to one current pair of exact user-authorized public-business plans documented in
+approval and review surface. Synthetic fixtures remain the default. The additive v2 real path retains
+two exhausted pairs of exact user-authorized public-business plans documented in
 `PHASE_6_REAL_PUBLIC_PROOF.md`; it adds no general discovery or crawling capability. Runtime state is
 local and gitignored. The service never invokes another agent, generates an asset, contacts anyone,
 writes externally, deploys, or modifies Unreal OS.
@@ -21,9 +21,10 @@ preflight, final persistence, and visible controls all enforce the same rules.
 
 The historical v1 route exhausted both exact alternatives without a candidate: Jazwares failed
 closed at robots-policy availability, and the sole CELSIUS infrastructure recovery ended as
-`source_read_failed_no_retry`. Its request and source plans remain valid only so durable history can
-be reopened; neither target may retry. The current v2 route contains only the newly authorized
-4ocean/Badia pair. No additional target, URL, retry, or substitution is authorized.
+`source_read_failed_no_retry`. The v2 4ocean/Badia route is also terminal without a candidate. Both
+requests and all four source plans remain valid only so durable history can be reopened; none may
+retry, and no executable real-proof route is configured. No additional target, URL, retry, or
+substitution is authorized.
 `PHASE_6_REAL_PUBLIC_PROOF.md` records both route states and the exact remaining gate.
 
 ## Search and durable history

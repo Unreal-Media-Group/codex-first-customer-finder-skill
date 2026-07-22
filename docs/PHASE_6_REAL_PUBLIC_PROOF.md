@@ -19,7 +19,7 @@ can be validated. It is exhausted and cannot be selected by a new search.
 | 1 | Celsius Holdings, Inc. / CELSIUS | `phase6-live-proof-celsius-v1` | `d80f8ad433ad3d44f726b566539b1c1f59890087ca224d2ceed5fff636a318bf` | `result-real-v1-569b9ffde583d4bfc01e77ec` | `account-v1-13c98ba8965a8319d0cf7b3a` |
 | 2 | Jazwares, LLC | `phase6-live-proof-jazwares-v1` | `4ff2de65b2ffda9d2e0e75ae8821c98eeadbe5a0b46b562dd3c022098d54aaeb` | `result-real-v1-92c0f82008a2bce7a52fbf8c` | `account-v1-f865f1fbf50fc7239a69cf17` |
 
-The current `search-real-live-proof-v2` route contains exactly these newly authorized alternatives:
+The exhausted `search-real-live-proof-v2` route contains exactly these formerly authorized alternatives:
 
 | Current order | Organization | Plan | Plan hash | Result | Account |
 | --- | --- | --- | --- | --- | --- |
@@ -29,9 +29,9 @@ The current `search-real-live-proof-v2` route contains exactly these newly autho
 All plans use `include_any=[product_photography, product_video]` and
 `exclude=[ugc_ad]`. That filter is search intent, not evidence of demand, budget, buying intent, or
 UGC aversion. Before a public read, both targets pass through the durable identity, suppression,
-relationship, cooldown, duplicate, and re-engagement classifier. The current route may read 4ocean
-first and Badia only if 4ocean becomes terminal without a candidate. No additional target, URL,
-retry, or substitution is authorized.
+relationship, cooldown, duplicate, and re-engagement classifier. The v2 route permitted 4ocean first
+and Badia only after 4ocean became terminal without a candidate. Both attempts are now terminal. No
+additional target, URL, retry, or substitution is authorized.
 
 ## Live proof outcome
 
@@ -42,21 +42,28 @@ permitted CELSIUS infrastructure recovery then ended as `source_read_failed_no_r
 approved source records failed with zero body and extracted-text bytes and no hashes or summaries.
 The failed CELSIUS records intentionally retain no transport detail, so no narrower cause is claimed.
 
-The preserved gitignored SQLite state contains one search, two selected input result records, four
-approval events, and four terminal runs. It contains zero candidates, review tasks, review events,
-final dossier versions, or packages. `PRAGMA integrity_check` returns `ok`, and
-`PRAGMA foreign_key_check` returns no rows. No proof worker, server, or listener remains running.
+The v2 alternatives are also exhausted without a candidate. 4ocean ended as
+`source_read_failed_no_retry` because none of its exact product sources produced successful official
+product evidence. Badia reached local bundle validation once, then failed closed because a successful
+source summary did not satisfy the prohibited-material scrub contract. Its immutable live row records
+the already-terminal `candidate_creation_failed` class exposed by that run; the runtime already treats
+that class as no-retry, and the post-proof correction maps an equivalent future post-read contract
+failure to `source_read_failed_no_retry` without rewriting historical audit state.
 
-Neither historical target may retry. The current v2 route is authorized but has not yet executed.
-It must pass the committed pre-live contract, security, regression, and remote-checkpoint gates
-before its one permitted ordered attempt begins. Automated evidence review and genuine exact-version
-human review still require a current-route candidate.
+The preserved gitignored SQLite state now contains two searches, four selected input result records,
+six approval events, and six terminal runs. It contains zero candidates, review events, final dossier
+versions, or packages. `PRAGMA integrity_check` returns `ok`, and `PRAGMA foreign_key_check` returns no
+rows. No proof worker, server, or listener remains running.
+
+None of the four exact targets may retry, and the runtime exposes no executable real-proof route.
+Automated evidence review and genuine exact-version human review now require a candidate from a newly
+authorized exact target and versioned source plan.
 
 ## Durable authority and execution
 
 The runtime order is:
 
-1. create one immutable v2 real search for the current route and record both history-first outcomes;
+1. create one immutable real search for an authorized executable route and record its history-first outcomes;
 2. derive result, global identity, and account identity from the exact committed plan;
 3. record the user's already-provided exact goal authority as `user-goal-authority`, bound to the
    complete result projection, history, request, plan snapshot, plan hash, byte lengths, and seven-day

@@ -256,15 +256,14 @@ supply that decision. On acceptance, release only the validated, immutable, vers
 all generation, contact, outreach, external-write, agent-invocation, and deployment authority flags
 must remain false.
 
-The repository's completed CELSIUS-then-Jazwares proof attempts remain recorded by the historical
-route in `shared/prospecting-core/manifests/phase6-live-proof-source-plans.json`; both alternatives
-are terminal without a candidate and neither may retry. The current route contains only the exactly
-authorized 4ocean-then-Badia alternatives. Manifest presence is not execution authority: each current
-result still requires its durable exact-result goal-authority event, and no target, URL, source class,
-retry, or substitute may be added. Phase 6 execution belongs to the repository Mission
-Control `DossierService`; never synthesize its authority or durable state inside an installed skill
-session. If that runtime or current authority is unavailable, stop at the exact approval/source-plan
-handoff.
+The repository's completed CELSIUS/Jazwares and 4ocean/Badia proof attempts remain recorded by the
+versioned routes in `shared/prospecting-core/manifests/phase6-live-proof-source-plans.json`; all four
+alternatives are terminal without a candidate and none may retry. Manifest presence is not execution
+authority, and the runtime currently exposes no executable real-proof route. No target, URL, source
+class, retry, or substitute may be added without new exact authorization and a new versioned route.
+Phase 6 execution belongs to the repository Mission Control `DossierService`; never synthesize its
+authority or durable state inside an installed skill session. Until a new route is authorized, stop at
+the exact approval/source-plan handoff.
 
 ## Fail closed
 

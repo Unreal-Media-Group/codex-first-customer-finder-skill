@@ -303,8 +303,8 @@ finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The validator re
 Phase 1 campaign/history validation
 and duplicate classifier, applies history protections before opportunity intent and qualification,
 and emits canonical local packages with all downstream authority flags denied. The manifest retains
-the exhausted CELSIUS/Jazwares route for historical validation and defines the current exact
-4ocean/Badia route for additive v2 public-read work; any future
+the exhausted CELSIUS/Jazwares and 4ocean/Badia routes for historical validation; the runtime exposes
+no executable public-read route, and any future
 source, general discovery reader, or consumer that stores or routes a released package remains
 separate work with separate authority.
 
@@ -328,9 +328,9 @@ run/approval/result/search/candidate/final/package/source-plan chain. Non-accept
 have no release. The real v2 route uses a separate exact manifest and validators, executes its
 reader only after a result-bound goal-authority claim and outside SQLite, persists no raw body or
 extracted text, and rejects simulated-actor acceptance. Target progression is monotonic within each
-exact route at authority, claim, read, persistence, and UI boundaries. The historical
-CELSIUS/Jazwares request remains reopenable but non-executable, while the current route contains only
-4ocean then Badia. One bounded new-approval/new-run recovery exists only when the target's first and
+exact route at authority, claim, read, persistence, and UI boundaries. The CELSIUS/Jazwares and
+4ocean/Badia requests remain reopenable but non-executable. One bounded new-approval/new-run recovery
+exists only when an authorized route's target has a first and
 sole pre-recovery run was a verified startup interruption. Once later authority has progressed, that
 recovery also requires every later alternative to be terminal without a candidate. The exception is
 bound to append-only claim/recovery audit evidence and the absence of any target candidate or

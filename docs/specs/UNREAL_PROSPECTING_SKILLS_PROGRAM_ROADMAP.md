@@ -4,7 +4,7 @@
 **Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`
 **Downstream compatibility target:** A governed agent graph, including a possible future Unreal OS
 consumer. This repository does not implement or modify Unreal OS.
-**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is independently reviewed and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The exact public-read proof's additive v2 contract, bounded reader, durable runtime, pre-live independent review, complete test suite, and loopback browser QA pass. The historical CELSIUS/Jazwares pair is terminal without a candidate and may not retry. The current exact 4ocean/Badia pair is separately authorized under the same bounded no-action controls and preserves historical request validation. No additional target, URL, retry, or substitution is authorized. Automated evidence QA and genuine exact-version human acceptance still require a current-pair candidate. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
+**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is independently reviewed and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The exact public-read proof's additive v2 contract, bounded reader, durable runtime, pre-live independent review, complete test suite, and loopback browser QA pass. Both exact proof pairs—CELSIUS/Jazwares and 4ocean/Badia—are terminal without a candidate and may not retry. The runtime exposes no executable real-proof route. Automated evidence QA and genuine exact-version human acceptance require a candidate from a newly authorized exact target and versioned source plan. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 **Operating principle:** The skills find, qualify, deduplicate, and comprehensively research potential
 customers. Deterministic code validates the evidence and emits a versioned, graph-ready lead-
@@ -517,12 +517,11 @@ account identity, exact source-plan approval, single-use claims, immutable candi
 review, and inert graph-package release. The additive real-source contract, versioned exact
 two-target manifest, bounded standard-library reader, and result-bound runtime are implemented and
 independently reviewed under separate authorization. The historical CELSIUS/Jazwares route is
-terminal without a candidate and may not retry. The current exact 4ocean/Badia route is authorized
-with the same product-photography or product-video filter excluding UGC ads, existing budgets,
-read-only public HTTPS boundary, durable local recording, and no-action controls. No additional
-target, URL, retry, or substitution is authorized. The full Phase 6 exit gate requires a
-current-route candidate to pass automated review, receive genuine exact-version human acceptance,
-and release its local package atomically.
+terminal without a candidate and may not retry. The exact 4ocean/Badia route is also terminal without
+a candidate and may not retry. The runtime exposes no executable real-proof route, and no additional
+target, URL, retry, or substitution is authorized. The full Phase 6 exit gate requires a newly
+authorized exact target and versioned source plan to produce a candidate that passes automated
+review, receives genuine exact-version human acceptance, and releases its local package atomically.
 
 ## Objective
 
