@@ -1004,8 +1004,17 @@ class WebApplication:
                 1 for evidence in dossier["evidence_inventory"]
                 if evidence["conflict_state"] == "conflicted"
             )
+            evidence_review = dossier.get("automated_evidence_review")
+            review_packet = (
+                f"<dt>Automated evidence review</dt><dd>{e(evidence_review['state'])}</dd>"
+                f"<dt>Verified claims</dt><dd>{evidence_review['claim_count']}</dd>"
+                f"<dt>Explicit gaps</dt><dd>{evidence_review['gap_count']}</dd>"
+                f"<dt>Reviewed payload hash</dt><dd>{e(evidence_review['reviewed_payload_hash'])}</dd>"
+                if evidence_review is not None else
+                "<dt>Automated evidence review</dt><dd>Legacy inventory-only candidate</dd>"
+            )
             real_packet = f"""<h2>Exact human approval packet</h2>
-<dl><dt>Source-plan hash</dt><dd>{e(dossier['source_plan_hash'])}</dd><dt>Conflicts</dt><dd>{conflicts}</dd><dt>Qualification</dt><dd>{e(dossier['qualification']['state'])} ({e(dossier['qualification']['basis'])})</dd></dl>
+<dl><dt>Source-plan hash</dt><dd>{e(dossier['source_plan_hash'])}</dd><dt>Claim-projection hash</dt><dd>{e(dossier.get('claim_projection_hash', 'Not available for legacy candidate'))}</dd>{review_packet}<dt>Conflicts</dt><dd>{conflicts}</dd><dt>Qualification</dt><dd>{e(dossier['qualification']['state'])} ({e(dossier['qualification']['basis'])})</dd></dl>
 <h3>Downstream authority</h3><pre>{e(json.dumps(dossier['authority'], indent=2, sort_keys=True))}</pre>"""
         body = f"""<p class="notice"><strong>Exact immutable dossier candidate.</strong> It is local data only and cannot generate, contact, send, write externally, invoke an agent, or deploy.</p>
 <dl><dt>Candidate version</dt><dd>{e(candidate_id)}</dd><dt>Dossier</dt><dd>{e(dossier['dossier_id'])} v{dossier['version']}</dd><dt>Result</dt><dd>{e(item['result_id'])}</dd><dt>Derived account</dt><dd>{e(item['account_id'])}</dd><dt>Content hash</dt><dd>{e(item['content_hash'])}</dd><dt>Byte length</dt><dd>{item['byte_length']}</dd><dt>State</dt><dd>{e(dossier['review_state'])}</dd></dl>{real_packet}

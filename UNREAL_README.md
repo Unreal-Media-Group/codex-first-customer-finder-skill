@@ -45,10 +45,14 @@ candidate, and Miansai's exact candidate received a human `changes_requested` de
 navigation-heavy summaries did not substantiate broader dossier categories. No package was released.
 The reader now accepts bounded semantic main/article paragraph prose, suppresses site chrome, and
 fails closed on weak or unsafe retained evidence. Source summaries remain evidence inventory and do
-not populate broader category claims without claim-level verification. The default runtime has no
-executable real-proof route. A newly authorized exact target and source plan must produce a new
-candidate before
-automated evidence QA, genuine exact-version human acceptance, and local package release can complete
+not populate broader category claims without claim-level verification. The additive real v3
+contract now requires a configured skill/tool claim projector before search or any public read,
+binds each observed claim to an exact hashed summary substring, derives category gaps and bounded
+product-photo/video inferences, and embeds an automated evidence-review attestation for exact
+candidate and package revalidation. Frozen v2 proof artifacts remain read-compatible. The default
+runtime has no executable real-proof route. A newly authorized exact target and source plan must
+produce a new v3 candidate that passes automated evidence QA before genuine exact-version human
+acceptance and local package release can complete
 the Phase 6 gate.
 Creative generation, outreach, external persistence,
 orchestration, and outcome optimization are downstream responsibilities outside this repository.

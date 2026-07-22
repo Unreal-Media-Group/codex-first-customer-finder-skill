@@ -1,10 +1,12 @@
 # Phase 6 governed dossier runtime
 
 This runtime connects the finalized synthetic Phase 6B contracts to the local Mission Control
-approval and review surface. Synthetic fixtures remain the default. The additive v2 real path retains
+approval and review surface. Synthetic fixtures remain the default. The historical v2 real path retains
 three exhausted exact user-authorized public-business pairs documented in
 `PHASE_6_REAL_PUBLIC_PROOF.md`; the default service currently exposes no executable real-proof route
-and adds no general discovery or crawling capability. Runtime state is
+and adds no general discovery or crawling capability. The additive v3 claim-verified contract is
+ready for a future newly authorized route: it requires a configured repository skill/tool projector
+before search or any public read, then deterministically validates its output. Runtime state is
 local and gitignored. The service never invokes another agent, generates an asset, contacts anyone,
 writes externally, deploys, or modifies Unreal OS.
 
@@ -114,11 +116,23 @@ evidence-linked claims or carries an explicit gap. Runtime cutoff replaces fixtu
 freshness is recomputed as conflicted first, stale second, otherwise current.
 
 For the bounded real-public reader, source class and summary prose do not themselves satisfy that
-claim contract. Only durable governance/history and mechanical evidence-coverage facts are populated;
-all broader categories remain explicit gaps unless a future separately reviewed claim-level verifier
-establishes them. New-candidate and package validators recompute that complete canonical projection;
-additional, replaced, or relabeled claims fail closed. Historical candidate validation remains
-read-compatible but grants no release authority.
+claim contract. A new real execution requires an injected callable claim projector before search and
+checks again before the public read. The projector receives only the exact approved plan, selected result,
+and scrubbed bounded research bundle outside SQLite. It must record one ordered source attempt for
+each nonmechanical category, exact observed substrings of successful source summaries, and only
+product-photo/video inferences whose premises are verified observed claims. Each inference carries
+the canonical denial that no expressed demand, budget, buying intent, or UGC aversion was found.
+Filter intent never becomes demand evidence or a UGC conclusion.
+
+The additive `schema_version=3` validator binds the complete projection to the source-plan, result,
+research-bundle, and canonical hashes; derives current claims and category-specific gaps; and embeds
+the projection plus an automated evidence-review attestation in the immutable candidate. Standalone
+package validation re-derives claims, gaps, qualification, graph entities/relationships, and review
+hashes from that embedded projection, so self-consistent candidate or package rewrites fail closed.
+Partial source failure suppresses dependent premises and qualification rather than leaving dangling
+claim references. Historical v2 inventory-only
+candidates and packages remain read-compatible under their frozen validators, but every future real
+execution must use the v3 projector gate.
 
 The candidate is immutable and starts in `pending_research_quality_review`. A synthetic candidate
 uses a separate allowed simulated reviewer. A real candidate rejects simulated-actor review and can
@@ -136,7 +150,8 @@ Every read projection recomputes stored idempotency fingerprints, requires exact
 and follows the run-to-approval-to-result-to-search-to-candidate relationship before trusting a
 snapshot. The release projection then revalidates the review, candidate, final dossier, package,
 source-plan hash, canonical hashes and lengths, account identity, version, and business-unit
-bindings. Every package authority flag remains false except `local_data_handoff_only`. A released
+bindings. Candidate reopen also rebinds its request ID and evidence-age policy to the validated
+durable search snapshot. Every package authority flag remains false except `local_data_handoff_only`. A released
 package is information, not permission to generate, contact, send, write externally, deploy, or
 invoke another agent.
 
@@ -151,9 +166,9 @@ process-local recovery, single-recovery exhaustion, append-only transition evide
 mismatch rejection, failure cleanup, freshness, exact terminal-review concurrency, atomic fault
 rollback, both business units, all eleven categories, and the loopback web workflow.
 
-The additive real contract, bounded reader, and exact runtime path are covered by
-`test_phase6_real_contract.py`, `test_phase6_public_reader.py`, and
-`test_phase6_real_runtime.py`. Their public-read gate requires focused controls, the complete warning-
+The additive real contracts, bounded reader, and exact runtime path are covered by
+`test_phase6_real_contract.py`, `test_phase6_claim_projection.py`,
+`test_phase6_public_reader.py`, and `test_phase6_real_runtime.py`. Their public-read gate requires focused controls, the complete warning-
 strict suite, independent security review, exact manifest validation, and durable result-bound goal
 authority. The resulting candidate must stop at genuine human research-quality review; see
 `PHASE_6_REAL_PUBLIC_PROOF.md`.

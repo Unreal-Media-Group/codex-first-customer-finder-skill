@@ -1757,7 +1757,14 @@ def build_real_lead_intelligence_package(
     return copy.deepcopy(matches[0]) if matches else package
 
 
-def validate_real_lead_intelligence_package(value: Any, *, source_plan: Any) -> dict[str, Any]:
+def validate_real_lead_intelligence_package(
+    value: Any,
+    *,
+    source_plan: Any,
+    require_inventory_only: bool = True,
+) -> dict[str, Any]:
+    if not isinstance(require_inventory_only, bool):
+        raise ValidationError("Real package inventory-only policy must be boolean.")
     package = _exact_keys(
         value,
         "real lead-intelligence package",
@@ -2037,48 +2044,49 @@ def validate_real_lead_intelligence_package(value: Any, *, source_plan: Any) -> 
         if claim["freshness_state"] != expected_freshness:
             raise ValidationError(f"Real package claim freshness must be {expected_freshness}.")
 
-    expected_history_evidence_id = f"evidence-history-{package['history_fingerprint'][:20]}"
-    expected_evidence_refs = [
-        f"evidence-real-{hashlib.sha256(record['requested_url'].encode('utf-8')).hexdigest()[:20]}"
-        for record in source_coverage
-        if record["status"] == "success"
-    ] + [expected_history_evidence_id]
-    expected_categories = _real_inventory_only_categories(
-        result_id=binding["result_id"],
-        organization_node_id=(
-            f"organization-real-{hashlib.sha256(binding['account_id'].encode('utf-8')).hexdigest()[:20]}"
-        ),
-        history_status=duplicate["status"],
-        history_evidence_id=expected_history_evidence_id,
-        evidence_refs=expected_evidence_refs,
-        approved_source_count=len(plan["sources"]),
-        successful_source_count=len(successful_records),
-        research_cutoff=package["research_cutoff"],
-        cutoff_date=cutoff.date().isoformat(),
-    )
-    expected_coverage_states = [
-        {
-            "category": category["category"],
-            "coverage_state": category["coverage_state"],
-            "gap_explanation": category.get("gap_explanation"),
-        }
-        for category in expected_categories
-    ]
-    expected_claims = sorted(
-        (
-            claim
-            for category in expected_categories
-            for claim in category["claims"]
-        ),
-        key=lambda claim: claim["claim_id"],
-    )
-    if (
-        canonical_bytes(package["coverage_states"]) != canonical_bytes(expected_coverage_states)
-        or canonical_bytes(package["claims"]) != canonical_bytes(expected_claims)
-    ):
-        raise ValidationError(
-            "Real packages must match the canonical inventory-only claim projection."
+    if require_inventory_only:
+        expected_history_evidence_id = f"evidence-history-{package['history_fingerprint'][:20]}"
+        expected_evidence_refs = [
+            f"evidence-real-{hashlib.sha256(record['requested_url'].encode('utf-8')).hexdigest()[:20]}"
+            for record in source_coverage
+            if record["status"] == "success"
+        ] + [expected_history_evidence_id]
+        expected_categories = _real_inventory_only_categories(
+            result_id=binding["result_id"],
+            organization_node_id=(
+                f"organization-real-{hashlib.sha256(binding['account_id'].encode('utf-8')).hexdigest()[:20]}"
+            ),
+            history_status=duplicate["status"],
+            history_evidence_id=expected_history_evidence_id,
+            evidence_refs=expected_evidence_refs,
+            approved_source_count=len(plan["sources"]),
+            successful_source_count=len(successful_records),
+            research_cutoff=package["research_cutoff"],
+            cutoff_date=cutoff.date().isoformat(),
         )
+        expected_coverage_states = [
+            {
+                "category": category["category"],
+                "coverage_state": category["coverage_state"],
+                "gap_explanation": category.get("gap_explanation"),
+            }
+            for category in expected_categories
+        ]
+        expected_claims = sorted(
+            (
+                claim
+                for category in expected_categories
+                for claim in category["claims"]
+            ),
+            key=lambda claim: claim["claim_id"],
+        )
+        if (
+            canonical_bytes(package["coverage_states"]) != canonical_bytes(expected_coverage_states)
+            or canonical_bytes(package["claims"]) != canonical_bytes(expected_claims)
+        ):
+            raise ValidationError(
+                "Real packages must match the canonical inventory-only claim projection."
+            )
     for coverage in package["coverage_states"]:
         count = claims_by_category[coverage["category"]]
         if (coverage["coverage_state"] == "complete") != (count > 0):

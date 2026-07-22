@@ -4,6 +4,21 @@
   "title": "Unreal Phase 6 Real Public Lead Intelligence Package",
   "type": "object",
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": 3}}, "required": ["schema_version"]},
+      "then": {"required": ["claim_projection", "claim_projection_hash", "automated_evidence_review"]},
+      "else": {
+        "not": {
+          "anyOf": [
+            {"required": ["claim_projection"]},
+            {"required": ["claim_projection_hash"]},
+            {"required": ["automated_evidence_review"]}
+          ]
+        }
+      }
+    }
+  ],
   "required": [
     "schema_version",
     "synthetic",
@@ -31,7 +46,7 @@
     "authority"
   ],
   "properties": {
-    "schema_version": {"const": 2},
+    "schema_version": {"enum": [2, 3]},
     "synthetic": {"const": false},
     "package_id": {"$ref": "#/$defs/stableId"},
     "idempotency_identity": {"$ref": "#/$defs/stableId"},
@@ -90,7 +105,10 @@
         "release_state": {"const": "released_local_data_only"}
       }
     },
-    "authority": {"$ref": "customer-dossier-real.schema.json#/$defs/authority"}
+    "authority": {"$ref": "customer-dossier-real.schema.json#/$defs/authority"},
+    "claim_projection": {"$ref": "customer-dossier-real.schema.json#/$defs/claimProjection"},
+    "claim_projection_hash": {"$ref": "#/$defs/hash"},
+    "automated_evidence_review": {"$ref": "customer-dossier-real.schema.json#/$defs/automatedEvidenceReview"}
   },
   "$defs": {
     "stableId": {

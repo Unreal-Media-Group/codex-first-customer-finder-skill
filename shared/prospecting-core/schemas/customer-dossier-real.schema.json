@@ -4,6 +4,21 @@
   "title": "Unreal Phase 6 Real Public Customer Dossier",
   "type": "object",
   "additionalProperties": false,
+  "allOf": [
+    {
+      "if": {"properties": {"schema_version": {"const": 3}}, "required": ["schema_version"]},
+      "then": {"required": ["claim_projection", "claim_projection_hash", "automated_evidence_review"]},
+      "else": {
+        "not": {
+          "anyOf": [
+            {"required": ["claim_projection"]},
+            {"required": ["claim_projection_hash"]},
+            {"required": ["automated_evidence_review"]}
+          ]
+        }
+      }
+    }
+  ],
   "required": [
     "schema_version",
     "synthetic",
@@ -30,7 +45,7 @@
     "authority"
   ],
   "properties": {
-    "schema_version": {"const": 2},
+    "schema_version": {"enum": [2, 3]},
     "synthetic": {"const": false},
     "dossier_id": {"$ref": "#/$defs/stableId"},
     "version": {"type": "integer", "minimum": 1},
@@ -78,7 +93,10 @@
       "enum": ["pending_research_quality_review", "research_quality_accepted", "changes_requested", "rejected"]
     },
     "release_state": {"enum": ["not_released", "released_local_data_only"]},
-    "authority": {"$ref": "#/$defs/authority"}
+    "authority": {"$ref": "#/$defs/authority"},
+    "claim_projection": {"$ref": "#/$defs/claimProjection"},
+    "claim_projection_hash": {"$ref": "#/$defs/hash"},
+    "automated_evidence_review": {"$ref": "#/$defs/automatedEvidenceReview"}
   },
   "$defs": {
     "stableId": {
@@ -300,6 +318,149 @@
         "business_unit": {"const": "unreal-media-group"},
         "claim_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/stableId"}},
         "evidence_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/stableId"}}
+      }
+    },
+    "claimProjection": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "projection_version",
+        "source_plan_id",
+        "source_plan_hash",
+        "result_id",
+        "research_bundle_hash",
+        "category_attempts",
+        "observed_claims",
+        "opportunity_inferences",
+        "canonical_hash"
+      ],
+      "properties": {
+        "projection_version": {"const": 1},
+        "source_plan_id": {"$ref": "#/$defs/stableId"},
+        "source_plan_hash": {"$ref": "#/$defs/hash"},
+        "result_id": {"$ref": "#/$defs/stableId"},
+        "research_bundle_hash": {"$ref": "#/$defs/hash"},
+        "category_attempts": {
+          "type": "array",
+          "minItems": 9,
+          "maxItems": 9,
+          "prefixItems": [
+            {"$ref": "#/$defs/categoryAttemptIdentity"},
+            {"$ref": "#/$defs/categoryAttemptCommercial"},
+            {"$ref": "#/$defs/categoryAttemptOperations"},
+            {"$ref": "#/$defs/categoryAttemptAudience"},
+            {"$ref": "#/$defs/categoryAttemptBrand"},
+            {"$ref": "#/$defs/categoryAttemptActivity"},
+            {"$ref": "#/$defs/categoryAttemptOpportunity"},
+            {"$ref": "#/$defs/categoryAttemptPeople"},
+            {"$ref": "#/$defs/categoryAttemptAdditional"}
+          ],
+          "items": false
+        },
+        "observed_claims": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 100,
+          "items": {"$ref": "#/$defs/observedClaim"}
+        },
+        "opportunity_inferences": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 2,
+          "items": {"$ref": "#/$defs/opportunityInference"}
+        },
+        "canonical_hash": {"$ref": "#/$defs/hash"}
+      }
+    },
+    "categoryAttempt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "source_urls"],
+      "properties": {
+        "category": {"$ref": "#/$defs/categoryName"},
+        "source_urls": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/publicUrl"}
+        }
+      }
+    },
+    "categoryAttemptIdentity": {"allOf": [{"$ref": "#/$defs/categoryAttempt"}, {"properties": {"category": {"const": "identity_and_relationships"}}}]},
+    "categoryAttemptCommercial": {"allOf": [{"$ref": "#/$defs/categoryAttempt"}, {"properties": {"category": {"const": "company_and_commercial_context"}}}]},
+    "categoryAttemptOperations": {"allOf": [{"$ref": "#/$defs/categoryAttempt"}, {"properties": {"category": {"const": "operations_and_digital_footprint"}}}]},
+    "categoryAttemptAudience": {"allOf": [{"$ref": "#/$defs/categoryAttempt"}, {"properties": {"category": {"const": "audiences_market_and_reputation"}}}]},
+    "categoryAttemptBrand": {"allOf": [{"$ref": "#/$defs/categoryAttempt"}, {"properties": {"category": {"const": "brand_and_messaging"}}}]},
+    "categoryAttemptActivity": {"allOf": [{"$ref": "#/$defs/categoryAttempt"}, {"properties": {"category": {"const": "activity_and_signals"}}}]},
+    "categoryAttemptOpportunity": {"allOf": [{"$ref": "#/$defs/categoryAttempt"}, {"properties": {"category": {"const": "opportunity_and_fit"}}}]},
+    "categoryAttemptPeople": {"allOf": [{"$ref": "#/$defs/categoryAttempt"}, {"properties": {"category": {"const": "public_people_and_contact_paths"}}}]},
+    "categoryAttemptAdditional": {"allOf": [{"$ref": "#/$defs/categoryAttempt"}, {"properties": {"category": {"const": "additional_material_facts"}}}]},
+    "observedClaim": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "category", "source_url", "value", "value_sha256", "confidence_reason", "uncertainty"],
+      "properties": {
+        "claim_id": {"$ref": "#/$defs/stableId"},
+        "category": {
+          "enum": [
+            "identity_and_relationships",
+            "company_and_commercial_context",
+            "operations_and_digital_footprint",
+            "audiences_market_and_reputation",
+            "brand_and_messaging",
+            "activity_and_signals",
+            "public_people_and_contact_paths",
+            "additional_material_facts"
+          ]
+        },
+        "source_url": {"$ref": "#/$defs/publicUrl"},
+        "value": {"type": "string", "minLength": 1, "maxLength": 500},
+        "value_sha256": {"$ref": "#/$defs/hash"},
+        "confidence_reason": {"type": "string", "minLength": 1, "maxLength": 500},
+        "uncertainty": {"type": "string", "minLength": 1, "maxLength": 500}
+      }
+    },
+    "opportunityInference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["claim_id", "opportunity_kind", "premise_claim_ids", "confidence_reason", "uncertainty"],
+      "properties": {
+        "claim_id": {"$ref": "#/$defs/stableId"},
+        "opportunity_kind": {"enum": ["product_photography", "product_video"]},
+        "premise_claim_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/stableId"}
+        },
+        "confidence_reason": {"type": "string", "minLength": 1, "maxLength": 500},
+        "uncertainty": {"const": "No expressed demand, budget, buying intent, or UGC aversion was found."}
+      }
+    },
+    "automatedEvidenceReview": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "review_version",
+        "state",
+        "source_plan_hash",
+        "result_id",
+        "research_bundle_hash",
+        "claim_projection_hash",
+        "reviewed_payload_hash",
+        "claim_count",
+        "gap_count"
+      ],
+      "properties": {
+        "review_version": {"const": 1},
+        "state": {"const": "passed"},
+        "source_plan_hash": {"$ref": "#/$defs/hash"},
+        "result_id": {"$ref": "#/$defs/stableId"},
+        "research_bundle_hash": {"$ref": "#/$defs/hash"},
+        "claim_projection_hash": {"$ref": "#/$defs/hash"},
+        "reviewed_payload_hash": {"$ref": "#/$defs/hash"},
+        "claim_count": {"type": "integer", "minimum": 4, "maximum": 300},
+        "gap_count": {"type": "integer", "minimum": 0, "maximum": 11}
       }
     },
     "authority": {

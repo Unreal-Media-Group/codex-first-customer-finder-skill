@@ -249,8 +249,9 @@ explicitly research-quality status only. The full contract and independent-revie
 `docs/PHASE_6_ENRICHMENT_BRIEF.md`.
 
 The finalized contract-first portion of Phase 6B defines and validates the dossier and graph-package
-shapes without live reads. The separately authorized exact two-target proof route follows this
-governed boundary; neither portion adds a downstream worker:
+shapes without live reads. The separately authorized exact proof routes follow this governed
+boundary. The additive real v3 path accepts a claim projection only through an injected repository
+skill/tool boundary and validates it deterministically; it is not a downstream worker:
 
 ```text
 exact human-approved lead + validated identity/history/protection state
@@ -262,7 +263,10 @@ bounded reads from authorized public business source classes
 URL/content boundary + untrusted-source extraction
            |
            v
-claim-level observations, inferences, dates, freshness, conflicts, and gaps
+ordered category attempts + exact observed substrings + premise-backed inferences
+           |
+           v
+deterministic claim, freshness, gap, and automated-evidence review
            |
            v
 comprehensive customer dossier across the roadmap research categories
@@ -308,8 +312,11 @@ TUUCI ended without a candidate; Miansai produced one immutable candidate whose 
 is `changes_requested`, so no final dossier or package exists. The default service exposes no
 executable real-proof route. Reader-generated HTML evidence prefers semantic main/article content,
 suppresses navigation chrome, and must contain bounded paragraph prose before it can enter the
-evidence inventory. Source class and summary shape never populate broader dossier claims; those
-categories require claim-level verification and otherwise remain explicit gaps. Any future
+evidence inventory. Source class and summary shape never populate broader dossier claims. The
+additive v3 validator requires every nonmechanical category to name its attempted exact sources,
+binds observations to hashed summary substrings, derives product-photo/video fit only from verified
+current premises, and embeds the projection and automated evidence-review attestation for
+standalone package revalidation. Frozen v2 artifacts remain readable. Any future
 source, general discovery reader, or consumer that stores or routes a released package remains
 separate work with separate authority.
 
@@ -330,9 +337,10 @@ do not depend on mutable fixture bytes. Runtime research cutoff and freshness ar
 contract validation. An accepted review atomically creates the immutable final dossier, one package,
 and audit event; every read recomputes its request fingerprint and revalidates the complete
 run/approval/result/search/candidate/final/package/source-plan chain. Non-accepted terminal reviews
-have no release. The real v2 route uses a separate exact manifest and validators, executes its
-reader only after a result-bound goal-authority claim and outside SQLite, persists no raw body or
-extracted text, and rejects simulated-actor acceptance. Target progression is monotonic within each
+have no release. The historical real v2 route uses a separate exact manifest and validators. Every
+future real route also requires the v3 claim projector to be configured before search or reading;
+the reader and projector execute only after a result-bound goal-authority claim and outside SQLite.
+The runtime persists no raw body or extracted text and rejects simulated-actor acceptance. Target progression is monotonic within each
 exact route at authority, claim, read, persistence, and UI boundaries. The CELSIUS/Jazwares and
 4ocean/Badia requests remain reopenable but non-executable. One bounded new-approval/new-run recovery
 exists only when an authorized route's target has a first and
@@ -365,7 +373,7 @@ See `docs/PHASE_6_DOSSIER_RUNTIME.md` and
 | Phase 6B dossier and graph-package contracts | `shared/prospecting-core/schemas/*phase6b*`, `customer-dossier.schema.json`, `lead-intelligence-package.schema.json`, `shared/prospecting-core/scripts/validate_phase6b_contract.py` |
 | Phase 6B synthetic dossier/history fixtures | `fixtures/prospecting/phase6/dossier-*.json` |
 | Phase 6 governed dossier runtime | `apps/prospecting-mission-control/mission_control/dossier.py`, `store.py`, `web.py` |
-| Phase 6 exact public-source contract and manifest | `shared/prospecting-core/schemas/*-real.schema.json`, `shared/prospecting-core/scripts/validate_phase6_real_contract.py`, `shared/prospecting-core/manifests/phase6-live-proof-source-plans.json` |
+| Phase 6 exact public-source contract and manifest | `shared/prospecting-core/schemas/*-real.schema.json`, `shared/prospecting-core/scripts/validate_phase6_real_contract.py`, `shared/prospecting-core/scripts/validate_phase6_claim_projection.py`, `shared/prospecting-core/manifests/phase6-live-proof-source-plans.json` |
 | Phase 6 bounded public reader | `apps/prospecting-mission-control/mission_control/public_reader.py` |
 | Original upstream skill | `first-customer-finder/` |
 

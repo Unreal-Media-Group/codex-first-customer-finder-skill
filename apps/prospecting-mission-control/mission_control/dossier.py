@@ -45,6 +45,13 @@ from validate_phase6_real_contract import (  # noqa: E402
     validate_real_result_projection,
     validate_real_source_plan,
 )
+from validate_phase6_claim_projection import (  # noqa: E402
+    build_claim_verified_real_dossier,
+    build_claim_verified_real_package,
+    validate_claim_verified_real_dossier,
+    validate_claim_verified_real_package,
+    validate_real_claim_projection,
+)
 
 ACCOUNT_IDENTITY_VERSION = "account-v1"
 DOSSIER_APPROVAL_SCOPE = "phase6_dossier_research"
@@ -80,6 +87,10 @@ IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
 IDEMPOTENCY = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
 TERMINAL_REVIEW_DECISIONS = {"accepted", "changes_requested", "rejected"}
 APPROVAL_DECISIONS = {"approved", "rejected", "revoked", "invalidated"}
+ClaimProjector = Callable[
+    [dict[str, Any], dict[str, Any], dict[str, Any]],
+    dict[str, Any],
+]
 
 
 class _RealResearchContractError(MissionControlError):
@@ -215,6 +226,7 @@ class DossierService:
         clock: Callable[[], datetime],
         real_manifest_path: Path | None = None,
         public_reader: Any | None = None,
+        claim_projector: ClaimProjector | None = None,
     ):
         self.enrichment = enrichment
         self.store: SqliteStore = enrichment.store
@@ -223,6 +235,7 @@ class DossierService:
         self.history_path = Path(history_path)
         self.real_manifest_path = Path(real_manifest_path) if real_manifest_path else None
         self.public_reader = public_reader
+        self.claim_projector = claim_projector
         self._active_key = str(self.store.path.resolve())
         self.store.initialize_phase6_dossier()
         try:
@@ -286,7 +299,7 @@ class DossierService:
 
     def real_execution_available(self) -> bool:
         """Return whether this runtime class has an explicitly implemented unspent route."""
-        return self._real_execution_request_id is not None
+        return self._real_execution_request_id is not None and callable(self.claim_projector)
 
     def _next_id(
         self, connection: sqlite3.Connection, prefix: str, business_unit: str
@@ -1256,6 +1269,8 @@ class DossierService:
         self._authorize(actor, business_unit)
         if self._real_execution_request_id is None:
             raise MissionControlError(409, "No unspent real-proof route is currently authorized.")
+        if not callable(self.claim_projector):
+            raise MissionControlError(409, "No claim-level research projector is configured.")
         key = _idempotency(idempotency_key)
         request = self._real_search_request(
             business_unit, request_id=self._real_execution_request_id
@@ -2367,8 +2382,8 @@ class DossierService:
 
     def _real_bundle_for_run(
         self, actor: str, business_unit: str, run_id: str
-    ) -> dict[str, Any] | None:
-        """Resolve a claimed exact plan, close SQLite, then perform the bounded read."""
+    ) -> dict[str, dict[str, Any]] | None:
+        """Resolve exact authority, then read and project claims outside SQLite."""
         connection = self.store._connect()
         try:
             run = connection.execute(
@@ -2417,9 +2432,21 @@ class DossierService:
             self._require_no_later_real_target_progress(
                 connection, approval["search_id"], plan["source_plan_id"]
             )
+            result_row = connection.execute(
+                "SELECT * FROM dossier_results WHERE result_record_id=? AND business_unit=?",
+                (run["result_record_id"], business_unit),
+            ).fetchone()
+            if result_row is None:
+                raise MissionControlError(409, "The dossier result is unavailable.")
+            approved_result = self._result_row(result_row)["decision"]
             plan_id = plan["source_plan_id"]
         finally:
             connection.close()
+        projector = self.claim_projector
+        if not callable(projector):
+            raise MissionControlError(
+                409, "No claim-level research projector is configured; no public read occurred."
+            )
         reader = self.public_reader
         if reader is None:
             try:
@@ -2431,7 +2458,27 @@ class DossierService:
             self.public_reader = reader
         try:
             bundle = reader.read_plan(plan_id)
-            return validate_real_research_bundle(bundle, plan, require_substantive=True)
+            bundle = validate_real_research_bundle(bundle, plan, require_substantive=True)
+            try:
+                projection = projector(
+                    copy.deepcopy(plan),
+                    copy.deepcopy(bundle),
+                    copy.deepcopy(approved_result),
+                )
+            except Exception as exc:
+                raise _RealResearchContractError(
+                    409, "The claim-level research projection failed closed after the bounded read."
+                ) from exc
+            projection = validate_real_claim_projection(
+                projection,
+                research_bundle=bundle,
+                source_plan=plan,
+                approved_result=approved_result,
+            )
+            return {
+                "research_bundle": bundle,
+                "claim_projection": copy.deepcopy(projection),
+            }
         except ValidationError as exc:
             raise _RealResearchContractError(
                 409, "The bounded public research result failed its contract."
@@ -2445,6 +2492,7 @@ class DossierService:
         version: int,
         research_cutoff: str,
         research_bundle: dict[str, Any] | None = None,
+        claim_projection: dict[str, Any] | None = None,
     ) -> tuple[dict[str, Any], dict[str, Any], dict[str, Any]]:
         result_row = connection.execute(
             "SELECT * FROM dossier_results WHERE result_record_id=? AND business_unit=?",
@@ -2463,13 +2511,16 @@ class DossierService:
         search_request = self._check_snapshot(search_row, "request", "search request")
         source_plan = self._decode(approval["source_plan_snapshot"], "source plan")
         if source_plan.get("synthetic") is False:
-            if research_bundle is None:
-                raise MissionControlError(409, "The real dossier candidate has no bounded research bundle.")
+            if research_bundle is None or claim_projection is None:
+                raise MissionControlError(
+                    409, "The real dossier candidate has no bounded claim-verified research projection."
+                )
             approved_result = copy.deepcopy(result["decision"])
             try:
-                dossier = build_real_customer_dossier(
+                dossier = build_claim_verified_real_dossier(
                     plan=source_plan,
                     research_bundle=research_bundle,
+                    claim_projection=claim_projection,
                     history=history,
                     approved_result=approved_result,
                     approval_id=approval["approval_event_id"],
@@ -2479,8 +2530,9 @@ class DossierService:
                     maximum_evidence_age_days=search_request["campaign"]["maximum_evidence_age_days"],
                     version=version,
                 )
-                validate_real_customer_dossier(
+                validate_claim_verified_real_dossier(
                     dossier,
+                    claim_projection=claim_projection,
                     history=history,
                     approved_result=approved_result,
                     source_plan=source_plan,
@@ -2535,6 +2587,7 @@ class DossierService:
         run_id: str,
         *,
         research_bundle: dict[str, Any] | None = None,
+        claim_projection: dict[str, Any] | None = None,
     ) -> dict[str, Any]:
         self._authorize(actor, business_unit)
         now = self._now()
@@ -2616,6 +2669,7 @@ class DossierService:
                 version,
                 now,
                 research_bundle=research_bundle,
+                claim_projection=claim_projection,
             )
             if dossier.get("dossier_id") != family_id:
                 raise MissionControlError(409, "The dossier family derivation changed before persistence.")
@@ -2662,17 +2716,25 @@ class DossierService:
             raise MissionControlError(409, "The dossier run is already being completed.")
         try:
             research_bundle = None
+            claim_projection = None
             try:
-                research_bundle = self._real_bundle_for_run(actor, business_unit, run_id)
+                real_research = self._real_bundle_for_run(actor, business_unit, run_id)
+                if real_research is not None:
+                    research_bundle = real_research["research_bundle"]
+                    claim_projection = real_research["claim_projection"]
                 result = self._complete_dossier(
                     actor,
                     business_unit,
                     run_id,
                     research_bundle=research_bundle,
+                    claim_projection=claim_projection,
                 )
             except Exception as exc:
                 failure_class = "candidate_creation_failed"
-                remediation = "Create a new exact approval before another research attempt."
+                remediation = (
+                    "This claimed target cannot retry; inspect the local failure before "
+                    "authorizing any distinct alternative."
+                )
                 if isinstance(exc, _RealResearchContractError):
                     failure_class = "source_read_failed_no_retry"
                     remediation = (
@@ -2727,7 +2789,10 @@ class DossierService:
         run_id: str,
         *,
         failure_class: str = "candidate_creation_failed",
-        remediation: str = "Create a new exact approval before another research attempt.",
+        remediation: str = (
+            "This claimed target cannot retry; inspect the local failure before "
+            "authorizing any distinct alternative."
+        ),
     ) -> bool:
         """Terminalize a claimed synchronous run after candidate creation fails."""
         now = self._now()
@@ -2791,6 +2856,7 @@ class DossierService:
         ).fetchone()
         if run is None or approval is None or search is None:
             raise MissionControlError(409, "The stored dossier candidate provenance is incomplete.")
+        search_request = self._search_row(connection, search)["request"]
         self._approval_integrity(connection, approval, require_leaf=False)
         result_row = connection.execute(
             "SELECT * FROM dossier_results WHERE result_record_id=? AND business_unit=?",
@@ -2809,7 +2875,14 @@ class DossierService:
         source_plan = self._decode(approval["source_plan_snapshot"], "source plan")
         is_real = dossier.get("synthetic") is False
         try:
-            if is_real:
+            if is_real and dossier.get("schema_version") == 3:
+                validate_claim_verified_real_dossier(
+                    dossier,
+                    history=history,
+                    approved_result=approved_result,
+                    source_plan=source_plan,
+                )
+            elif is_real:
                 validate_real_customer_dossier(
                     dossier,
                     history=history,
@@ -2838,6 +2911,9 @@ class DossierService:
             )
             or dossier.get("business_unit") != row["business_unit"]
             or dossier.get("history_fingerprint") != row["history_hash"]
+            or dossier.get("search_request_id") != search_request.get("request_id")
+            or dossier.get("maximum_evidence_age_days")
+            != search_request.get("campaign", {}).get("maximum_evidence_age_days")
             or dossier.get("review_state") != "pending_research_quality_review"
             or dossier.get("release_state") != "not_released"
             or dossier.get("approved_result", {}).get("approval_id") != row["approval_event_id"]
@@ -3036,7 +3112,15 @@ class DossierService:
                     source_plan = self._decode(
                         approval_row["source_plan_snapshot"], "source plan"
                     )
-                    if is_real:
+                    claim_verified = is_real and final_dossier.get("schema_version") == 3
+                    if claim_verified:
+                        validate_claim_verified_real_dossier(
+                            final_dossier,
+                            history=history,
+                            approved_result=approved_result,
+                            source_plan=source_plan,
+                        )
+                    elif is_real:
                         validate_real_customer_dossier(
                             final_dossier,
                             history=history,
@@ -3053,7 +3137,18 @@ class DossierService:
                         (business_unit,),
                     ).fetchall()
                     prior_packages = [self._decode(row["package_snapshot"], "lead package") for row in prior_rows]
-                    if is_real:
+                    if claim_verified:
+                        package = build_claim_verified_real_package(
+                            final_dossier,
+                            history=history,
+                            approved_result=approved_result,
+                            source_plan=source_plan,
+                            prior_packages=prior_packages,
+                        )
+                        validate_claim_verified_real_package(
+                            package, source_plan=source_plan
+                        )
+                    elif is_real:
                         package = build_real_lead_intelligence_package(
                             final_dossier,
                             history=history,
@@ -3247,12 +3342,20 @@ class DossierService:
             approved_result.update({"selected": True, "business_unit": row["business_unit"]})
             source_plan = self._decode(approval_row["source_plan_snapshot"], "source plan")
             try:
-                expected_package = build_real_lead_intelligence_package(
-                    final_dossier,
-                    history=self._decode(history_row["history_snapshot"], "history snapshot"),
-                    approved_result=approved_result,
-                    source_plan=source_plan,
-                )
+                if final_dossier.get("schema_version") == 3:
+                    expected_package = build_claim_verified_real_package(
+                        final_dossier,
+                        history=self._decode(history_row["history_snapshot"], "history snapshot"),
+                        approved_result=approved_result,
+                        source_plan=source_plan,
+                    )
+                else:
+                    expected_package = build_real_lead_intelligence_package(
+                        final_dossier,
+                        history=self._decode(history_row["history_snapshot"], "history snapshot"),
+                        approved_result=approved_result,
+                        source_plan=source_plan,
+                    )
             except ValidationError as exc:
                 raise MissionControlError(409, "The real lead package projection failed validation.") from exc
             if package["package"] != expected_package:
@@ -3270,7 +3373,10 @@ class DossierService:
                 plan = self._real_plan_for_id(
                     package.get("approved_result", {}).get("source_plan_id")
                 )
-                validate_real_lead_intelligence_package(package, source_plan=plan)
+                if package.get("schema_version") == 3:
+                    validate_claim_verified_real_package(package, source_plan=plan)
+                else:
+                    validate_real_lead_intelligence_package(package, source_plan=plan)
             else:
                 validate_lead_intelligence_package(package)
         except ValidationError as exc:

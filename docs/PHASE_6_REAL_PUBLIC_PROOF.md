@@ -146,15 +146,21 @@ no body hash, text hash, content summary, or transport detail.
 
 ## Dossier and release contract
 
-Real dossiers and packages are `schema_version=2` and `synthetic=false`; the v1 synthetic schemas
-remain unchanged. Every dossier has the canonical eleven categories. Each category contains typed,
-evidence-linked, freshness-aware claims or an explicit gap. Under this bounded reader, only durable
-governance/history and mechanical evidence-coverage facts are claim-verified; the remaining categories
-stay explicit gaps. At least one successful approved product source is still required before the target
-can be described as a low-confidence potential product-creative fit. That qualification is not a
-category claim and always states that demand evidence was not found. Strict new-candidate and package
-validation recomputes the exact two claims and nine gap records, so added or replaced claims fail
-closed while the immutable historical candidate remains readable in compatibility mode only.
+The exhausted proof routes and their immutable artifacts remain `schema_version=2` and
+`synthetic=false`; the v1 synthetic schemas also remain unchanged. Their inventory-only validators
+still recompute the exact two mechanical claims and nine gaps for historical compatibility.
+
+Every future newly authorized real route must instead configure the additive
+`schema_version=3` callable claim projector before search or any public read. Its exact output covers all nine
+nonmechanical categories with ordered source attempts, binds observed values to hashed substrings of
+successful scrubbed source summaries, and permits only product-photo/video inferences backed by
+verified current premises plus the canonical denial of expressed demand, budget, buying intent, and
+UGC aversion. The candidate embeds that canonical projection and an automated evidence-review
+attestation. Candidate and package validators independently re-derive all claims, gaps,
+qualification, graph projection, and hashes and rebind the request ID and age policy; filter intent,
+source class, and prose shape cannot create a claim.
+The machine-readable schemas accept both frozen v2 and additive v3 artifacts without changing the
+synthetic v1 contracts.
 
 The pending dossier, final dossier, and package all carry an authority object in which
 `local_data_handoff_only` is true and generation, contact, outreach, external writes, agent
@@ -173,6 +179,7 @@ Live runtime databases and dossiers remain gitignored local state. They must nev
 Focused coverage is in:
 
 - `tests/prospecting/test_phase6_real_contract.py`;
+- `tests/prospecting/test_phase6_claim_projection.py`;
 - `tests/prospecting/test_phase6_public_reader.py`; and
 - `tests/prospecting/test_phase6_real_runtime.py`.
 
@@ -183,7 +190,9 @@ separation, cancellation and revocation ordering, restart durability, pending re
 package release, historical-route execution denial, versioned route compatibility, single-attempt
 claim and reader ownership, candidate-stops-failover ordering, single-recovery exhaustion,
 append-only recovery evidence, terminal-state mismatch rejection, and the loopback approval packet.
-The current warning-strict repository runner passes `346/346`; both official skill validators pass.
+The current warning-strict repository runner passes `385/385`; both official skill validators pass.
 V3 Chromium QA at desktop and `375x812` verified TUUCI-then-Miansai ordering, authority control
 only on the first eligible target, no horizontal overflow, visible keyboard focus, announced validation
-errors, a clean normal-flow console, and loopback-only requests without invoking a public read.
+errors, a clean normal-flow console, and loopback-only requests without invoking a public read. A
+claim-verified fixture replay additionally rendered the projection/review hashes, verified-claim and
+explicit-gap counts, inert authority, and cross-business-unit denial without a public read.

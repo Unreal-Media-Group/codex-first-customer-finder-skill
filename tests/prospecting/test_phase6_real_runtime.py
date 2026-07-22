@@ -34,6 +34,7 @@ from mission_control.enrichment import EnrichmentService  # noqa: E402
 from mission_control.store import SqliteStore  # noqa: E402
 from mission_control.web import WebApplication  # noqa: E402
 from validate_phase6_real_contract import load_real_source_manifest  # noqa: E402
+from validate_phase6b_contract import CATEGORIES, canonical_bytes  # noqa: E402
 
 PHASE3_FIXTURE = ROOT / "fixtures" / "prospecting" / "phase3" / "prospects.json"
 BRIEF_FIXTURE = ROOT / "fixtures" / "prospecting" / "phase6" / "brief-fixtures.json"
@@ -160,6 +161,60 @@ class FakeReader:
         return bundle
 
 
+def claim_projection(plan: dict, bundle: dict, approved_result: dict) -> dict:
+    successful = [item for item in bundle["sources"] if item["status"] == "success"]
+    identity = successful[0]
+    product = next(
+        (item for item in successful if "product" in item["source_class"]),
+        identity,
+    )
+    identity_value = identity["summary"].split(". ", 1)[0] + "."
+    product_value = product["summary"].split(". ", 1)[0] + "."
+    attempts = []
+    for category in CATEGORIES:
+        if category in {"governance_and_history", "evidence_coverage"}:
+            continue
+        source = product if category in {"activity_and_signals", "opportunity_and_fit"} else identity
+        attempts.append({"category": category, "source_urls": [source["requested_url"]]})
+    projection = {
+        "projection_version": 1,
+        "source_plan_id": plan["source_plan_id"],
+        "source_plan_hash": plan["source_plan_hash"],
+        "result_id": approved_result["result_id"],
+        "research_bundle_hash": hashlib.sha256(canonical_bytes(bundle)).hexdigest(),
+        "category_attempts": attempts,
+        "observed_claims": [
+            {
+                "claim_id": "claim-runtime-identity",
+                "category": "identity_and_relationships",
+                "source_url": identity["requested_url"],
+                "value": identity_value,
+                "value_sha256": hashlib.sha256(identity_value.encode()).hexdigest(),
+                "confidence_reason": "The exact scrubbed source sentence states this observation.",
+                "uncertainty": "The observation is limited to the approved source and date.",
+            },
+            {
+                "claim_id": "claim-runtime-product-signal",
+                "category": "activity_and_signals",
+                "source_url": product["requested_url"],
+                "value": product_value,
+                "value_sha256": hashlib.sha256(product_value.encode()).hexdigest(),
+                "confidence_reason": "The exact scrubbed source sentence states this observation.",
+                "uncertainty": "The observation is not evidence of demand or budget.",
+            },
+        ],
+        "opportunity_inferences": [{
+            "claim_id": "claim-runtime-product-fit",
+            "opportunity_kind": "product_photography",
+            "premise_claim_ids": ["claim-runtime-product-signal"],
+            "confidence_reason": "A verified product signal supports low-confidence fit review.",
+            "uncertainty": "No expressed demand, budget, buying intent, or UGC aversion was found.",
+        }],
+    }
+    projection["canonical_hash"] = hashlib.sha256(canonical_bytes(projection)).hexdigest()
+    return projection
+
+
 class AuthorizedDossierService(DossierService):
     _real_execution_request_id = REAL_LATEST_PROOF_REQUEST_ID
 
@@ -185,6 +240,7 @@ class Env:
             history_path=HISTORY_FIXTURE,
             real_manifest_path=REAL_MANIFEST,
             public_reader=self.reader,
+            claim_projector=claim_projection,
             clock=self.clock,
         )
 
@@ -304,6 +360,38 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         self.assertIn("No executable real-proof route is configured", landing)
         self.assertIn("new versioned route requires new exact target", landing)
         self.assertNotIn("Evaluate the exact two authorized targets", landing)
+        self.assertEqual(self.env.reader.calls, [])
+
+    def test_real_route_without_claim_projector_fails_before_search_or_read(self) -> None:
+        for label, projector in (("missing", None), ("noncallable", object())):
+            with self.subTest(label=label):
+                unprojected = AuthorizedDossierService(
+                    self.env.enrichment,
+                    fixture_path=DOSSIER_FIXTURE,
+                    history_path=HISTORY_FIXTURE,
+                    real_manifest_path=REAL_MANIFEST,
+                    public_reader=self.env.reader,
+                    claim_projector=projector,
+                    clock=self.env.clock,
+                )
+                self.assertFalse(unprojected.real_execution_available())
+                with self.assertRaisesRegex(MissionControlError, "claim-level research projector"):
+                    unprojected.create_real_search(
+                        "noah", "unreal-media-group", idempotency_key=f"{label}-projector"
+                    )
+        self.assertEqual(self.env.reader.calls, [])
+
+    def test_noncallable_projector_swap_fails_before_read(self) -> None:
+        search = self.env.search()
+        approval = self.env.approve(search)
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "projector-swap"
+        )
+        self.env.dossier.claim_projector = object()
+        with self.assertRaisesRegex(MissionControlError, "no public read occurred"):
+            self.env.dossier.complete_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
         self.assertEqual(self.env.reader.calls, [])
 
     def test_historical_v1_and_v2_reopen_but_cannot_reenter_any_execution_gate(self) -> None:
@@ -1022,6 +1110,108 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         with self.assertRaisesRegex(MissionControlError, "cannot be retried"):
             self.env.approve(search, expected=approval["approval_event_id"])
 
+    def test_claim_projector_failure_after_read_is_terminal_no_retry(self) -> None:
+        search = self.env.search()
+        approval = self.env.approve(search)
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "projector-failure"
+        )
+
+        def fail_projection(_plan: dict, _bundle: dict, _result: dict) -> dict:
+            raise RuntimeError("local projector failure")
+
+        self.env.dossier.claim_projector = fail_projection
+        with self.assertRaisesRegex(MissionControlError, "projection failed closed"):
+            self.env.dossier.complete_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+        with closing(self.env.store._connect()) as connection:
+            failed = connection.execute(
+                "SELECT failure_class FROM dossier_runs WHERE dossier_run_id=?",
+                (run["dossier_run_id"],),
+            ).fetchone()
+            candidate_count = connection.execute(
+                "SELECT COUNT(*) FROM dossier_candidates"
+            ).fetchone()[0]
+        self.assertEqual(failed["failure_class"], "source_read_failed_no_retry")
+        self.assertEqual(candidate_count, 0)
+        self.assertEqual(self.env.reader.calls, [self.env.plans[0]["source_plan_id"]])
+
+    def test_candidate_rebinds_request_identity_and_freshness_policy(self) -> None:
+        search = self.env.search()
+        approval = self.env.approve(search)
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "request-binding"
+        )
+        candidate = self.env.dossier.complete_dossier(
+            "noah", "unreal-media-group", run["dossier_run_id"]
+        )
+        candidate_id = candidate["candidate_version_id"]
+        with closing(self.env.store._connect()) as connection:
+            connection.execute("DROP TRIGGER dossier_candidates_no_update")
+            original = connection.execute(
+                "SELECT dossier_snapshot,content_hash,byte_length FROM dossier_candidates "
+                "WHERE candidate_version_id=?",
+                (candidate_id,),
+            ).fetchone()
+            for field, value in (
+                ("search_request_id", "search-forged-request"),
+                ("maximum_evidence_age_days", 3650),
+            ):
+                changed = json.loads(original["dossier_snapshot"])
+                changed[field] = value
+                raw = json.dumps(changed, sort_keys=True, separators=(",", ":"))
+                encoded = raw.encode("utf-8")
+                connection.execute(
+                    "UPDATE dossier_candidates SET dossier_snapshot=?,content_hash=?,byte_length=? "
+                    "WHERE candidate_version_id=?",
+                    (raw, hashlib.sha256(encoded).hexdigest(), len(encoded), candidate_id),
+                )
+                connection.commit()
+                with self.subTest(field=field):
+                    with self.assertRaisesRegex(MissionControlError, "integrity"):
+                        self.env.dossier.get_candidate(
+                            "noah", "unreal-media-group", candidate_id
+                        )
+                connection.execute(
+                    "UPDATE dossier_candidates SET dossier_snapshot=?,content_hash=?,byte_length=? "
+                    "WHERE candidate_version_id=?",
+                    (
+                        original["dossier_snapshot"],
+                        original["content_hash"],
+                        original["byte_length"],
+                        candidate_id,
+                    ),
+                )
+                connection.commit()
+
+    def test_invalid_projector_mapping_after_read_is_terminal_no_retry(self) -> None:
+        search = self.env.search()
+        approval = self.env.approve(search)
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "invalid-projector"
+        )
+        self.env.dossier.claim_projector = lambda _plan, _bundle, _result: {"invalid": True}
+        with self.assertRaisesRegex(MissionControlError, "failed its contract"):
+            self.env.dossier.complete_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+        with closing(self.env.store._connect()) as connection:
+            failed = connection.execute(
+                "SELECT failure_class,remediation FROM dossier_runs WHERE dossier_run_id=?",
+                (run["dossier_run_id"],),
+            ).fetchone()
+            candidate_count = connection.execute(
+                "SELECT COUNT(*) FROM dossier_candidates"
+            ).fetchone()[0]
+        self.assertEqual(failed["failure_class"], "source_read_failed_no_retry")
+        self.assertEqual(
+            failed["remediation"],
+            "The exact public-source attempt failed closed and must not be retried.",
+        )
+        self.assertEqual(candidate_count, 0)
+        self.assertEqual(self.env.reader.calls, [self.env.plans[0]["source_plan_id"]])
+
     def test_claim_blocks_successor_authority_and_terminal_source_failure_retry(self) -> None:
         search = self.env.search()
         first = self.env.approve(search)
@@ -1062,7 +1252,8 @@ class Phase6RealRuntimeTests(unittest.TestCase):
             "noah", "unreal-media-group", run["dossier_run_id"]
         )
         self.assertEqual(self.env.reader.calls, [self.env.plans[0]["source_plan_id"]])
-        self.assertEqual(candidate["dossier"]["schema_version"], 2)
+        self.assertEqual(candidate["dossier"]["schema_version"], 3)
+        self.assertEqual(candidate["dossier"]["automated_evidence_review"]["state"], "passed")
         self.assertFalse(candidate["dossier"]["synthetic"])
         self.assertEqual(candidate["dossier"]["review_state"], "pending_research_quality_review")
         self.assertEqual(len(candidate["dossier"]["categories"]), 11)
@@ -1135,7 +1326,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         )
         self.assertTrue(created)
         self.assertEqual(outcome["review"]["reviewer_actor"], REAL_HUMAN_REVIEWER)
-        self.assertEqual(outcome["package"]["package"]["schema_version"], 2)
+        self.assertEqual(outcome["package"]["package"]["schema_version"], 3)
         self.assertFalse(outcome["package"]["package"]["synthetic"])
         self.assertTrue(outcome["package"]["package"]["authority"]["local_data_handoff_only"])
         self.assertFalse(outcome["package"]["package"]["authority"]["outreach"])
@@ -1163,7 +1354,7 @@ class Phase6RealRuntimeTests(unittest.TestCase):
                 ),
             )
             connection.commit()
-        with self.assertRaisesRegex(MissionControlError, "canonical dossier projection"):
+        with self.assertRaisesRegex(MissionControlError, "contract validation"):
             self.env.dossier.packages("noah", "unreal-media-group")
 
     def test_loopback_surface_exposes_exact_proof_but_no_real_review_authority(self) -> None:
@@ -1215,6 +1406,9 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         self.assertIn("Exact human approval packet", candidate_page)
         self.assertIn("Pending genuine human review", candidate_page)
         self.assertIn("Source-plan hash", candidate_page)
+        self.assertIn("Claim-projection hash", candidate_page)
+        self.assertIn("Automated evidence review", candidate_page)
+        self.assertIn("Verified claims", candidate_page)
         self.assertNotIn("Record one terminal review", candidate_page)
 
 
