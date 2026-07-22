@@ -256,11 +256,14 @@ supply that decision. On acceptance, release only the validated, immutable, vers
 all generation, contact, outreach, external-write, agent-invocation, and deployment authority flags
 must remain false.
 
-The repository's currently authorized live proof is limited to the exact CELSIUS-then-Jazwares plans
-in `shared/prospecting-core/manifests/phase6-live-proof-source-plans.json`. That proof boundary is not
-generic authority for other companies or URLs. Phase 6 execution belongs to the repository Mission
+The repository's completed CELSIUS-then-Jazwares proof attempts remain recorded by the exact plans in
+`shared/prospecting-core/manifests/phase6-live-proof-source-plans.json`, but both alternatives are
+terminal without a candidate and neither may retry. Manifest presence is not current authority. A
+new live proof requires new exact public-business, URL, source-class, and durable result authority;
+never substitute a target or add a source. Phase 6 execution belongs to the repository Mission
 Control `DossierService`; never synthesize its authority or durable state inside an installed skill
-session. If that runtime is unavailable, stop at the exact approval/source-plan handoff.
+session. If that runtime or current authority is unavailable, stop at the exact approval/source-plan
+handoff.
 
 ## Fail closed
 
@@ -274,6 +277,7 @@ Stop and report the exact blocker when:
 - score or summary totals do not validate,
 - an ineligible record is marked qualified or handoff-ready,
 - the requested count cannot be reached without lowering quality,
+- the selected live target or source plan is terminal, exhausted, or lacks current exact authority,
 - the task crosses the authorized Phase 1 or Phase 6 boundary.
 
 Return fewer strong prospects rather than filling the report with generic brands.
