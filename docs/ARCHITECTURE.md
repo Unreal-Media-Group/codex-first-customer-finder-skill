@@ -296,10 +296,13 @@ or asset references, signals, opportunities, restrictions, and evidence, plus th
 relationships. The general package carries public contact identities and references, not unrestricted
 contact values; any separately authorized business email, business phone, or equivalent point stays
 in a restricted projection that creative and analytics consumers cannot read. The package contains
-stable identities and versioning, not executable downstream instructions. Phase 6B is not
-implemented; only repository-local contract, documentation, synthetic-fixture, deterministic-
-validation, and test work is authorized. Live reads and any future consumer that stores or routes the
-released package remain separate work with separate authority.
+stable identities and versioning, not executable downstream instructions. The Phase 6B contract-first
+schemas, synthetic fixtures, deterministic validator, and tests are implemented locally and pending
+independent review/finalization. The validator reuses the frozen Phase 1 campaign/history validation
+and duplicate classifier, applies history protections before opportunity intent and qualification,
+and emits canonical local packages with all downstream authority flags denied. Live reads and any
+future consumer that stores or routes the released package remain separate work with separate
+authority.
 
 ## Ownership
 
@@ -319,6 +322,8 @@ released package remain separate work with separate authority.
 | Phase 5 synthetic history seeds | `fixtures/prospecting/phase5/` |
 | Phase 6A approval, enrichment, brief, and review service | `apps/prospecting-mission-control/mission_control/enrichment.py`, `store.py` |
 | Phase 6A synthetic brief metadata | `fixtures/prospecting/phase6/` |
+| Phase 6B dossier and graph-package contracts | `shared/prospecting-core/schemas/*phase6b*`, `customer-dossier.schema.json`, `lead-intelligence-package.schema.json`, `shared/prospecting-core/scripts/validate_phase6b_contract.py` |
+| Phase 6B synthetic dossier/history fixtures | `fixtures/prospecting/phase6/dossier-*.json` |
 | Original upstream skill | `first-customer-finder/` |
 
 Skill report scripts are thin delegates. The installer places the shared core once at `unreal-prospecting-core`, preventing two business skills from drifting.

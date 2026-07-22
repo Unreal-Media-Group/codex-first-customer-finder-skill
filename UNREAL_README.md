@@ -29,9 +29,10 @@ real-data API, production scheduler, generic cron, live research, creative, like
 advertisement, or outreach has been built or authorized. Phase 6A is independently reviewed and
 finalized at `e8d2546647603905c0b97a21f335535b3a98cc17`; it adds a manually approved, one-shot,
 zero-cost synthetic `.example` fixture enrichment and source-linked campaign brief as the narrow
-foundation for the customer dossier. Phase 6B contract-first work is authorized but not implemented:
-repository-local schemas, documentation, synthetic fixtures, deterministic validation, and tests may
-define comprehensive dossiers, pre-search filters, durable history, and a graph-ready handoff. Live
+foundation for the customer dossier. Phase 6B's contract-first repository-local schemas,
+documentation, synthetic fixtures, deterministic validation, and tests now define comprehensive
+dossiers, pre-search filters, durable history, and a graph-ready local handoff; this work is pending
+independent review/finalization and does not satisfy the full Phase 6 exit gate. Live
 public-source research remains separately gated. Creative generation, outreach, external persistence,
 orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
@@ -56,6 +57,7 @@ Use `--skills-dir PATH` for an isolated location. The original `scripts/install.
 - [Phase 4 Registered Agent](docs/PHASE_4_REGISTERED_AGENT.md)
 - [Phase 5 Shadow Loop](docs/PHASE_5_SHADOW_LOOP.md)
 - [Phase 6A Synthetic Lead-Intelligence Brief Foundation](docs/PHASE_6_ENRICHMENT_BRIEF.md)
+- [Phase 6B Dossier Contract-First Foundation](docs/PHASE_6B_DOSSIER_CONTRACT.md)
 - [Architecture](docs/ARCHITECTURE.md)
 - [Safe upstream synchronization](docs/UPSTREAM_SYNC.md)
 - [Program roadmap](docs/specs/UNREAL_PROSPECTING_SKILLS_PROGRAM_ROADMAP.md)

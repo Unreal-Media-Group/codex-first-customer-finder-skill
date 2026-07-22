@@ -1,0 +1,297 @@
+{
+  "version": 1,
+  "search_requests": [
+    {
+      "version": 1,
+      "request_id": "search-umg-creative",
+      "idempotency_identity": "phase6b:search:umg:creative",
+      "business_unit": "unreal-media-group",
+      "campaign": {
+        "business_unit": "unreal-media-group",
+        "campaign_name": "Synthetic UMG Creative Opportunity Search",
+        "discovery_scope": "open",
+        "verticals": [],
+        "geography": {"countries": ["United States"]},
+        "buyer_types": ["brand"],
+        "talent_categories": [],
+        "target_prospect_count": 5,
+        "deep_research_limit": 2,
+        "minimum_qualification_score": 70,
+        "required_signals": ["Synthetic current opportunity signal"],
+        "preferred_signals": [],
+        "excluded_categories": [],
+        "include_companies": [],
+        "exclude_companies": [],
+        "reengagement_enabled": true,
+        "cooldown_days": 120,
+        "maximum_evidence_age_days": 365,
+        "output_formats": ["json"],
+        "prospect_history_path": "dossier-history.json",
+        "allow_named_talent_recommendations": false
+      },
+      "opportunity_filter": {
+        "include_any": ["product_photography", "product_video"],
+        "exclude": ["ugc_ad"]
+      }
+    },
+    {
+      "version": 1,
+      "request_id": "search-talent-open",
+      "idempotency_identity": "phase6b:search:talent:open",
+      "business_unit": "unreal-talent",
+      "campaign": {
+        "business_unit": "unreal-talent",
+        "campaign_name": "Synthetic Talent Open Search",
+        "discovery_scope": "open",
+        "verticals": [],
+        "geography": {"countries": ["United States"]},
+        "buyer_types": ["brand"],
+        "talent_categories": ["synthetic archetype"],
+        "rights_territory": ["United States"],
+        "target_prospect_count": 3,
+        "deep_research_limit": 1,
+        "minimum_qualification_score": 75,
+        "required_signals": ["Synthetic current opportunity signal"],
+        "preferred_signals": [],
+        "excluded_categories": [],
+        "include_companies": [],
+        "exclude_companies": [],
+        "reengagement_enabled": false,
+        "cooldown_days": 180,
+        "maximum_evidence_age_days": 365,
+        "output_formats": ["json"],
+        "prospect_history_path": "dossier-history.json",
+        "approved_roster_path": null,
+        "allow_named_talent_recommendations": false
+      }
+    }
+  ],
+  "candidates": [
+    {
+      "candidate_id": "candidate-umg-orbit",
+      "result_id": "result-umg-orbit",
+      "global_identity_id": "global-orbit",
+      "account_id": "account-orbit",
+      "business_unit": "unreal-media-group",
+      "company_name": "Synthetic Orbit Goods",
+      "domain": "orbit.example",
+      "company_type": "brand",
+      "qualification_score": 88,
+      "opportunities": [
+        {"kind": "product_photography", "evidence_refs": ["candidate-evidence-orbit"]},
+        {"kind": "product_video", "evidence_refs": ["candidate-evidence-orbit"]}
+      ],
+      "evidence": [{"evidence_id": "candidate-evidence-orbit", "source_url": "https://orbit.example/products", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z"}]
+    },
+    {
+      "candidate_id": "candidate-umg-ugc",
+      "result_id": "result-umg-ugc",
+      "global_identity_id": "global-ugc",
+      "account_id": "account-ugc",
+      "business_unit": "unreal-media-group",
+      "company_name": "Synthetic UGC Goods",
+      "domain": "ugc-goods.example",
+      "company_type": "brand",
+      "qualification_score": 92,
+      "opportunities": [
+        {"kind": "product_video", "evidence_refs": ["candidate-evidence-ugc"]},
+        {"kind": "ugc_ad", "evidence_refs": ["candidate-evidence-ugc"]}
+      ],
+      "evidence": [{"evidence_id": "candidate-evidence-ugc", "source_url": "https://ugc-goods.example/campaigns", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z"}]
+    },
+    {
+      "candidate_id": "candidate-umg-low-score",
+      "result_id": "result-umg-low-score",
+      "global_identity_id": "global-low-score",
+      "account_id": "account-low-score",
+      "business_unit": "unreal-media-group",
+      "company_name": "Synthetic Low Score Goods",
+      "domain": "low-score.example",
+      "company_type": "brand",
+      "qualification_score": 50,
+      "opportunities": [{"kind": "product_photography", "evidence_refs": ["candidate-evidence-low-score"]}],
+      "evidence": [{"evidence_id": "candidate-evidence-low-score", "source_url": "https://low-score.example/products", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z"}]
+    },
+    {
+      "candidate_id": "candidate-umg-duplicate",
+      "result_id": "result-umg-duplicate",
+      "global_identity_id": "global-duplicate",
+      "account_id": "account-duplicate",
+      "business_unit": "unreal-media-group",
+      "company_name": "Synthetic Duplicate Goods",
+      "domain": "duplicate.example",
+      "company_type": "brand",
+      "qualification_score": 86,
+      "opportunities": [{"kind": "product_photography", "evidence_refs": ["candidate-evidence-duplicate"]}],
+      "evidence": [{"evidence_id": "candidate-evidence-duplicate", "source_url": "https://duplicate.example/products", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z"}]
+    },
+    {
+      "candidate_id": "candidate-umg-suppressed",
+      "result_id": "result-umg-suppressed",
+      "global_identity_id": "global-suppressed",
+      "account_id": "account-suppressed",
+      "business_unit": "unreal-media-group",
+      "company_name": "Synthetic Suppressed Supply",
+      "domain": "suppressed.example",
+      "company_type": "brand",
+      "qualification_score": 89,
+      "opportunities": [{"kind": "product_video", "evidence_refs": ["candidate-evidence-suppressed"]}],
+      "evidence": [{"evidence_id": "candidate-evidence-suppressed", "source_url": "https://suppressed.example/products", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z"}]
+    },
+    {
+      "candidate_id": "candidate-umg-client",
+      "result_id": "result-umg-client",
+      "global_identity_id": "global-client",
+      "account_id": "account-client",
+      "business_unit": "unreal-media-group",
+      "company_name": "Synthetic Client Works",
+      "domain": "client.example",
+      "company_type": "brand",
+      "qualification_score": 91,
+      "opportunities": [{"kind": "product_photography", "evidence_refs": ["candidate-evidence-client"]}],
+      "evidence": [{"evidence_id": "candidate-evidence-client", "source_url": "https://client.example/products", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z"}]
+    },
+    {
+      "candidate_id": "candidate-umg-cooldown",
+      "result_id": "result-umg-cooldown",
+      "global_identity_id": "global-cooldown",
+      "account_id": "account-cooldown",
+      "business_unit": "unreal-media-group",
+      "company_name": "Synthetic Cooldown Commerce",
+      "domain": "cooldown.example",
+      "company_type": "brand",
+      "qualification_score": 85,
+      "opportunities": [{"kind": "product_video", "evidence_refs": ["candidate-evidence-cooldown"]}],
+      "evidence": [{"evidence_id": "candidate-evidence-cooldown", "source_url": "https://cooldown.example/products", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z"}],
+      "new_trigger": {"source_url": "https://cooldown.example/new", "source_date": "2026-07-10", "reason": "Synthetic new product signal"}
+    },
+    {
+      "candidate_id": "candidate-umg-reengage",
+      "result_id": "result-umg-reengage",
+      "global_identity_id": "global-reengage",
+      "account_id": "account-reengage",
+      "business_unit": "unreal-media-group",
+      "company_name": "Synthetic Reengage Studio",
+      "domain": "reengage.example",
+      "company_type": "brand",
+      "qualification_score": 83,
+      "opportunities": [{"kind": "product_video", "evidence_refs": ["candidate-evidence-reengage"]}],
+      "evidence": [{"evidence_id": "candidate-evidence-reengage", "source_url": "https://reengage.example/new", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z"}],
+      "new_trigger": {"source_url": "https://reengage.example/new", "source_date": "2026-07-10", "reason": "Synthetic materially new launch"}
+    },
+    {
+      "candidate_id": "candidate-umg-subbrand",
+      "result_id": "result-umg-subbrand",
+      "global_identity_id": "global-subbrand",
+      "account_id": "account-subbrand",
+      "business_unit": "unreal-media-group",
+      "company_name": "Synthetic Child Studio",
+      "domain": "child.example",
+      "company_type": "brand",
+      "qualification_score": 80,
+      "opportunities": [{"kind": "product_photography", "evidence_refs": ["candidate-evidence-subbrand"]}],
+      "evidence": [{"evidence_id": "candidate-evidence-subbrand", "source_url": "https://child.example/products", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z"}],
+      "independent_subbrand": true
+    },
+    {
+      "candidate_id": "candidate-talent-lumen",
+      "result_id": "result-talent-lumen",
+      "global_identity_id": "global-lumen",
+      "account_id": "account-lumen",
+      "business_unit": "unreal-talent",
+      "company_name": "Synthetic Lumen Athletics",
+      "domain": "lumen.example",
+      "company_type": "brand",
+      "qualification_score": 87,
+      "opportunities": [{"kind": "product_video", "evidence_refs": ["candidate-evidence-lumen"]}],
+      "evidence": [{"evidence_id": "candidate-evidence-lumen", "source_url": "https://lumen.example/campaigns", "source_date": "2026-07-11", "observed_at": "2026-07-21T12:00:00Z"}]
+    }
+  ],
+  "dossiers": [
+    {
+      "schema_version": 1,
+      "synthetic": true,
+      "dossier_id": "dossier-umg-orbit",
+      "version": 1,
+      "idempotency_identity": "phase6b:umg:result-umg-orbit:1",
+      "search_request_id": "search-umg-creative",
+      "business_unit": "unreal-media-group",
+      "approved_result": {"approval_id": "approval-umg-orbit", "result_id": "result-umg-orbit", "global_identity_id": "global-orbit", "account_id": "account-orbit", "canonical_domain": "orbit.example"},
+      "research_cutoff": "2026-07-21T12:00:00Z",
+      "maximum_evidence_age_days": 365,
+      "history_fingerprint": "9b9a28557b65c01d8b6135537f9ef69c1c03311059a4b2d154051630fc00560a",
+      "duplicate_history": {"status": "new_prospect", "reason": "No canonical identity or relationship matched history.", "matched_prospect_id": null, "matched_prospect_ids": [], "reengagement": false},
+      "evidence_inventory": [
+        {"evidence_id": "evidence-orbit-site", "source_url": "https://orbit.example/about", "source_kind": "official_site", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "original_source": true, "summary": "Synthetic company and product context.", "conflict_state": "none"},
+        {"evidence_id": "evidence-orbit-role", "source_url": "https://orbit.example/team/marketing-role", "source_kind": "public_professional_profile", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "original_source": true, "summary": "Synthetic business-role reference without personal identity.", "conflict_state": "none"}
+      ],
+      "categories": [
+        {"category": "identity_and_relationships", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-identity", "category": "identity_and_relationships", "subject_node_id": "org-orbit", "typed_value": {"type": "string", "value": "Synthetic Orbit Goods is an independent synthetic brand."}, "basis": "observed", "evidence_refs": ["evidence-orbit-site"], "confidence_reason": "The synthetic official-site fixture states the identity.", "uncertainty": "No material uncertainty in the fixture.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "company_and_commercial_context", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-commercial", "category": "company_and_commercial_context", "subject_node_id": "org-orbit", "typed_value": {"type": "string", "value": "Synthetic direct-to-business product company."}, "basis": "observed", "evidence_refs": ["evidence-orbit-site"], "confidence_reason": "The synthetic fixture describes the commercial model.", "uncertainty": "Synthetic scope only.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "operations_and_digital_footprint", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-operations", "category": "operations_and_digital_footprint", "subject_node_id": "org-orbit", "typed_value": {"type": "url", "value": "https://orbit.example/products"}, "basis": "observed", "evidence_refs": ["evidence-orbit-site"], "confidence_reason": "The synthetic product route is directly observed.", "uncertainty": "No external site was accessed.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "audiences_market_and_reputation", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-audience", "category": "audiences_market_and_reputation", "subject_node_id": "audience-orbit", "typed_value": {"type": "string", "value": "Synthetic product-focused business audience."}, "basis": "inferred_high_confidence", "evidence_refs": ["evidence-orbit-site"], "confidence_reason": "The audience follows directly from the synthetic product description.", "uncertainty": "Audience composition is inferred within the fixture.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "brand_and_messaging", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-brand", "category": "brand_and_messaging", "subject_node_id": "brand-orbit", "typed_value": {"type": "string", "value": "Synthetic practical product messaging."}, "basis": "observed", "evidence_refs": ["evidence-orbit-site"], "confidence_reason": "The synthetic fixture supplies the message description.", "uncertainty": "No copied creative assets are included.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "activity_and_signals", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-signal", "category": "activity_and_signals", "subject_node_id": "signal-orbit", "typed_value": {"type": "date", "value": "2026-07-10"}, "basis": "observed", "evidence_refs": ["evidence-orbit-site"], "confidence_reason": "The synthetic fixture dates the product signal.", "uncertainty": "Fixture event only.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "opportunity_and_fit", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-opportunity", "category": "opportunity_and_fit", "subject_node_id": "opportunity-orbit", "typed_value": {"type": "string_list", "value": ["product_photography", "product_video"]}, "basis": "inferred_high_confidence", "evidence_refs": ["evidence-orbit-site"], "confidence_reason": "The synthetic product evidence supports the bounded opportunity types.", "uncertainty": "Search intent is not treated as proof of demand.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "public_people_and_contact_paths", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-role", "category": "public_people_and_contact_paths", "subject_node_id": "role-orbit-marketing", "typed_value": {"type": "object", "value": {"role_id": "role-orbit-marketing", "role_title": "Synthetic Marketing Role", "responsibility": "Synthetic brand marketing responsibility", "professional_profile_url": "https://orbit.example/team/marketing-role", "official_business_route_url": "https://orbit.example/business"}}, "basis": "observed", "evidence_refs": ["evidence-orbit-role"], "confidence_reason": "The fixture provides an official role and business route.", "uncertainty": "No named person or private contact value is present.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "governance_and_history", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-governance", "category": "governance_and_history", "subject_node_id": "org-orbit", "typed_value": {"type": "string", "value": "Validated as new against the supplied synthetic history."}, "basis": "observed", "evidence_refs": ["evidence-orbit-site"], "confidence_reason": "The frozen classifier produced the recorded result.", "uncertainty": "The classification is bound to this history fingerprint.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "evidence_coverage", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-coverage", "category": "evidence_coverage", "subject_node_id": "org-orbit", "typed_value": {"type": "number", "value": 2}, "basis": "observed", "evidence_refs": ["evidence-orbit-site"], "confidence_reason": "Two bounded evidence records are inventoried.", "uncertainty": "Synthetic evidence only.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "additional_material_facts", "coverage_state": "complete", "claims": [{"claim_id": "claim-orbit-additional", "category": "additional_material_facts", "subject_node_id": "org-orbit", "typed_value": {"type": "boolean", "value": true}, "basis": "observed", "evidence_refs": ["evidence-orbit-site"], "confidence_reason": "The fixture marks the dossier as entirely synthetic.", "uncertainty": "No real-world inference is intended.", "source_date": "2026-07-10", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]}
+      ],
+      "entities": [
+        {"node_id": "org-orbit", "node_type": "organization", "label": "Synthetic Orbit Goods", "business_unit": "unreal-media-group", "attributes": {"canonical_domain": "orbit.example"}},
+        {"node_id": "brand-orbit", "node_type": "brand", "label": "Synthetic Orbit Brand", "business_unit": "unreal-media-group", "attributes": {}},
+        {"node_id": "audience-orbit", "node_type": "audience_market", "label": "Synthetic Product Audience", "business_unit": "unreal-media-group", "attributes": {}},
+        {"node_id": "signal-orbit", "node_type": "signal", "label": "Synthetic Product Signal", "business_unit": "unreal-media-group", "attributes": {}},
+        {"node_id": "opportunity-orbit", "node_type": "opportunity", "label": "Synthetic Product Opportunity", "business_unit": "unreal-media-group", "attributes": {}},
+        {"node_id": "role-orbit-marketing", "node_type": "business_role", "label": "Synthetic Marketing Role", "business_unit": "unreal-media-group", "attributes": {}}
+      ],
+      "relationships": [
+        {"edge_id": "edge-orbit-brand", "edge_type": "affiliated_with", "from_node_id": "brand-orbit", "to_node_id": "org-orbit", "business_unit": "unreal-media-group", "claim_refs": ["claim-orbit-brand"], "evidence_refs": ["evidence-orbit-site"]},
+        {"edge_id": "edge-orbit-role", "edge_type": "responsible_for", "from_node_id": "role-orbit-marketing", "to_node_id": "brand-orbit", "business_unit": "unreal-media-group", "claim_refs": ["claim-orbit-role"], "evidence_refs": ["evidence-orbit-role"]}
+      ],
+      "review_state": "research_quality_accepted",
+      "release_state": "released_local_data_only"
+    },
+    {
+      "schema_version": 1,
+      "synthetic": true,
+      "dossier_id": "dossier-talent-lumen",
+      "version": 1,
+      "idempotency_identity": "phase6b:talent:result-talent-lumen:1",
+      "search_request_id": "search-talent-open",
+      "business_unit": "unreal-talent",
+      "approved_result": {"approval_id": "approval-talent-lumen", "result_id": "result-talent-lumen", "global_identity_id": "global-lumen", "account_id": "account-lumen", "canonical_domain": "lumen.example"},
+      "research_cutoff": "2026-07-21T12:00:00Z",
+      "maximum_evidence_age_days": 365,
+      "history_fingerprint": "a14f36e2b2d05496d6a41159556570be276789a9e4f7f0b5a58f4862888a523f",
+      "duplicate_history": {"status": "new_prospect", "reason": "No canonical identity or relationship matched history.", "matched_prospect_id": null, "matched_prospect_ids": [], "reengagement": false},
+      "evidence_inventory": [
+        {"evidence_id": "evidence-lumen-site", "source_url": "https://lumen.example/about", "source_kind": "official_site", "source_date": "2026-07-11", "observed_at": "2026-07-21T12:00:00Z", "original_source": true, "summary": "Synthetic company and campaign context.", "conflict_state": "none"}
+      ],
+      "categories": [
+        {"category": "identity_and_relationships", "coverage_state": "complete", "claims": [{"claim_id": "claim-lumen-identity", "category": "identity_and_relationships", "subject_node_id": "org-lumen", "typed_value": {"type": "string", "value": "Synthetic Lumen Athletics is a synthetic brand."}, "basis": "observed", "evidence_refs": ["evidence-lumen-site"], "confidence_reason": "The synthetic fixture states the identity.", "uncertainty": "Synthetic scope only.", "source_date": "2026-07-11", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "company_and_commercial_context", "coverage_state": "complete", "claims": [{"claim_id": "claim-lumen-commercial", "category": "company_and_commercial_context", "subject_node_id": "org-lumen", "typed_value": {"type": "string", "value": "Synthetic athletics product company."}, "basis": "observed", "evidence_refs": ["evidence-lumen-site"], "confidence_reason": "The synthetic fixture describes the company context.", "uncertainty": "Synthetic scope only.", "source_date": "2026-07-11", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "operations_and_digital_footprint", "coverage_state": "not_found", "gap_explanation": "The synthetic fixture intentionally supplies no additional operating-footprint record.", "claims": []},
+        {"category": "audiences_market_and_reputation", "coverage_state": "unknown", "gap_explanation": "The synthetic fixture does not establish an audience composition.", "claims": []},
+        {"category": "brand_and_messaging", "coverage_state": "complete", "claims": [{"claim_id": "claim-lumen-brand", "category": "brand_and_messaging", "subject_node_id": "brand-lumen", "typed_value": {"type": "string", "value": "Synthetic performance-oriented messaging."}, "basis": "observed", "evidence_refs": ["evidence-lumen-site"], "confidence_reason": "The synthetic fixture supplies the message description.", "uncertainty": "No creative asset is copied.", "source_date": "2026-07-11", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "activity_and_signals", "coverage_state": "stale", "gap_explanation": "The only synthetic activity record is outside the configured freshness window.", "claims": []},
+        {"category": "opportunity_and_fit", "coverage_state": "complete", "claims": [{"claim_id": "claim-lumen-opportunity", "category": "opportunity_and_fit", "subject_node_id": "opportunity-lumen", "typed_value": {"type": "string", "value": "Synthetic archetype-only talent opportunity."}, "basis": "inferred_high_confidence", "evidence_refs": ["evidence-lumen-site"], "confidence_reason": "The synthetic campaign context supports an archetype-only opportunity.", "uncertainty": "No named person or roster authorization is present.", "source_date": "2026-07-11", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "public_people_and_contact_paths", "coverage_state": "not_applicable", "gap_explanation": "No synthetic business role is required for this bounded fixture.", "claims": []},
+        {"category": "governance_and_history", "coverage_state": "complete", "claims": [{"claim_id": "claim-lumen-governance", "category": "governance_and_history", "subject_node_id": "org-lumen", "typed_value": {"type": "string", "value": "Validated as new in the Unreal Talent synthetic history scope."}, "basis": "observed", "evidence_refs": ["evidence-lumen-site"], "confidence_reason": "The frozen classifier produced the recorded result.", "uncertainty": "The result is bound to the supplied history fingerprint.", "source_date": "2026-07-11", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]},
+        {"category": "evidence_coverage", "coverage_state": "conflicted", "gap_explanation": "The synthetic fixture models unresolved evidence coverage without guessing a claim.", "claims": []},
+        {"category": "additional_material_facts", "coverage_state": "complete", "claims": [{"claim_id": "claim-lumen-additional", "category": "additional_material_facts", "subject_node_id": "org-lumen", "typed_value": {"type": "boolean", "value": true}, "basis": "observed", "evidence_refs": ["evidence-lumen-site"], "confidence_reason": "The fixture is explicitly synthetic.", "uncertainty": "No real-world inference is intended.", "source_date": "2026-07-11", "observed_at": "2026-07-21T12:00:00Z", "freshness_state": "current"}]}
+      ],
+      "entities": [
+        {"node_id": "org-lumen", "node_type": "organization", "label": "Synthetic Lumen Athletics", "business_unit": "unreal-talent", "attributes": {"canonical_domain": "lumen.example"}},
+        {"node_id": "brand-lumen", "node_type": "brand", "label": "Synthetic Lumen Brand", "business_unit": "unreal-talent", "attributes": {}},
+        {"node_id": "opportunity-lumen", "node_type": "opportunity", "label": "Synthetic Archetype Opportunity", "business_unit": "unreal-talent", "attributes": {}}
+      ],
+      "relationships": [
+        {"edge_id": "edge-lumen-brand", "edge_type": "affiliated_with", "from_node_id": "brand-lumen", "to_node_id": "org-lumen", "business_unit": "unreal-talent", "claim_refs": ["claim-lumen-brand"], "evidence_refs": ["evidence-lumen-site"]}
+      ],
+      "review_state": "research_quality_accepted",
+      "release_state": "released_local_data_only"
+    }
+  ]
+}

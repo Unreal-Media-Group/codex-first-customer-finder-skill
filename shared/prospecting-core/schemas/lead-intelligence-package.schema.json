@@ -1,0 +1,158 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unreal.local/schemas/lead-intelligence-package.schema.json",
+  "title": "Unreal Phase 6B Lead Intelligence Package",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "package_id",
+    "idempotency_identity",
+    "business_unit",
+    "approved_result",
+    "dossier_id",
+    "dossier_version",
+    "research_cutoff",
+    "maximum_evidence_age_days",
+    "canonical_hash",
+    "history_fingerprint",
+    "coverage_states",
+    "claims",
+    "evidence_inventory",
+    "nodes",
+    "edges",
+    "duplicate_history",
+    "review_release",
+    "authority"
+  ],
+  "properties": {
+    "schema_version": {"const": 1},
+    "package_id": {"$ref": "#/$defs/stableId"},
+    "idempotency_identity": {"$ref": "#/$defs/stableId"},
+    "business_unit": {"$ref": "#/$defs/businessUnit"},
+    "approved_result": {"$ref": "customer-dossier.schema.json#/$defs/approvedResult"},
+    "dossier_id": {"$ref": "#/$defs/stableId"},
+    "dossier_version": {"type": "integer", "minimum": 1},
+    "research_cutoff": {"type": "string", "format": "date-time"},
+    "maximum_evidence_age_days": {"type": "integer", "minimum": 1, "maximum": 3650},
+    "canonical_hash": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "history_fingerprint": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "coverage_states": {
+      "type": "array",
+      "minItems": 11,
+      "maxItems": 11,
+      "items": {"$ref": "#/$defs/coverage"}
+    },
+    "claims": {
+      "type": "array",
+      "maxItems": 300,
+      "items": {"$ref": "customer-dossier.schema.json#/$defs/claim"}
+    },
+    "evidence_inventory": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 300,
+      "items": {"$ref": "customer-dossier.schema.json#/$defs/evidence"}
+    },
+    "nodes": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 600,
+      "items": {"$ref": "#/$defs/node"}
+    },
+    "edges": {
+      "type": "array",
+      "maxItems": 600,
+      "items": {"$ref": "#/$defs/edge"}
+    },
+    "duplicate_history": {"$ref": "customer-dossier.schema.json#/$defs/duplicateHistory"},
+    "review_release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["review_state", "release_state"],
+      "properties": {
+        "review_state": {"enum": ["pending_research_quality_review", "research_quality_accepted", "changes_requested", "rejected"]},
+        "release_state": {"enum": ["not_released", "released_local_data_only"]}
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["local_data_handoff_only", "generation", "contact", "outreach", "external_write", "agent_invocation", "deployment"],
+      "properties": {
+        "local_data_handoff_only": {"const": true},
+        "generation": {"const": false},
+        "contact": {"const": false},
+        "outreach": {"const": false},
+        "external_write": {"const": false},
+        "agent_invocation": {"const": false},
+        "deployment": {"const": false}
+      }
+    }
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "businessUnit": {"enum": ["unreal-media-group", "unreal-talent"]},
+    "coverage": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["category", "coverage_state", "gap_explanation"],
+      "properties": {
+        "category": {
+          "enum": [
+            "identity_and_relationships",
+            "company_and_commercial_context",
+            "operations_and_digital_footprint",
+            "audiences_market_and_reputation",
+            "brand_and_messaging",
+            "activity_and_signals",
+            "opportunity_and_fit",
+            "public_people_and_contact_paths",
+            "governance_and_history",
+            "evidence_coverage",
+            "additional_material_facts"
+          ]
+        },
+        "coverage_state": {"enum": ["complete", "not_found", "not_applicable", "conflicted", "stale", "unknown"]},
+        "gap_explanation": {"type": ["string", "null"], "maxLength": 500}
+      }
+    },
+    "node": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["node_id", "node_type", "label", "business_unit", "attributes"],
+      "properties": {
+        "node_id": {"$ref": "#/$defs/stableId"},
+        "node_type": {
+          "enum": ["organization", "brand", "business_role", "business_contact_route", "product_service", "audience_market", "campaign_asset_reference", "signal", "opportunity", "restriction", "evidence"]
+        },
+        "label": {"type": "string", "minLength": 1, "maxLength": 200},
+        "business_unit": {"$ref": "#/$defs/businessUnit"},
+        "attributes": {"type": "object", "maxProperties": 120}
+      }
+    },
+    "edge": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["edge_id", "edge_type", "from_node_id", "to_node_id", "business_unit", "claim_refs", "evidence_refs"],
+      "properties": {
+        "edge_id": {"$ref": "#/$defs/stableId"},
+        "edge_type": {"enum": ["parent_subbrand", "agency_client", "partner", "affiliated_with", "responsible_for", "contact_path_for", "offers", "targets", "campaign_for", "evidence_supports", "duplicate", "prior_discovery", "reengagement"]},
+        "from_node_id": {"$ref": "#/$defs/stableId"},
+        "to_node_id": {"$ref": "#/$defs/stableId"},
+        "business_unit": {"$ref": "#/$defs/businessUnit"},
+        "claim_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/stableId"}},
+        "evidence_refs": {"type": "array", "uniqueItems": true, "items": {"$ref": "#/$defs/stableId"}}
+      },
+      "anyOf": [
+        {"properties": {"claim_refs": {"minItems": 1}}},
+        {"properties": {"evidence_refs": {"minItems": 1}}}
+      ]
+    }
+  }
+}

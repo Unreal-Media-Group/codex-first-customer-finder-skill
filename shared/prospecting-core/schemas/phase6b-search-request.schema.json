@@ -1,0 +1,54 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://unreal.local/schemas/phase6b-search-request.schema.json",
+  "title": "Unreal Phase 6B Pre-Search Opportunity Request",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "version",
+    "request_id",
+    "idempotency_identity",
+    "business_unit",
+    "campaign"
+  ],
+  "properties": {
+    "version": {"const": 1},
+    "request_id": {"$ref": "#/$defs/stableId"},
+    "idempotency_identity": {"$ref": "#/$defs/stableId"},
+    "business_unit": {"enum": ["unreal-media-group", "unreal-talent"]},
+    "campaign": {"$ref": "campaign-config.schema.json"},
+    "opportunity_filter": {"$ref": "#/$defs/opportunityFilter"}
+  },
+  "$defs": {
+    "stableId": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[a-z0-9][a-z0-9._:-]*$"
+    },
+    "opportunityType": {
+      "enum": ["product_photography", "product_video", "ugc_ad"]
+    },
+    "opportunityFilter": {
+      "type": "object",
+      "additionalProperties": false,
+      "minProperties": 1,
+      "properties": {
+        "include_any": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/opportunityType"}
+        },
+        "exclude": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {"$ref": "#/$defs/opportunityType"}
+        }
+      },
+      "anyOf": [
+        {"required": ["include_any"], "properties": {"include_any": {"minItems": 1}}},
+        {"required": ["exclude"], "properties": {"exclude": {"minItems": 1}}}
+      ]
+    }
+  }
+}

@@ -4,7 +4,7 @@
 **Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`
 **Downstream compatibility target:** A governed agent graph, including a possible future Unreal OS
 consumer. This repository does not implement or modify Unreal OS.
-**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is authorized but unimplemented; live public-source research remains unauthorized. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
+**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is implemented locally and pending independent review/finalization; the full Phase 6 exit gate and live public-source research remain unauthorized and incomplete. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 **Operating principle:** The skills find, qualify, deduplicate, and comprehensively research potential
 customers. Deterministic code validates the evidence and emits a versioned, graph-ready lead-
@@ -510,8 +510,9 @@ These are starting caps, not permanent performance targets.
 
 **Status:** Phase 6A's synthetic fixture brief foundation is independently reviewed and finalized at
 commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first schemas,
-documentation, synthetic fixtures, deterministic validation, and tests are authorized but not
-implemented; live public-source research remains unauthorized.
+documentation, synthetic fixtures, deterministic validation, and tests are implemented locally and
+pending independent review/finalization. The full Phase 6 exit gate is not complete, and live
+public-source research remains unauthorized.
 
 ## Objective
 
