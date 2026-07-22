@@ -281,6 +281,450 @@ class Phase6RealRuntimeTests(unittest.TestCase):
                 expected=revoked["approval_event_id"],
             )
 
+    def test_one_interrupted_earlier_run_can_recover_after_terminal_alternatives(self) -> None:
+        search = self.env.search()
+        first = self.env.approve(search)
+        first_run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", first["approval_event_id"], "interrupted-first"
+        )
+        self.env.dossier._unregister_active(first_run["dossier_run_id"])
+        reopened = Env(self.directory)
+        with closing(reopened.store._connect()) as connection:
+            recovered = connection.execute(
+                "SELECT * FROM dossier_runs WHERE dossier_run_id=?",
+                (first_run["dossier_run_id"],),
+            ).fetchone()
+        self.assertEqual(recovered["state"], "failed")
+        self.assertEqual(recovered["failure_class"], "interrupted_execution_recovered")
+
+        second = reopened.approve(search, index=1)
+        second_run, _ = reopened.dossier.claim_dossier(
+            "noah", "unreal-media-group", second["approval_event_id"], "terminal-second"
+        )
+        reopened.dossier.cancel_dossier(
+            "noah", "unreal-media-group", second_run["dossier_run_id"]
+        )
+        self.assertTrue(reopened.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+        ))
+        self.assertTrue(reopened.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][1]["result_id"]
+        ))
+        app = WebApplication(
+            csrf_token="recovery-csrf",
+            agent_service=reopened.agent,
+            enrichment_service=reopened.enrichment,
+            dossier_service=reopened.dossier,
+        )
+        recovery_page = app.phase6_search_detail(
+            "noah", "unreal-media-group", search["search_id"]
+        )
+        self.assertIn("Bind one infrastructure-recovery authority", recovery_page)
+        self.assertEqual(
+            recovery_page.count("Bind one infrastructure-recovery authority"), 1
+        )
+        self.assertIn("Bind the existing exact user-goal authority", recovery_page)
+        self.assertIn(
+            f'name="expected_leaf_id" value="{first["approval_event_id"]}"',
+            recovery_page,
+        )
+
+        retry = reopened.approve(
+            search, expected=first["approval_event_id"]
+        )
+        claim_page = app.phase6_search_detail(
+            "noah", "unreal-media-group", search["search_id"]
+        )
+        self.assertIn("Run the exact bounded public read", claim_page)
+        self.assertNotIn("Bind one infrastructure-recovery authority", claim_page)
+        candidate, created = reopened.dossier.start_dossier(
+            "noah", "unreal-media-group", retry["approval_event_id"], "one-recovery"
+        )
+        self.assertTrue(created)
+        self.assertEqual(candidate["result_id"], search["results"][0]["result_id"])
+        replay, created = reopened.dossier.claim_dossier(
+            "noah", "unreal-media-group", retry["approval_event_id"], "one-recovery"
+        )
+        self.assertFalse(created)
+        self.assertEqual(replay["state"], "succeeded")
+        with self.assertRaisesRegex(MissionControlError, "one recovery has already been used"):
+            reopened.approve(search, expected=retry["approval_event_id"])
+
+    def test_interrupted_run_allows_exactly_one_recovery_across_restarts(self) -> None:
+        search = self.env.search()
+        first = self.env.approve(search)
+        first_run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", first["approval_event_id"], "restart-one"
+        )
+        self.env.dossier._unregister_active(first_run["dossier_run_id"])
+
+        reopened = Env(self.directory)
+        recovery = reopened.approve(search, expected=first["approval_event_id"])
+        second_run, _ = reopened.dossier.claim_dossier(
+            "noah", "unreal-media-group", recovery["approval_event_id"], "restart-two"
+        )
+        reopened.dossier._unregister_active(second_run["dossier_run_id"])
+
+        twice_reopened = Env(self.directory)
+        self.assertFalse(twice_reopened.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "one recovery has already been used"):
+            twice_reopened.approve(
+                search, expected=recovery["approval_event_id"]
+            )
+        with closing(twice_reopened.store._connect()) as connection:
+            approvals = connection.execute(
+                "SELECT COUNT(*) AS count FROM dossier_approval_events WHERE result_record_id=?",
+                (search["results"][0]["result_record_id"],),
+            ).fetchone()["count"]
+            runs = connection.execute(
+                "SELECT state,failure_class FROM dossier_runs WHERE result_record_id=? ORDER BY rowid",
+                (search["results"][0]["result_record_id"],),
+            ).fetchall()
+        self.assertEqual(approvals, 2)
+        self.assertEqual(len(runs), 2)
+        self.assertTrue(all(
+            row["state"] == "failed"
+            and row["failure_class"] == "interrupted_execution_recovered"
+            for row in runs
+        ))
+
+    def test_interrupted_run_after_cancelled_attempt_has_no_recovery(self) -> None:
+        search = self.env.search()
+        first = self.env.approve(search)
+        cancelled_run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", first["approval_event_id"], "cancel-before-interruption"
+        )
+        self.env.dossier.cancel_dossier(
+            "noah", "unreal-media-group", cancelled_run["dossier_run_id"]
+        )
+        second = self.env.approve(search, expected=first["approval_event_id"])
+        interrupted_run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", second["approval_event_id"], "interrupted-after-cancel"
+        )
+        self.env.dossier._unregister_active(interrupted_run["dossier_run_id"])
+
+        reopened = Env(self.directory)
+        self.assertFalse(reopened.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "one recovery has already been used"):
+            reopened.approve(search, expected=second["approval_event_id"])
+        with closing(reopened.store._connect()) as connection:
+            runs = connection.execute(
+                "SELECT state,failure_class FROM dossier_runs WHERE result_record_id=? ORDER BY rowid",
+                (search["results"][0]["result_record_id"],),
+            ).fetchall()
+        self.assertEqual(
+            [(row["state"], row["failure_class"]) for row in runs],
+            [("cancelled", None), ("failed", "interrupted_execution_recovered")],
+        )
+
+    def test_earlier_recovery_rejects_later_run_without_matching_terminal_audit(self) -> None:
+        search = self.env.search()
+        first = self.env.approve(search)
+        first_run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", first["approval_event_id"], "interrupted-before-later"
+        )
+        self.env.dossier._unregister_active(first_run["dossier_run_id"])
+        reopened = Env(self.directory)
+        later = reopened.approve(search, index=1)
+        later_run, _ = reopened.dossier.claim_dossier(
+            "noah", "unreal-media-group", later["approval_event_id"], "later-transition-mismatch"
+        )
+        self.addCleanup(reopened.dossier._unregister_active, later_run["dossier_run_id"])
+        connection = sqlite3.connect(reopened.path)
+        try:
+            connection.execute(
+                "UPDATE dossier_runs SET state='cancelled',cancel_requested=1,completed_at=?,"
+                "failure_class=NULL,remediation=NULL WHERE dossier_run_id=?",
+                (reopened.clock().isoformat().replace("+00:00", "Z"), later_run["dossier_run_id"]),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        self.assertFalse(reopened.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "cannot be reopened"):
+            reopened.approve(search, expected=first["approval_event_id"])
+
+    def test_later_target_rejects_prior_run_without_matching_terminal_audit(self) -> None:
+        search = self.env.search()
+        first = self.env.approve(search)
+        first_run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", first["approval_event_id"], "prior-transition-mismatch"
+        )
+        self.addCleanup(self.env.dossier._unregister_active, first_run["dossier_run_id"])
+        connection = sqlite3.connect(self.env.path)
+        try:
+            connection.execute(
+                "UPDATE dossier_runs SET state='cancelled',cancel_requested=1,completed_at=? "
+                "WHERE dossier_run_id=?",
+                (self.env.clock().isoformat().replace("+00:00", "Z"), first_run["dossier_run_id"]),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        self.assertFalse(self.env.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][1]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "inconsistent transition evidence"):
+            self.env.approve(search, index=1)
+
+    def test_recovery_rejects_relabelled_source_failure_and_audit_is_append_only(self) -> None:
+        search = self.env.search()
+        first = self.env.approve(search)
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", first["approval_event_id"], "relabel-source-failure"
+        )
+        self.env.reader.fail_product = True
+        with self.assertRaisesRegex(MissionControlError, "contract"):
+            self.env.dossier.complete_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+        connection = sqlite3.connect(self.env.path)
+        try:
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    "UPDATE audit_events SET safe_status='changed' WHERE run_id=?",
+                    (run["dossier_run_id"],),
+                )
+            connection.rollback()
+            with self.assertRaises(sqlite3.IntegrityError):
+                connection.execute(
+                    "DELETE FROM audit_events WHERE run_id=?",
+                    (run["dossier_run_id"],),
+                )
+            connection.rollback()
+            connection.execute(
+                "UPDATE dossier_runs SET failure_class='interrupted_execution_recovered',"
+                "remediation='Create a new exact approval before another research attempt.' "
+                "WHERE dossier_run_id=?",
+                (run["dossier_run_id"],),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+
+        with self.assertRaisesRegex(MissionControlError, "inconsistent transition evidence"):
+            self.env.approve(search, index=1)
+        self.assertFalse(self.env.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "one recovery has already been used"):
+            self.env.approve(search, expected=first["approval_event_id"])
+
+    def test_source_failure_cannot_reopen_after_terminal_projection_reclassification(self) -> None:
+        mutations = {
+            "missing-failure-class": (
+                "state='failed',cancel_requested=0,failure_class=NULL,remediation=NULL",
+                "failed",
+            ),
+            "unknown-failure-class": (
+                "state='failed',cancel_requested=0,failure_class='unexpected_failure',"
+                "remediation='No automatic retry.'",
+                "failed",
+            ),
+            "relabeled-cancelled": (
+                "state='cancelled',cancel_requested=1,failure_class=NULL,remediation=NULL",
+                "cancelled",
+            ),
+        }
+        for name, (mutation, expected_state) in mutations.items():
+            with self.subTest(name=name):
+                env = Env(self.directory / name)
+                search = env.search(name)
+                approval = env.approve(search)
+                run, _ = env.dossier.claim_dossier(
+                    "noah", "unreal-media-group", approval["approval_event_id"], name
+                )
+                env.reader.fail_product = True
+                with self.assertRaisesRegex(MissionControlError, "contract"):
+                    env.dossier.complete_dossier(
+                        "noah", "unreal-media-group", run["dossier_run_id"]
+                    )
+                connection = sqlite3.connect(env.path)
+                try:
+                    connection.execute(
+                        f"UPDATE dossier_runs SET {mutation} WHERE dossier_run_id=?",
+                        (run["dossier_run_id"],),
+                    )
+                    connection.commit()
+                    stored_state = connection.execute(
+                        "SELECT state FROM dossier_runs WHERE dossier_run_id=?",
+                        (run["dossier_run_id"],),
+                    ).fetchone()[0]
+                finally:
+                    connection.close()
+                self.assertEqual(stored_state, expected_state)
+                self.assertFalse(env.dossier.real_goal_authority_ready(
+                    "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+                ))
+                with self.assertRaisesRegex(MissionControlError, "bounded real-proof"):
+                    env.approve(search, expected=approval["approval_event_id"])
+
+    def test_failed_run_relabelled_running_cannot_replay_or_read_again(self) -> None:
+        search = self.env.search()
+        approval = self.env.approve(search)
+        key = "failed-replay-transition"
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], key
+        )
+        self.env.reader.fail_product = True
+        with self.assertRaisesRegex(MissionControlError, "contract"):
+            self.env.dossier.complete_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+        self.assertEqual(len(self.env.reader.calls), 1)
+        connection = sqlite3.connect(self.env.path)
+        try:
+            connection.execute(
+                "UPDATE dossier_runs SET state='running',completed_at=NULL,"
+                "failure_class=NULL,remediation=NULL WHERE dossier_run_id=?",
+                (run["dossier_run_id"],),
+            )
+            connection.commit()
+        finally:
+            connection.close()
+        with self.assertRaisesRegex(MissionControlError, "transition evidence"):
+            self.env.dossier.claim_dossier(
+                "noah", "unreal-media-group", approval["approval_event_id"], key
+            )
+        with self.assertRaisesRegex(MissionControlError, "transition evidence"):
+            self.env.dossier.complete_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+        self.assertEqual(len(self.env.reader.calls), 1)
+
+    def test_cancel_during_read_cannot_be_relabelled_running_before_persistence(self) -> None:
+        search = self.env.search()
+        approval = self.env.approve(search)
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "cancel-relabel-race"
+        )
+
+        def cancel_then_relabel() -> None:
+            self.env.dossier.cancel_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+            connection = sqlite3.connect(self.env.path)
+            try:
+                connection.execute(
+                    "UPDATE dossier_runs SET state='running',cancel_requested=0,completed_at=NULL "
+                    "WHERE dossier_run_id=?",
+                    (run["dossier_run_id"],),
+                )
+                connection.commit()
+            finally:
+                connection.close()
+
+        self.env.reader.before_read = cancel_then_relabel
+        with self.assertRaisesRegex(MissionControlError, "transition evidence"):
+            self.env.dossier.complete_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+        self.assertEqual(len(self.env.reader.calls), 1)
+        self.assertEqual(self.env.dossier.candidates("noah", "unreal-media-group"), [])
+
+    def test_recovery_rejects_relabelled_succeeded_run_with_released_package(self) -> None:
+        search = self.env.search()
+        approval = self.env.approve(search)
+        candidate, _ = self.env.dossier.start_dossier(
+            "noah", "unreal-media-group", approval["approval_event_id"], "released-before-relabel"
+        )
+        released, _ = self.env.dossier.record_real_human_review(
+            "unreal-media-group",
+            candidate["candidate_version_id"],
+            decision="accepted",
+            reason="Exact test candidate acceptance before a corruption reproduction.",
+            idempotency_key="released-before-relabel-review",
+        )
+        self.assertIsNotNone(released["package"])
+        connection = sqlite3.connect(self.env.path)
+        try:
+            connection.execute(
+                "UPDATE dossier_runs SET state='failed',failure_class='interrupted_execution_recovered',"
+                "remediation='Create a new exact approval before another research attempt.',"
+                "candidate_version_id=NULL WHERE dossier_run_id=?",
+                (candidate["dossier_run_id"],),
+            )
+            connection.commit()
+            self.assertEqual(
+                connection.execute(
+                    "SELECT COUNT(*) FROM lead_intelligence_packages"
+                ).fetchone()[0],
+                1,
+            )
+        finally:
+            connection.close()
+        self.assertFalse(self.env.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "one recovery has already been used"):
+            self.env.approve(search, expected=approval["approval_event_id"])
+
+    def test_noninfrastructure_failure_never_reopens_an_earlier_target(self) -> None:
+        search = self.env.search()
+        first = self.env.approve(search)
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", first["approval_event_id"], "contract-failure"
+        )
+        self.env.reader.fail_product = True
+        with self.assertRaisesRegex(MissionControlError, "contract"):
+            self.env.dossier.complete_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+        with closing(self.env.store._connect()) as connection:
+            failed = connection.execute(
+                "SELECT * FROM dossier_runs WHERE dossier_run_id=?",
+                (run["dossier_run_id"],),
+            ).fetchone()
+        self.assertEqual(failed["failure_class"], "source_read_failed_no_retry")
+        self.assertFalse(self.env.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "cannot be retried"):
+            self.env.approve(search, expected=first["approval_event_id"])
+        second = self.env.approve(search, index=1)
+        second_run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", second["approval_event_id"], "terminal-later"
+        )
+        self.env.dossier.cancel_dossier(
+            "noah", "unreal-media-group", second_run["dossier_run_id"]
+        )
+        self.assertFalse(self.env.dossier.real_goal_authority_ready(
+            "noah", "unreal-media-group", search["search_id"], search["results"][0]["result_id"]
+        ))
+        with self.assertRaisesRegex(MissionControlError, "cannot be retried"):
+            self.env.approve(search, expected=first["approval_event_id"])
+
+    def test_preauthorized_leaf_cannot_claim_after_terminal_source_failure(self) -> None:
+        search = self.env.search()
+        first = self.env.approve(search)
+        replacement = self.env.approve(
+            search, expected=first["approval_event_id"]
+        )
+        future = self.env.approve(
+            search, expected=replacement["approval_event_id"]
+        )
+        run, _ = self.env.dossier.claim_dossier(
+            "noah", "unreal-media-group", future["approval_event_id"], "source-failure"
+        )
+        reserved = self.env.approve(
+            search, expected=future["approval_event_id"]
+        )
+        self.env.reader.fail_product = True
+        with self.assertRaisesRegex(MissionControlError, "contract"):
+            self.env.dossier.complete_dossier(
+                "noah", "unreal-media-group", run["dossier_run_id"]
+            )
+        with self.assertRaisesRegex(MissionControlError, "cannot be retried"):
+            self.env.dossier.claim_dossier(
+                "noah", "unreal-media-group", reserved["approval_event_id"], "reserved-after-failure"
+            )
+
     def test_reader_runs_outside_sqlite_transaction_and_candidate_stays_pending(self) -> None:
         search = self.env.search()
         approval = self.env.approve(search)

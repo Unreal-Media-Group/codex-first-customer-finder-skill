@@ -40,13 +40,20 @@ The runtime order is:
 
 Target progression is monotonic. A later selected target cannot enter its authority flow until every
 earlier selected target is terminal or non-executable. Once a later target enters that flow, an
-earlier target cannot be reopened. The authority endpoint, new and idempotent claims, public-read
-preflight, final candidate transaction, and visible Run controls all recheck this ordering.
+earlier target ordinarily cannot be reopened. The only recovery is one new approval and one new run
+when the target's first and sole pre-recovery run was genuinely startup-recovered as interrupted. If
+a later target has already entered authority, every later alternative must also be terminal with no
+candidate. Eligibility requires the exact
+append-only claim/recovery audit pair, no candidate or released package for the target, and no prior
+recovery approval or run. Robots, access, redirect, destination, content, privacy, and budget
+failures never qualify. The authority endpoint, new and idempotent claims, public-read preflight,
+final candidate transaction, and visible controls all recheck the same rule.
 
 Revoke-first denies a claim. A revocation after a committed claim is non-retroactive for only that
 one synchronous run and never restores or reuses the approval. Cancellation that commits before the
-final insert creates no candidate. A source failure records only its safe reason code and does not
-retry, add a URL, or choose a third business.
+final insert creates no candidate and remains an ordinary new-authority path, not an infrastructure
+recovery. A source failure records only its safe reason code and does not retry, add a URL, or choose
+a third business.
 
 ## Reader boundary
 
@@ -105,7 +112,8 @@ The tests use injected deterministic transports and make no live requests. They 
 hashes and tampering, history protection, no-demand semantics, source-record privacy, destination and
 TLS binding, robots and redirect handling, budgets and joined shutdown, SQLite transaction
 separation, cancellation and revocation ordering, restart durability, pending review, canonical
-package release, monotonic two-target progression, and the loopback approval packet. The pre-live
-warning-strict repository runner passes `328/328`; both official skill validators pass. Real Chrome
+package release, monotonic two-target progression, single-recovery exhaustion, append-only recovery
+evidence, terminal-state mismatch rejection, and the loopback approval packet. The current
+warning-strict repository runner passes `340/340`; both official skill validators pass. Real Chrome
 QA at desktop and `375x812` verifies the one-next-target control, no horizontal overflow, visible
 keyboard focus, a clean console, and loopback-only requests without invoking the public-read action.

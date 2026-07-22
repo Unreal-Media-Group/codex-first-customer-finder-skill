@@ -8,9 +8,15 @@ local and gitignored. The service never invokes another agent, generates an asse
 writes externally, deploys, or modifies Unreal OS.
 
 The two proof alternatives advance monotonically. Later authority waits for every earlier eligible
-target to become terminal or non-executable, and an earlier target cannot reopen after later
-authority progress. Authority creation, claims, public-read preflight, final persistence, and visible
-controls all enforce that same order.
+target to become terminal or non-executable. When the target's first and sole pre-recovery run was
+genuinely startup-recovered as interrupted, it permits one new recovery approval and run. If later
+authority has already progressed, every later alternative must first be terminal without a candidate.
+Recovery requires the exact append-only claim/recovery audit pair, no candidate or released package
+for the target, and no prior recovery approval or run.
+Source-policy, access, redirect, destination, content, privacy, and budget failures are never
+retried. An ordinary cancellation may receive new authority but is not labeled as infrastructure
+recovery. Authority creation, claims, public-read preflight, final persistence, and visible controls
+all enforce the same rules.
 
 ## Search and durable history
 
@@ -57,7 +63,10 @@ archive-and-recreate instruction.
 One process-local active-run registry distinguishes a live synchronous claim from crash recovery in
 the supported threaded loopback server. A second service in that process cannot falsely recover a
 live claim. A committed running claim with no process-local owner is terminalized on startup and
-requires a new approval. Multiple independent processes sharing one state file remain unsupported.
+requires a new approval. Recovery eligibility validates its exact claim and startup-recovery audit
+events, and audit events are append-only. A run relabeled from another terminal state, or any target
+that already has a candidate, final dossier, or package, fails closed. Multiple independent
+processes sharing one state file remain unsupported.
 
 ## Exact approval, claim, and cancellation
 
@@ -115,7 +124,8 @@ activation, populated migration, rollback, reopen, incomplete layouts, integrity
 history projection, filtering, account derivation, complete-result and source-plan authority,
 business-unit isolation including shared-account version allocation, recomputed idempotency,
 self-consistent snapshot and relationship rewrites, revoke/claim and cancel/complete ordering,
-process-local recovery, failure cleanup, freshness, exact terminal-review concurrency, atomic fault
+process-local recovery, single-recovery exhaustion, append-only transition evidence, terminal-state
+mismatch rejection, failure cleanup, freshness, exact terminal-review concurrency, atomic fault
 rollback, both business units, all eleven categories, and the loopback web workflow.
 
 The additive real contract, bounded reader, and exact runtime path are covered by

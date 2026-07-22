@@ -50,6 +50,7 @@ ACCOUNT_IDENTITY_VERSION = "account-v1"
 DOSSIER_APPROVAL_SCOPE = "phase6_dossier_research"
 REAL_GOAL_AUTHORITY = "user-goal-authority"
 REAL_HUMAN_REVIEWER = "user-human-reviewer"
+REAL_NO_RETRY_FAILURES = {"candidate_creation_failed", "source_read_failed_no_retry"}
 APPROVAL_LIFETIME = timedelta(days=7)
 IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
 IDEMPOTENCY = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
@@ -534,6 +535,8 @@ class DossierService:
                 (leaf["approval_event_id"],),
             ).fetchone()
             if run is not None:
+                if not self._verified_run_transition(connection, run):
+                    return "An earlier eligible real-proof target has inconsistent transition evidence."
                 state = self._run_row(run)["state"]
                 if state == "running":
                     return "An earlier eligible real-proof target is still running."
@@ -582,13 +585,328 @@ class DossierService:
                 return True
         return False
 
+    @staticmethod
+    def _real_result_has_no_retry_failure(
+        connection: sqlite3.Connection, result_record_id: str
+    ) -> bool:
+        return connection.execute(
+            "SELECT 1 FROM dossier_runs WHERE result_record_id=? AND state='failed' "
+            "AND failure_class IN (?,?) LIMIT 1",
+            (result_record_id, *sorted(REAL_NO_RETRY_FAILURES)),
+        ).fetchone() is not None
+
+    @staticmethod
+    def _verified_run_transition(
+        connection: sqlite3.Connection, run: sqlite3.Row
+    ) -> bool:
+        """Bind a mutable run projection to its append-only transition evidence."""
+        try:
+            DossierService._run_row(run)
+        except MissionControlError:
+            return False
+        events = connection.execute(
+            "SELECT * FROM audit_events WHERE run_id=? ORDER BY rowid",
+            (run["dossier_run_id"],),
+        ).fetchall()
+        if not events:
+            return False
+        claimed = events[0]
+        claimed_valid = bool(
+            claimed["event_type"] == "phase6_dossier_claimed"
+            and claimed["actor"] == run["initiating_actor"]
+            and claimed["business_unit"] == run["business_unit"]
+            and claimed["correlation_id"] == run["audit_correlation_id"]
+            and claimed["safe_status"] == "running"
+            and claimed["recorded_at"] == run["created_at"]
+        )
+        if not claimed_valid:
+            return False
+        if run["state"] == "running":
+            return len(events) == 1
+        if len(events) < 2:
+            return False
+        terminal = events[1]
+        common_terminal = bool(
+            terminal["business_unit"] == run["business_unit"]
+            and terminal["correlation_id"] == run["audit_correlation_id"]
+            and terminal["recorded_at"] == run["completed_at"]
+        )
+        if run["state"] == "cancelled":
+            return bool(
+                len(events) == 2
+                and common_terminal
+                and terminal["event_type"] == "phase6_dossier_cancelled"
+                and terminal["actor"] == run["initiating_actor"]
+                and terminal["safe_status"] == "cancelled"
+            )
+        if run["state"] == "failed":
+            if run["failure_class"] == "interrupted_execution_recovered":
+                return bool(
+                    len(events) == 2
+                    and common_terminal
+                    and terminal["event_type"] == "phase6_dossier_interrupted_run_recovered"
+                    and terminal["actor"] == "startup_recovery"
+                    and terminal["safe_status"] == "failed_closed"
+                )
+            return bool(
+                len(events) == 2
+                and common_terminal
+                and terminal["event_type"] == "phase6_dossier_failed"
+                and terminal["actor"] == run["initiating_actor"]
+                and terminal["safe_status"] == "failed"
+            )
+        candidate = connection.execute(
+            "SELECT 1 FROM dossier_candidates WHERE candidate_version_id=? "
+            "AND dossier_run_id=? AND approval_event_id=? AND business_unit=?",
+            (
+                run["candidate_version_id"],
+                run["dossier_run_id"],
+                run["approval_event_id"],
+                run["business_unit"],
+            ),
+        ).fetchone()
+        return bool(
+            candidate is not None
+            and common_terminal
+            and terminal["event_type"] == "phase6_dossier_candidate_created"
+            and terminal["actor"] == run["initiating_actor"]
+            and terminal["safe_status"] == "pending_research_quality_review"
+            and all(
+                event["event_type"] == "phase6_dossier_terminal_review_recorded"
+                for event in events[2:]
+            )
+            and len(events) <= 3
+        )
+
+    @staticmethod
+    def _verified_interrupted_run(
+        connection: sqlite3.Connection, run: sqlite3.Row
+    ) -> bool:
+        """Verify startup recovery and absence of any prior target artifact."""
+        return bool(
+            DossierService._verified_run_transition(connection, run)
+            and run["state"] == "failed"
+            and run["failure_class"] == "interrupted_execution_recovered"
+            and run["candidate_version_id"] is None
+            and connection.execute(
+                "SELECT 1 FROM dossier_candidates WHERE result_id=? AND business_unit=? LIMIT 1",
+                (run["result_id"], run["business_unit"]),
+            ).fetchone() is None
+        )
+
+    @staticmethod
+    def _real_attempt_allowed(
+        connection: sqlite3.Connection,
+        result_record_id: str,
+        *,
+        for_new_authority: bool,
+        approval_event_id: str | None = None,
+        decision: str | None = None,
+    ) -> bool:
+        runs = connection.execute(
+            "SELECT rowid AS run_rowid,* FROM dossier_runs "
+            "WHERE result_record_id=? ORDER BY rowid",
+            (result_record_id,),
+        ).fetchall()
+        if any(
+            not DossierService._verified_run_transition(connection, run)
+            for run in runs
+        ):
+            return False
+        failed = [run for run in runs if run["state"] == "failed"]
+        interrupted = [
+            run for run in runs
+            if run["failure_class"] == "interrupted_execution_recovered"
+        ]
+        if failed and (len(failed) != 1 or failed != interrupted):
+            return False
+        if not failed:
+            return True
+        if len(interrupted) != 1 or not DossierService._verified_interrupted_run(
+            connection, interrupted[0]
+        ):
+            return False
+        if runs[0]["run_rowid"] != interrupted[0]["run_rowid"]:
+            return False
+        original_approval = connection.execute(
+            "SELECT rowid FROM dossier_approval_events WHERE approval_event_id=?",
+            (interrupted[0]["approval_event_id"],),
+        ).fetchone()
+        if original_approval is None:
+            return False
+        recovery_approvals = connection.execute(
+            "SELECT * FROM dossier_approval_events WHERE result_record_id=? "
+            "AND rowid>? AND decision='approved' ORDER BY rowid",
+            (result_record_id, original_approval["rowid"]),
+        ).fetchall()
+        recovery_runs = [
+            run for run in runs
+            if run["run_rowid"] > interrupted[0]["run_rowid"]
+        ]
+        if for_new_authority:
+            return decision != "approved" or not recovery_approvals and not recovery_runs
+        return bool(
+            approval_event_id
+            and len(recovery_approvals) == 1
+            and recovery_approvals[0]["approval_event_id"] == approval_event_id
+            and not recovery_runs
+        )
+
+    @staticmethod
+    def _real_recovery_authority_pending(
+        connection: sqlite3.Connection, result_record_id: str
+    ) -> bool:
+        runs = connection.execute(
+            "SELECT rowid AS run_rowid,* FROM dossier_runs "
+            "WHERE result_record_id=? ORDER BY rowid",
+            (result_record_id,),
+        ).fetchall()
+        interrupted = [
+            run for run in runs
+            if run["failure_class"] == "interrupted_execution_recovered"
+        ]
+        if len(interrupted) != 1 or not DossierService._verified_interrupted_run(
+            connection, interrupted[0]
+        ):
+            return False
+        return DossierService._real_attempt_allowed(
+            connection,
+            result_record_id,
+            for_new_authority=True,
+            decision="approved",
+        )
+
+    def _real_infrastructure_recovery_ready(
+        self,
+        connection: sqlite3.Connection,
+        search_id: str,
+        source_plan_id: str,
+        *,
+        for_new_authority: bool,
+    ) -> bool:
+        """Permit one earlier retry only after an interrupted run and terminal alternatives."""
+        search = connection.execute(
+            "SELECT * FROM dossier_searches WHERE search_id=?", (search_id,)
+        ).fetchone()
+        if search is None:
+            return False
+        request = self._check_snapshot(search, "request", "search request")
+        self._require_exact_real_search_request(request, search["business_unit"])
+        plan_ids = request["source_plan_ids"]
+        try:
+            target_index = plan_ids.index(source_plan_id)
+        except ValueError:
+            return False
+        target_plan = self._real_plan_for_id(source_plan_id)
+        target_result = connection.execute(
+            "SELECT * FROM dossier_results WHERE search_id=? AND result_id=? AND business_unit=?",
+            (search_id, derive_real_result_id(target_plan), search["business_unit"]),
+        ).fetchone()
+        if target_result is None:
+            return False
+        target_runs = connection.execute(
+            "SELECT rowid AS run_rowid,* FROM dossier_runs "
+            "WHERE result_record_id=? ORDER BY rowid",
+            (target_result["result_record_id"],),
+        ).fetchall()
+        if any(
+            not self._verified_run_transition(connection, run)
+            for run in target_runs
+        ):
+            return False
+        interrupted = [
+            run for run in target_runs
+            if run["failure_class"] == "interrupted_execution_recovered"
+        ]
+        if len(interrupted) != 1 or not self._verified_interrupted_run(
+            connection, interrupted[0]
+        ):
+            return False
+        if target_runs[0]["run_rowid"] != interrupted[0]["run_rowid"]:
+            return False
+        original_approval_id = interrupted[0]["approval_event_id"]
+        original_approval = connection.execute(
+            "SELECT rowid FROM dossier_approval_events WHERE approval_event_id=?",
+            (original_approval_id,),
+        ).fetchone()
+        if original_approval is None:
+            return False
+        recovery_approvals = connection.execute(
+            "SELECT * FROM dossier_approval_events WHERE result_record_id=? "
+            "AND rowid>? AND decision='approved' ORDER BY rowid",
+            (target_result["result_record_id"], original_approval["rowid"]),
+        ).fetchall()
+        recovery_runs = [
+            run for run in target_runs
+            if run["run_rowid"] > interrupted[0]["run_rowid"]
+        ]
+        if for_new_authority:
+            if recovery_approvals or recovery_runs:
+                return False
+        elif (
+            len(recovery_approvals) != 1
+            or recovery_approvals[0]["decision"] != "approved"
+            or len(recovery_runs) > 1
+            or (
+                recovery_runs
+                and recovery_runs[0]["approval_event_id"]
+                != recovery_approvals[0]["approval_event_id"]
+            )
+        ):
+            return False
+        for later_plan_id in plan_ids[target_index + 1:]:
+            later_plan = self._real_plan_for_id(later_plan_id)
+            later_result = connection.execute(
+                "SELECT * FROM dossier_results WHERE search_id=? AND result_id=? AND business_unit=?",
+                (search_id, derive_real_result_id(later_plan), search["business_unit"]),
+            ).fetchone()
+            if later_result is None:
+                return False
+            projected = self._result_row(later_result)
+            if not projected["selected"]:
+                continue
+            if connection.execute(
+                "SELECT 1 FROM dossier_candidates WHERE result_id=? AND business_unit=? LIMIT 1",
+                (later_result["result_id"], search["business_unit"]),
+            ).fetchone() is not None:
+                return False
+            later_approvals = connection.execute(
+                "SELECT * FROM dossier_approval_events WHERE result_record_id=?",
+                (later_result["result_record_id"],),
+            ).fetchall()
+            if not later_approvals:
+                return False
+            for approval in later_approvals:
+                run = connection.execute(
+                    "SELECT * FROM dossier_runs WHERE approval_event_id=?",
+                    (approval["approval_event_id"],),
+                ).fetchone()
+                if run is not None:
+                    if not self._verified_run_transition(connection, run):
+                        return False
+                    if self._run_row(run)["state"] not in {"failed", "cancelled"}:
+                        return False
+                if approval["decision"] == "approved" and run is None:
+                    return False
+        return True
+
     def _require_no_later_real_target_progress(
         self,
         connection: sqlite3.Connection,
         search_id: str,
         source_plan_id: str,
+        *,
+        for_new_authority: bool = False,
     ) -> None:
-        if self._later_real_target_progressed(connection, search_id, source_plan_id):
+        if (
+            self._later_real_target_progressed(connection, search_id, source_plan_id)
+            and not self._real_infrastructure_recovery_ready(
+                connection,
+                search_id,
+                source_plan_id,
+                for_new_authority=for_new_authority,
+            )
+        ):
             raise MissionControlError(
                 409,
                 "A later eligible real-proof target already entered its authority flow; earlier targets cannot be reopened.",
@@ -634,11 +952,87 @@ class DossierService:
             projected = self._result_row(result)
             if projected["candidate"].get("synthetic") is not False or not projected["selected"]:
                 return False
+            if self._real_result_has_no_retry_failure(
+                connection, result["result_record_id"]
+            ):
+                return False
+            leaf = self._approval_leaf(connection, result["result_record_id"])
+            claim_ready = False
+            if leaf is not None:
+                consumed = connection.execute(
+                    "SELECT 1 FROM dossier_runs WHERE approval_event_id=?",
+                    (leaf["approval_event_id"],),
+                ).fetchone() is not None
+                now = self._now_dt()
+                claim_ready = bool(
+                    leaf["decision"] == "approved"
+                    and not consumed
+                    and _parse_time(leaf["recorded_at"], "approval recorded time") <= now
+                    and _parse_time(leaf["effective_at"], "approval effective time") <= now
+                    and now < _parse_time(leaf["expires_at"], "approval expiry")
+                    and self._real_attempt_allowed(
+                        connection,
+                        result["result_record_id"],
+                        for_new_authority=False,
+                        approval_event_id=leaf["approval_event_id"],
+                    )
+                )
+            authority_ready = self._real_attempt_allowed(
+                connection,
+                result["result_record_id"],
+                for_new_authority=True,
+                decision="approved",
+            )
             plan = self._real_plan_for_result(result_id, business_unit)
+            later_progressed = self._later_real_target_progressed(
+                connection, search_id, plan["source_plan_id"]
+            )
             return self._prior_real_target_blocker(
                 connection, search_id, plan["source_plan_id"], now=self._now_dt()
-            ) is None and not self._later_real_target_progressed(
-                connection, search_id, plan["source_plan_id"]
+            ) is None and (claim_ready or authority_ready) and (
+                not later_progressed
+                or (
+                    authority_ready
+                    and self._real_infrastructure_recovery_ready(
+                        connection,
+                        search_id,
+                        plan["source_plan_id"],
+                        for_new_authority=True,
+                    )
+                )
+                or (
+                    claim_ready
+                    and self._real_infrastructure_recovery_ready(
+                        connection,
+                        search_id,
+                        plan["source_plan_id"],
+                        for_new_authority=False,
+                    )
+                )
+            )
+        finally:
+            connection.close()
+
+    def real_goal_authority_requires_recovery(
+        self,
+        actor: str,
+        business_unit: str,
+        search_id: str,
+        result_id: str,
+    ) -> bool:
+        """Return whether the next executable authority is the one recovery."""
+        self._authorize(actor, business_unit)
+        connection = self.store._connect()
+        try:
+            result = connection.execute(
+                "SELECT * FROM dossier_results WHERE search_id=? AND result_id=? AND business_unit=?",
+                (search_id, result_id, business_unit),
+            ).fetchone()
+            return bool(
+                result is not None
+                and self._real_recovery_authority_pending(
+                    connection, result["result_record_id"]
+                )
             )
         finally:
             connection.close()
@@ -1495,11 +1889,31 @@ class DossierService:
                 validate_real_result_projection(projected["candidate"], projected["decision"], plan)
             except ValidationError as exc:
                 raise MissionControlError(409, "The selected real result failed exact-plan validation.") from exc
+            if self._real_result_has_no_retry_failure(
+                connection, result["result_record_id"]
+            ):
+                raise MissionControlError(
+                    409,
+                    "The exact public-source attempt failed terminally and cannot be retried.",
+                )
+            if not self._real_attempt_allowed(
+                connection,
+                result["result_record_id"],
+                for_new_authority=True,
+                decision=decision,
+            ):
+                raise MissionControlError(
+                    409,
+                    "The bounded real-proof attempt or its one recovery has already been used.",
+                )
             self._require_prior_real_targets_terminal(
                 connection, search_id, plan["source_plan_id"], now=recorded_dt
             )
             self._require_no_later_real_target_progress(
-                connection, search_id, plan["source_plan_id"]
+                connection,
+                search_id,
+                plan["source_plan_id"],
+                for_new_authority=True,
             )
             leaf = self._approval_leaf(connection, result["result_record_id"])
             expected = expected_leaf_id or None
@@ -1662,7 +2076,14 @@ class DossierService:
                     raise MissionControlError(409, "The stored dossier run lost its approval binding.")
                 self._approval_integrity(connection, existing_approval, require_leaf=False)
                 existing_plan = self._require_current_source_plan(existing_approval)
-                if existing_plan.get("synthetic") is False:
+                if (
+                    existing_plan.get("synthetic") is False
+                    and not self._verified_run_transition(connection, existing)
+                ):
+                    raise MissionControlError(
+                        409, "The stored real dossier run has inconsistent transition evidence."
+                    )
+                if existing_plan.get("synthetic") is False and existing["state"] == "running":
                     self._require_prior_real_targets_terminal(
                         connection,
                         existing_approval["search_id"],
@@ -1686,6 +2107,23 @@ class DossierService:
             result, _search = self._approval_integrity(connection, approval, require_leaf=True)
             plan = self._require_current_source_plan(approval)
             if plan.get("synthetic") is False:
+                if self._real_result_has_no_retry_failure(
+                    connection, approval["result_record_id"]
+                ):
+                    raise MissionControlError(
+                        409,
+                        "The exact public-source attempt failed terminally and cannot be retried.",
+                    )
+                if not self._real_attempt_allowed(
+                    connection,
+                    approval["result_record_id"],
+                    for_new_authority=False,
+                    approval_event_id=approval["approval_event_id"],
+                ):
+                    raise MissionControlError(
+                        409,
+                        "The bounded real-proof attempt or its one recovery has already been used.",
+                    )
                 self._require_prior_real_targets_terminal(
                     connection,
                     approval["search_id"],
@@ -1764,6 +2202,12 @@ class DossierService:
             or bool(row["cancel_requested"]) != (row["state"] == "cancelled")
             or (row["completed_at"] is None) != (row["state"] == "running")
             or (row["candidate_version_id"] is not None) != (row["state"] == "succeeded")
+            or (row["state"] == "failed") != (
+                isinstance(row["failure_class"], str)
+                and bool(row["failure_class"].strip())
+                and isinstance(row["remediation"], str)
+                and bool(row["remediation"].strip())
+            )
         ):
             raise MissionControlError(409, "The stored dossier run failed its integrity check.")
         item = dict(row)
@@ -1831,6 +2275,10 @@ class DossierService:
             plan = self._require_current_source_plan(approval)
             if plan.get("synthetic") is not False:
                 return None
+            if not self._verified_run_transition(connection, run):
+                raise MissionControlError(
+                    409, "The stored real dossier run has inconsistent transition evidence."
+                )
             if run["state"] == "succeeded":
                 return None
             expected_account = derive_account_id(run["canonical_domain"], run["global_identity_id"])
@@ -2000,6 +2448,10 @@ class DossierService:
             self._approval_integrity(connection, approval, require_leaf=False)
             source_plan = self._require_current_source_plan(approval)
             if source_plan.get("synthetic") is False:
+                if not self._verified_run_transition(connection, run):
+                    raise MissionControlError(
+                        409, "The stored real dossier run has inconsistent transition evidence."
+                    )
                 self._require_prior_real_targets_terminal(
                     connection,
                     approval["search_id"],
@@ -2084,6 +2536,7 @@ class DossierService:
             return self._candidate_row(connection, row)
 
     def complete_dossier(self, actor: str, business_unit: str, run_id: str) -> dict[str, Any]:
+        research_bundle = None
         try:
             research_bundle = self._real_bundle_for_run(actor, business_unit, run_id)
             result = self._complete_dossier(
@@ -2093,7 +2546,27 @@ class DossierService:
                 research_bundle=research_bundle,
             )
         except Exception:
-            if self._fail_dossier_run(actor, business_unit, run_id):
+            failure_class = "candidate_creation_failed"
+            remediation = "Create a new exact approval before another research attempt."
+            if research_bundle is not None:
+                product_sources = [
+                    source for source in research_bundle["sources"]
+                    if "product" in source["source_class"]
+                ]
+                if product_sources and not any(
+                    source["status"] == "success" for source in product_sources
+                ):
+                    failure_class = "source_read_failed_no_retry"
+                    remediation = (
+                        "The exact public-source attempt failed closed and must not be retried."
+                    )
+            if self._fail_dossier_run(
+                actor,
+                business_unit,
+                run_id,
+                failure_class=failure_class,
+                remediation=remediation,
+            ):
                 self._unregister_active(run_id)
             raise
         self._unregister_active(run_id)
@@ -2113,7 +2586,15 @@ class DossierService:
             raise MissionControlError(409, "The dossier run cannot produce a candidate.")
         return candidate, created
 
-    def _fail_dossier_run(self, actor: str, business_unit: str, run_id: str) -> bool:
+    def _fail_dossier_run(
+        self,
+        actor: str,
+        business_unit: str,
+        run_id: str,
+        *,
+        failure_class: str = "candidate_creation_failed",
+        remediation: str = "Create a new exact approval before another research attempt.",
+    ) -> bool:
         """Terminalize a claimed synchronous run after candidate creation fails."""
         now = self._now()
         try:
@@ -2134,8 +2615,8 @@ class DossierService:
                     "WHERE dossier_run_id=? AND state='running'",
                     (
                         now,
-                        "candidate_creation_failed",
-                        "Create a new exact approval before another research attempt.",
+                        failure_class,
+                        remediation,
                         run_id,
                     ),
                 )

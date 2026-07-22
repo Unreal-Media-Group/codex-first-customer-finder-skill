@@ -880,38 +880,42 @@ class WebApplication:
             leaf = leaf_by_result.get(item["result_record_id"])
             controls = ""
             is_real = item["candidate"].get("synthetic") is False
-            if (
+            real_ready = bool(
                 is_real
                 and item["selected"]
-                and leaf
-                and leaf["valid_now"]
-                and not leaf["consumed"]
                 and actor == search["initiating_actor"]
                 and self.dossier.real_goal_authority_ready(
                     actor, business_unit, search_id, item["result_id"]
                 )
+            )
+            if (
+                real_ready
+                and leaf
+                and leaf["valid_now"]
+                and not leaf["consumed"]
             ):
                 controls = f"""<form method="post" action="/phase6-dossier-runs">{self.hidden(actor, business_unit)}
 <input type="hidden" name="approval_event_id" value="{e(leaf['approval_event_id'])}">
 <label for="dossier-key-{e(item['result_record_id'])}">Dossier idempotency key</label><input id="dossier-key-{e(item['result_record_id'])}" name="idempotency_key" maxlength="100" required>
 <button type="submit">Run the exact bounded public read</button></form>"""
+            elif real_ready:
+                expected = leaf["approval_event_id"] if leaf else ""
+                label = (
+                    "Bind one infrastructure-recovery authority"
+                    if self.dossier.real_goal_authority_requires_recovery(
+                        actor, business_unit, search_id, item["result_id"]
+                    )
+                    else "Bind the existing exact user-goal authority"
+                )
+                controls = f"""<form method="post" action="/phase6-real-goal-approvals">{self.hidden(actor, business_unit)}
+<input type="hidden" name="search_id" value="{e(search_id)}"><input type="hidden" name="result_id" value="{e(item['result_id'])}">
+<input type="hidden" name="expected_leaf_id" value="{e(expected)}"><input type="hidden" name="decision" value="approved">
+<input type="hidden" name="reason" value="The user's exact Phase 6 goal authorizes this bounded public read.">
+<button type="submit">{label}</button></form>"""
             elif is_real and item["selected"] and leaf and leaf["consumed"] and actor == search["initiating_actor"]:
                 controls = '<p class="notice">This exact goal authority has been consumed. A new attempt requires a new exact authority event and candidate version.</p>'
             elif is_real and item["selected"] and leaf and actor == search["initiating_actor"]:
                 controls = '<p class="notice">The current exact goal-authority leaf is not executable or target order currently blocks it.</p>'
-            elif (
-                is_real
-                and item["selected"]
-                and actor == search["initiating_actor"]
-                and self.dossier.real_goal_authority_ready(
-                    actor, business_unit, search_id, item["result_id"]
-                )
-            ):
-                controls = f"""<form method="post" action="/phase6-real-goal-approvals">{self.hidden(actor, business_unit)}
-<input type="hidden" name="search_id" value="{e(search_id)}"><input type="hidden" name="result_id" value="{e(item['result_id'])}">
-<input type="hidden" name="expected_leaf_id" value=""><input type="hidden" name="decision" value="approved">
-<input type="hidden" name="reason" value="The user's exact Phase 6 goal authorizes this bounded public read.">
-<button type="submit">Bind the existing exact user-goal authority</button></form>"""
             elif is_real and item["selected"] and actor == search["initiating_actor"]:
                 controls = '<p class="notice">Waiting for every earlier eligible real-proof target to become terminal.</p>'
             elif is_real and item["selected"]:

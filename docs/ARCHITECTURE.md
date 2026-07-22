@@ -327,7 +327,12 @@ run/approval/result/search/candidate/final/package/source-plan chain. Non-accept
 have no release. The real v2 route uses a separate exact manifest and validators, executes its
 reader only after a result-bound goal-authority claim and outside SQLite, persists no raw body or
 extracted text, and rejects simulated-actor acceptance. Target progression is monotonic across the
-exact CELSIUS-then-Jazwares alternatives at authority, claim, read, persistence, and UI boundaries.
+exact CELSIUS-then-Jazwares alternatives at authority, claim, read, persistence, and UI boundaries,
+with one bounded new-approval/new-run recovery only when the target's first and sole pre-recovery run
+was a verified startup interruption. Once later authority has progressed, that recovery also requires
+every later alternative to be terminal without a candidate. The exception is bound to append-only
+claim/recovery audit evidence and the absence of any target candidate or release; cancellation
+remains an ordinary authority path, while source-policy failures never retry.
 See `docs/PHASE_6_DOSSIER_RUNTIME.md` and
 `docs/PHASE_6_REAL_PUBLIC_PROOF.md`.
 
