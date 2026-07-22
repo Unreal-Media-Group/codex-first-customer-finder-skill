@@ -1,6 +1,6 @@
 # Phase 6B dossier contract-first foundation
 
-**Status:** Implemented locally and pending independent review/finalization; synthetic contract work only
+**Status:** Independently reviewed and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`; synthetic contract work only
 
 This foundation defines deterministic repository-local contracts for pre-search opportunity intent,
 comprehensive synthetic customer dossiers, and graph-ready local lead-intelligence packages. It does

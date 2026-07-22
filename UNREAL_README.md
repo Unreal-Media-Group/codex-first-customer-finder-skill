@@ -31,8 +31,9 @@ finalized at `e8d2546647603905c0b97a21f335535b3a98cc17`; it adds a manually appr
 zero-cost synthetic `.example` fixture enrichment and source-linked campaign brief as the narrow
 foundation for the customer dossier. Phase 6B's contract-first repository-local schemas,
 documentation, synthetic fixtures, deterministic validation, and tests now define comprehensive
-dossiers, pre-search filters, durable history, and a graph-ready local handoff; this work is pending
-independent review/finalization and does not satisfy the full Phase 6 exit gate. Live
+dossiers, pre-search filters, durable history, and a graph-ready local handoff; this contract-first
+work is independently reviewed and finalized at `86f83f1a94862d573f30da70a47760556b045309`
+and does not satisfy the full Phase 6 exit gate. Live
 public-source research remains separately gated. Creative generation, outreach, external persistence,
 orchestration, and outcome optimization are downstream responsibilities outside this repository.
 

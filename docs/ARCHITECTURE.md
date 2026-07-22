@@ -297,8 +297,9 @@ relationships. The general package carries public contact identities and referen
 contact values; any separately authorized business email, business phone, or equivalent point stays
 in a restricted projection that creative and analytics consumers cannot read. The package contains
 stable identities and versioning, not executable downstream instructions. The Phase 6B contract-first
-schemas, synthetic fixtures, deterministic validator, and tests are implemented locally and pending
-independent review/finalization. The validator reuses the frozen Phase 1 campaign/history validation
+schemas, synthetic fixtures, deterministic validator, and tests are independently reviewed and
+finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The validator reuses the frozen
+Phase 1 campaign/history validation
 and duplicate classifier, applies history protections before opportunity intent and qualification,
 and emits canonical local packages with all downstream authority flags denied. Live reads and any
 future consumer that stores or routes the released package remain separate work with separate
