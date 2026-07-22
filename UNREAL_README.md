@@ -40,8 +40,10 @@ one inert local package only after terminal exact-version review. This runtime s
 the full Phase 6 exit gate. A separately authorized additive v2 real-source path now binds the exact
 CELSIUS-then-Jazwares proof plans, uses a bounded standard-library public reader, produces a scrubbed
 pending dossier, and keeps human acceptance as the final release gate. Its implementation and
-pre-live independent review are complete; the exact live read, automated evidence QA, and genuine
-exact-version human decision remain. Creative generation, outreach, external persistence,
+pre-live independent review are complete, but both exact live alternatives terminated fail-closed
+without a candidate and neither may retry. No third target or added URL is authorized. A new exact
+public-business and source-plan authorization is required before automated evidence QA and a genuine
+exact-version human decision can run. Creative generation, outreach, external persistence,
 orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 ## Local installation

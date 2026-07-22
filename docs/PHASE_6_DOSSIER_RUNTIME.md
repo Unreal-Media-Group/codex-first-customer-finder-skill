@@ -18,6 +18,11 @@ retried. An ordinary cancellation may receive new authority but is not labeled a
 recovery. Authority creation, claims, public-read preflight, final persistence, and visible controls
 all enforce the same rules.
 
+The authorized live proof has now exhausted both exact alternatives without a candidate: Jazwares
+failed closed at robots-policy availability, and the sole CELSIUS infrastructure recovery ended as
+`source_read_failed_no_retry`. No existing target may retry and no third target or added URL is
+authorized. `PHASE_6_REAL_PUBLIC_PROOF.md` records the durable evidence and the exact remaining gate.
+
 ## Search and durable history
 
 `DossierService` runs the Phase 6B history classifier before opportunity filtering, qualification,

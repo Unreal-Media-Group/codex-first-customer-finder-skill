@@ -22,6 +22,24 @@ UGC aversion. Before a public read, both targets pass through the durable identi
 relationship, cooldown, duplicate, and re-engagement classifier. No third target can be derived or
 substituted.
 
+## Live proof outcome
+
+Both exact alternatives are exhausted without a candidate. Jazwares failed closed at robots-policy
+availability; its six failed source records contain zero source bytes, hashes, or summaries. The one
+permitted CELSIUS infrastructure recovery then ended as `source_read_failed_no_retry`; all six
+approved source records failed with zero body and extracted-text bytes and no hashes or summaries.
+The failed CELSIUS records intentionally retain no transport detail, so no narrower cause is claimed.
+
+The preserved gitignored SQLite state contains one search, two selected input result records, four
+approval events, and four terminal runs. It contains zero candidates, review tasks, review events,
+final dossier versions, or packages. `PRAGMA integrity_check` returns `ok`, and
+`PRAGMA foreign_key_check` returns no rows. No proof worker, server, or listener remains running.
+
+Neither target may retry, no URL may be added, and no third business may be selected under this
+authorization. The Phase 6 exit gate therefore remains blocked until the user authorizes another
+exact public business and exact URL/source-class plan. Automated evidence review and genuine
+exact-version human review cannot run without a candidate.
+
 ## Durable authority and execution
 
 The runtime order is:

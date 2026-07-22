@@ -4,7 +4,7 @@
 **Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`
 **Downstream compatibility target:** A governed agent graph, including a possible future Unreal OS
 consumer. This repository does not implement or modify Unreal OS.
-**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is independently reviewed and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The exact two-target public-read proof is separately authorized; its additive v2 contract, bounded reader, durable runtime, pre-live independent review, complete test suite, and loopback browser QA pass. The first live harness attempt left CELSIUS safely startup-recovered before a result and Jazwares failed closed at its public-source policy boundary with no candidate; one bounded CELSIUS infrastructure recovery remains. Automated evidence QA and genuine exact-version human acceptance still require a candidate. The full Phase 6 exit gate remains incomplete until those gates pass. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
+**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is independently reviewed and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The exact two-target public-read proof's additive v2 contract, bounded reader, durable runtime, pre-live independent review, complete test suite, and loopback browser QA pass. Both authorized live alternatives are now terminal without a candidate: Jazwares failed closed at robots-policy availability, and the sole CELSIUS infrastructure recovery ended as `source_read_failed_no_retry`. Neither may retry, and no third target or added URL is authorized. Automated evidence QA and genuine exact-version human acceptance still require a candidate, so the full Phase 6 exit gate remains blocked pending a new exact public-business and source-plan authorization. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 **Operating principle:** The skills find, qualify, deduplicate, and comprehensively research potential
 customers. Deterministic code validates the evidence and emits a versioned, graph-ready lead-
@@ -518,8 +518,10 @@ review, and inert graph-package release. The additive real-source contract, exac
 bounded standard-library reader, and result-bound runtime are implemented and independently reviewed
 under separate authorization. The warning-strict post-correction repository runner passes `340/340`, both
 official skill validators pass, and loopback browser QA passes without invoking a public read.
-The full Phase 6 exit gate is not complete until an authorized live candidate passes automated review,
-receives genuine exact-version human acceptance, and releases its local package atomically.
+Both exact authorized live alternatives are terminal without a candidate. Neither may retry, and no
+third target or added URL is authorized. The full Phase 6 exit gate remains blocked pending a new
+exact public-business and source-plan authorization, after which a live candidate must pass automated
+review, receive genuine exact-version human acceptance, and release its local package atomically.
 
 ## Objective
 
