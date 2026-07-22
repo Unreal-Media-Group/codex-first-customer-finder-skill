@@ -303,8 +303,10 @@ finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The validator re
 Phase 1 campaign/history validation
 and duplicate classifier, applies history protections before opportunity intent and qualification,
 and emits canonical local packages with all downstream authority flags denied. The manifest retains
-the exhausted CELSIUS/Jazwares and 4ocean/Badia routes for historical validation; the runtime exposes
-no executable public-read route, and any future
+the exhausted CELSIUS/Jazwares and 4ocean/Badia routes for historical validation and exposes only
+the authorized TUUCI-then-Miansai v3 route for execution. The older routes cannot receive authority,
+claim, read, or persist again. No v3 read may begin before independent review, complete verification,
+commit, push, remote verification, and durable exact-result approval. Any future
 source, general discovery reader, or consumer that stores or routes a released package remains
 separate work with separate authority.
 

@@ -154,6 +154,10 @@ class AuthorizedDossierService(DossierService):
     _real_execution_request_id = REAL_LATEST_PROOF_REQUEST_ID
 
 
+class ExhaustedDossierService(DossierService):
+    _real_execution_request_id = None
+
+
 class Env:
     def __init__(self, directory: Path) -> None:
         self.clock = Clock()
@@ -218,25 +222,41 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         self.assertTrue(all(not item["selected"] for item in second["results"]))
         self.assertTrue(all(item["decision"]["history_classification"]["status"] == "existing_no_new_trigger" for item in second["results"]))
 
-    def test_exhausted_v1_route_remains_verifiable_but_is_not_current(self) -> None:
-        historical = self.env.dossier._real_search_request(
-            "unreal-media-group", request_id="search-real-live-proof-v1"
-        )
-        self.env.dossier._require_exact_real_search_request(
-            historical, "unreal-media-group"
-        )
-        self.assertEqual(
-            historical["source_plan_ids"],
-            ["phase6-live-proof-celsius-v1", "phase6-live-proof-jazwares-v1"],
-        )
+    def test_exhausted_routes_remain_verifiable_but_only_v3_is_executable(self) -> None:
+        self.assertEqual(DossierService._real_execution_request_id, "search-real-live-proof-v3")
+        historical_routes = {
+            "search-real-live-proof-v1": [
+                "phase6-live-proof-celsius-v1", "phase6-live-proof-jazwares-v1"
+            ],
+            "search-real-live-proof-v2": [
+                "phase6-live-proof-4ocean-v1", "phase6-live-proof-badia-v1"
+            ],
+        }
+        for request_id, expected_plans in historical_routes.items():
+            with self.subTest(request_id=request_id):
+                historical = self.env.dossier._real_search_request(
+                    "unreal-media-group", request_id=request_id
+                )
+                self.env.dossier._require_exact_real_search_request(
+                    historical, "unreal-media-group"
+                )
+                self.assertEqual(historical["source_plan_ids"], expected_plans)
+                with self.assertRaisesRegex(MissionControlError, "exhausted real-proof route"):
+                    self.env.dossier._require_current_real_execution_request(
+                        historical, "unreal-media-group"
+                    )
         self.assertEqual(
             self.env.dossier._real_search_request("unreal-media-group")["source_plan_ids"],
-            ["phase6-live-proof-4ocean-v1", "phase6-live-proof-badia-v1"],
+            ["phase6-live-proof-tuuci-v1", "phase6-live-proof-miansai-v1"],
+        )
+        self.assertEqual(
+            self.env.dossier._real_search_request("unreal-media-group")["idempotency_identity"],
+            "phase6-real:search:umg:live-proof-v3",
         )
 
-    def test_default_runtime_has_no_unspent_real_proof_route(self) -> None:
-        historical = self.env.search("sealed-v2-history")
-        exhausted = DossierService(
+    def test_explicitly_sealed_runtime_has_no_unspent_real_proof_route(self) -> None:
+        historical = self.env.search("sealed-v3-history")
+        exhausted = ExhaustedDossierService(
             self.env.enrichment,
             fixture_path=DOSSIER_FIXTURE,
             history_path=HISTORY_FIXTURE,
@@ -274,98 +294,89 @@ class Phase6RealRuntimeTests(unittest.TestCase):
             {"actor": ["noah"], "business_unit": ["unreal-media-group"]},
         )
         self.assertEqual(status, 200)
-        self.assertIn("terminal without a candidate and cannot be retried", landing)
+        self.assertIn("No executable real-proof route is configured", landing)
+        self.assertIn("new versioned route requires new exact target", landing)
         self.assertNotIn("Evaluate the exact two authorized targets", landing)
         self.assertEqual(self.env.reader.calls, [])
 
-    def test_historical_v1_reopens_but_cannot_reenter_execution(self) -> None:
+    def test_historical_v1_and_v2_reopen_but_cannot_reenter_any_execution_gate(self) -> None:
         service = self.env.dossier
-        current_execution_request_id = service._real_execution_request_id
-        service._real_execution_request_id = "search-real-live-proof-v1"
-        try:
-            search = service.create_real_search(
-                "noah",
-                "unreal-media-group",
-                idempotency_key="historical-v1-search",
-            )[0]
-        finally:
-            service._real_execution_request_id = current_execution_request_id
+        for request_id, first_plan_id in (
+            ("search-real-live-proof-v1", "phase6-live-proof-celsius-v1"),
+            ("search-real-live-proof-v2", "phase6-live-proof-4ocean-v1"),
+        ):
+            with self.subTest(request_id=request_id):
+                current_execution_request_id = service._real_execution_request_id
+                service._real_execution_request_id = request_id
+                try:
+                    search = service.create_real_search(
+                        "noah", "unreal-media-group", idempotency_key=f"historical-{request_id}"
+                    )[0]
+                finally:
+                    service._real_execution_request_id = current_execution_request_id
 
-        result = search["results"][0]
-        self.assertEqual(search["request"]["request_id"], "search-real-live-proof-v1")
-        self.assertEqual(
-            service.get_search("noah", "unreal-media-group", search["search_id"])["request"]["request_id"],
-            "search-real-live-proof-v1",
-        )
-        self.assertFalse(
-            service.real_goal_authority_ready(
-                "noah", "unreal-media-group", search["search_id"], result["result_id"]
-            )
-        )
-        with self.assertRaises(MissionControlError):
-            service.record_real_goal_approval(
-                "noah",
-                "unreal-media-group",
-                search["search_id"],
-                result["result_id"],
-                decision="approved",
-                reason="Historical authority must remain inert.",
-            )
+                result = search["results"][0]
+                self.assertEqual(search["request"]["request_id"], request_id)
+                self.assertEqual(
+                    service.get_search("noah", "unreal-media-group", search["search_id"])["request"]["request_id"],
+                    request_id,
+                )
+                self.assertFalse(service.real_goal_authority_ready(
+                    "noah", "unreal-media-group", search["search_id"], result["result_id"]
+                ))
+                with self.assertRaisesRegex(MissionControlError, "exhausted real-proof route"):
+                    service.record_real_goal_approval(
+                        "noah", "unreal-media-group", search["search_id"], result["result_id"],
+                        decision="approved", reason="Historical authority must remain inert.",
+                    )
 
-        current_gate = service._require_current_real_execution_request
-        service._require_current_real_execution_request = service._require_exact_real_search_request
-        try:
-            approval = service.record_real_goal_approval(
-                "noah",
-                "unreal-media-group",
-                search["search_id"],
-                result["result_id"],
-                decision="approved",
-                reason="Seed a legitimate pre-correction historical approval.",
-            )
-        finally:
-            service._require_current_real_execution_request = current_gate
+                current_gate = service._require_current_real_execution_request
+                service._require_current_real_execution_request = service._require_exact_real_search_request
+                try:
+                    approval = service.record_real_goal_approval(
+                        "noah", "unreal-media-group", search["search_id"], result["result_id"],
+                        decision="approved", reason="Seed a legitimate pre-correction historical approval.",
+                    )
+                finally:
+                    service._require_current_real_execution_request = current_gate
 
-        with self.assertRaises(MissionControlError):
-            service.claim_dossier(
-                "noah", "unreal-media-group", approval["approval_event_id"], "historical-v1-run"
-            )
+                with self.assertRaisesRegex(MissionControlError, "exhausted real-proof route"):
+                    service.claim_dossier(
+                        "noah", "unreal-media-group", approval["approval_event_id"], f"historical-{request_id}-run"
+                    )
 
-        service._require_current_real_execution_request = service._require_exact_real_search_request
-        try:
-            run = service.claim_dossier(
-                "noah", "unreal-media-group", approval["approval_event_id"], "historical-v1-run"
-            )[0]
-        finally:
-            service._require_current_real_execution_request = current_gate
+                service._require_current_real_execution_request = service._require_exact_real_search_request
+                try:
+                    run = service.claim_dossier(
+                        "noah", "unreal-media-group", approval["approval_event_id"], f"historical-{request_id}-run"
+                    )[0]
+                finally:
+                    service._require_current_real_execution_request = current_gate
 
-        with self.assertRaises(MissionControlError):
-            service.claim_dossier(
-                "noah", "unreal-media-group", approval["approval_event_id"], "historical-v1-run"
-            )
-        reader_calls = list(self.env.reader.calls)
-        with self.assertRaises(MissionControlError):
-            service._real_bundle_for_run(
-                "noah", "unreal-media-group", run["dossier_run_id"]
-            )
-        self.assertEqual(self.env.reader.calls, reader_calls)
-        historical_plan = next(
-            plan for plan in self.env.all_plans
-            if plan["source_plan_id"] == "phase6-live-proof-celsius-v1"
-        )
-        with self.assertRaises(MissionControlError):
-            service._complete_dossier(
-                "noah",
-                "unreal-media-group",
-                run["dossier_run_id"],
-                research_bundle=research_bundle(historical_plan),
-            )
+                with self.assertRaises(MissionControlError):
+                    service.claim_dossier(
+                        "noah", "unreal-media-group", approval["approval_event_id"], f"historical-{request_id}-run"
+                    )
+                reader_calls = list(self.env.reader.calls)
+                with self.assertRaisesRegex(MissionControlError, "exhausted real-proof route"):
+                    service._real_bundle_for_run(
+                        "noah", "unreal-media-group", run["dossier_run_id"]
+                    )
+                self.assertEqual(self.env.reader.calls, reader_calls)
+                historical_plan = next(
+                    plan for plan in self.env.all_plans if plan["source_plan_id"] == first_plan_id
+                )
+                with self.assertRaisesRegex(MissionControlError, "exhausted real-proof route"):
+                    service._complete_dossier(
+                        "noah", "unreal-media-group", run["dossier_run_id"],
+                        research_bundle=research_bundle(historical_plan),
+                    )
+                service.cancel_dossier("noah", "unreal-media-group", run["dossier_run_id"])
         with closing(self.env.store._connect()) as connection:
             self.assertEqual(
                 connection.execute("SELECT COUNT(*) FROM dossier_candidates").fetchone()[0],
                 0,
             )
-        service.cancel_dossier("noah", "unreal-media-group", run["dossier_run_id"])
 
     def test_goal_authority_is_truthful_exact_and_restart_durable(self) -> None:
         search = self.env.search()
@@ -1132,6 +1143,8 @@ class Phase6RealRuntimeTests(unittest.TestCase):
         status, landing = app.get("/phase6-dossiers", context)
         self.assertEqual(status, 200)
         self.assertIn("Exact authorized public-business proof", landing)
+        self.assertIn("TUUCI then Miansai", landing)
+        self.assertNotIn("4ocean then Badia", landing)
         self.assertIn("@media(max-width:640px)", landing)
         status, search_page = app.post("/phase6-real-searches", {
             "csrf_token": "real-csrf",

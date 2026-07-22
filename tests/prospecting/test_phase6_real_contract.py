@@ -177,6 +177,84 @@ class Phase6RealContractTests(unittest.TestCase):
             self.assertTrue(derive_real_result_id(plan).startswith("result-real-v1-"))
             self.assertTrue(derive_real_account_id(plan["canonical_domain"], global_id).startswith("account-v1-"))
 
+        budgets = {
+            "connect_timeout_seconds": 5,
+            "read_timeout_seconds": 8,
+            "request_deadline_seconds": 15,
+            "run_deadline_seconds": 120,
+            "max_redirects_per_source": 3,
+            "max_requests_total": 12,
+            "max_header_bytes": 32768,
+            "max_body_bytes": 1500000,
+            "max_robots_bytes": 262144,
+            "max_extracted_text_bytes": 200000,
+        }
+        opportunity_filter = {
+            "include_any": ["product_photography", "product_video"],
+            "exclude": ["ugc_ad"],
+        }
+        expected_v3 = [
+            {
+                "contract_version": 2,
+                "synthetic": False,
+                "source_plan_id": "phase6-live-proof-tuuci-v1",
+                "organization_name": "The Ultimate Umbrella Company, Inc. / Tuuci",
+                "location_basis": "Miami-Hialeah, Florida",
+                "canonical_domain": "tuuci.com",
+                "approved_related_domains": [],
+                "stable_identity_seed": "ultimate-umbrella-company-inc|tuuci.com",
+                "business_unit": "unreal-media-group",
+                "opportunity_filter": opportunity_filter,
+                "approved_origins": ["https://www.tuuci.com"],
+                "robots_policy_urls": ["https://www.tuuci.com/robots.txt"],
+                "sources": [
+                    {"url": "https://www.tuuci.com/", "source_class": "official organization site"},
+                    {"url": "https://www.tuuci.com/our-world/company/", "source_class": "official company history and ownership context"},
+                    {"url": "https://www.tuuci.com/products/", "source_class": "official brand and product portfolio"},
+                    {"url": "https://www.tuuci.com/in-the-news/", "source_class": "official press and current activity"},
+                    {"url": "https://www.tuuci.com/in-the-news/tuuci-marks-a-record-breaking-year-of-excellence/", "source_class": "official press and current activity"},
+                ],
+                "budgets": budgets,
+                "source_plan_hash": "bebc6febbce3d5d8b8c74afb5d23142b6aa820dbc287c526af106b20b646ad51",
+            },
+            {
+                "contract_version": 2,
+                "synthetic": False,
+                "source_plan_id": "phase6-live-proof-miansai-v1",
+                "organization_name": "Miansai",
+                "location_basis": "Miami, Florida",
+                "canonical_domain": "miansai.com",
+                "approved_related_domains": [],
+                "stable_identity_seed": "miansai|miansai.com",
+                "business_unit": "unreal-media-group",
+                "opportunity_filter": opportunity_filter,
+                "approved_origins": ["https://www.miansai.com"],
+                "robots_policy_urls": ["https://www.miansai.com/robots.txt"],
+                "sources": [
+                    {"url": "https://www.miansai.com/", "source_class": "official brand-owned site"},
+                    {"url": "https://www.miansai.com/pages/about", "source_class": "official company and brand information"},
+                    {"url": "https://www.miansai.com/collections/new-arrivals-man", "source_class": "official product portfolio"},
+                    {"url": "https://www.miansai.com/collections/men", "source_class": "official brand and product portfolio"},
+                    {"url": "https://www.miansai.com/collections/women", "source_class": "official brand and product portfolio"},
+                ],
+                "budgets": budgets,
+                "source_plan_hash": "3cfcbdf8df08e9aadae4eb9a4575cd941b31d927a93f0f09cf2882efc63d7cf5",
+            },
+        ]
+        self.assertEqual(self.plans[-2:], expected_v3)
+        exact_v3 = {
+            "phase6-live-proof-tuuci-v1": (1474, "global-v1-f8de1b187e050aa62fe792a5", "account-v1-319e190f1842af5a8c7c580c", "result-real-v1-f2fd1af5859f5cbec1ef87f5"),
+            "phase6-live-proof-miansai-v1": (1382, "global-v1-8cab981850777a7beb94e28b", "account-v1-b368242de54e01b48b0c0ad3", "result-real-v1-a70c37b08ed9c9ad23ff2b4a"),
+        }
+        plans_by_id = {plan["source_plan_id"]: plan for plan in self.plans}
+        for plan_id, (length, global_id, account_id, result_id) in exact_v3.items():
+            with self.subTest(plan_id=plan_id):
+                plan = plans_by_id[plan_id]
+                self.assertEqual(len(canonical_bytes(plan)), length)
+                self.assertEqual(derive_real_global_identity_id(plan["stable_identity_seed"]), global_id)
+                self.assertEqual(derive_real_account_id(plan["canonical_domain"], global_id), account_id)
+                self.assertEqual(derive_real_result_id(plan), result_id)
+
     def test_every_plan_binding_tamper_fails_closed(self) -> None:
         mutations = {
             "organization_name": "Changed Organization",

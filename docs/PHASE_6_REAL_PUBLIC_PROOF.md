@@ -26,12 +26,19 @@ The exhausted `search-real-live-proof-v2` route contains exactly these formerly 
 | 1 | 4ocean PBC | `phase6-live-proof-4ocean-v1` | `a5f8e5419da79dad34c9686a0bee4588e6c44d1b2bcebe764e0d13f7dbe67b06` | `result-real-v1-18bb9c083e574dfe499ea6e9` | `account-v1-7e159cfaee4fd296693c39ee` |
 | 2 | Badia Spices | `phase6-live-proof-badia-v1` | `97657c3b4899af8a906314a734d8a89b389ed0367c9845b987713ec8c0ffa533` | `result-real-v1-24943333c909566d80517671` | `account-v1-b8c95659f44173d6390e3acb` |
 
+The separately authorized `search-real-live-proof-v3` route contains exactly these current alternatives:
+
+| Current order | Organization | Plan | Plan hash | Canonical bytes | Result | Account |
+| --- | --- | --- | --- | ---: | --- | --- |
+| 1 | The Ultimate Umbrella Company, Inc. / Tuuci | `phase6-live-proof-tuuci-v1` | `bebc6febbce3d5d8b8c74afb5d23142b6aa820dbc287c526af106b20b646ad51` | 1474 | `result-real-v1-f2fd1af5859f5cbec1ef87f5` | `account-v1-319e190f1842af5a8c7c580c` |
+| 2 | Miansai | `phase6-live-proof-miansai-v1` | `3cfcbdf8df08e9aadae4eb9a4575cd941b31d927a93f0f09cf2882efc63d7cf5` | 1382 | `result-real-v1-a70c37b08ed9c9ad23ff2b4a` | `account-v1-b368242de54e01b48b0c0ad3` |
+
 All plans use `include_any=[product_photography, product_video]` and
 `exclude=[ugc_ad]`. That filter is search intent, not evidence of demand, budget, buying intent, or
 UGC aversion. Before a public read, both targets pass through the durable identity, suppression,
-relationship, cooldown, duplicate, and re-engagement classifier. The v2 route permitted 4ocean first
-and Badia only after 4ocean became terminal without a candidate. Both attempts are now terminal. No
-additional target, URL, retry, or substitution is authorized.
+relationship, cooldown, duplicate, and re-engagement classifier. The v3 route permits TUUCI first
+and Miansai only after TUUCI becomes terminal without a candidate. A TUUCI candidate stops the pair.
+No additional target, URL, retry, or substitution is authorized.
 
 ## Live proof outcome
 
@@ -55,9 +62,10 @@ six approval events, and six terminal runs. It contains zero candidates, review 
 versions, or packages. `PRAGMA integrity_check` returns `ok`, and `PRAGMA foreign_key_check` returns no
 rows. No proof worker, server, or listener remains running.
 
-None of the four exact targets may retry, and the runtime exposes no executable real-proof route.
-Automated evidence review and genuine exact-version human review now require a candidate from a newly
-authorized exact target and versioned source plan.
+None of the four exhausted targets may retry. Only the exact TUUCI/Miansai v3 route is executable.
+Its implementation, independent review, and loopback browser QA are complete. Commit, push, remote
+verification, and durable exact-result approval remain pre-live gates; no v3 live read has occurred.
+Automated evidence review and genuine exact-version human review require a resulting candidate.
 
 ## Durable authority and execution
 
@@ -153,6 +161,7 @@ separation, cancellation and revocation ordering, restart durability, pending re
 package release, historical-route execution denial, versioned route compatibility, single-attempt
 claim and reader ownership, candidate-stops-failover ordering, single-recovery exhaustion,
 append-only recovery evidence, terminal-state mismatch rejection, and the loopback approval packet.
-The current warning-strict repository runner passes `344/344`; both official skill validators pass. Real Chrome
-QA at desktop and `375x812` verifies the one-next-target control, no horizontal overflow, visible
-keyboard focus, a clean console, and loopback-only requests without invoking the public-read action.
+The current warning-strict repository runner passes `346/346`; both official skill validators pass.
+V3 Chromium QA at desktop and `375x812` verified TUUCI-then-Miansai ordering, authority control
+only on the first eligible target, no horizontal overflow, visible keyboard focus, announced validation
+errors, a clean normal-flow console, and loopback-only requests without invoking a public read.

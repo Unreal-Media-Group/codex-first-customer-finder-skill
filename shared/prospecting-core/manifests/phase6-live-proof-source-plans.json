@@ -258,6 +258,128 @@
         "max_extracted_text_bytes": 200000
       },
       "source_plan_hash": "97657c3b4899af8a906314a734d8a89b389ed0367c9845b987713ec8c0ffa533"
+    },
+    {
+      "contract_version": 2,
+      "synthetic": false,
+      "source_plan_id": "phase6-live-proof-tuuci-v1",
+      "organization_name": "The Ultimate Umbrella Company, Inc. / Tuuci",
+      "location_basis": "Miami-Hialeah, Florida",
+      "canonical_domain": "tuuci.com",
+      "approved_related_domains": [],
+      "stable_identity_seed": "ultimate-umbrella-company-inc|tuuci.com",
+      "business_unit": "unreal-media-group",
+      "opportunity_filter": {
+        "include_any": [
+          "product_photography",
+          "product_video"
+        ],
+        "exclude": [
+          "ugc_ad"
+        ]
+      },
+      "approved_origins": [
+        "https://www.tuuci.com"
+      ],
+      "robots_policy_urls": [
+        "https://www.tuuci.com/robots.txt"
+      ],
+      "sources": [
+        {
+          "url": "https://www.tuuci.com/",
+          "source_class": "official organization site"
+        },
+        {
+          "url": "https://www.tuuci.com/our-world/company/",
+          "source_class": "official company history and ownership context"
+        },
+        {
+          "url": "https://www.tuuci.com/products/",
+          "source_class": "official brand and product portfolio"
+        },
+        {
+          "url": "https://www.tuuci.com/in-the-news/",
+          "source_class": "official press and current activity"
+        },
+        {
+          "url": "https://www.tuuci.com/in-the-news/tuuci-marks-a-record-breaking-year-of-excellence/",
+          "source_class": "official press and current activity"
+        }
+      ],
+      "budgets": {
+        "connect_timeout_seconds": 5,
+        "read_timeout_seconds": 8,
+        "request_deadline_seconds": 15,
+        "run_deadline_seconds": 120,
+        "max_redirects_per_source": 3,
+        "max_requests_total": 12,
+        "max_header_bytes": 32768,
+        "max_body_bytes": 1500000,
+        "max_robots_bytes": 262144,
+        "max_extracted_text_bytes": 200000
+      },
+      "source_plan_hash": "bebc6febbce3d5d8b8c74afb5d23142b6aa820dbc287c526af106b20b646ad51"
+    },
+    {
+      "contract_version": 2,
+      "synthetic": false,
+      "source_plan_id": "phase6-live-proof-miansai-v1",
+      "organization_name": "Miansai",
+      "location_basis": "Miami, Florida",
+      "canonical_domain": "miansai.com",
+      "approved_related_domains": [],
+      "stable_identity_seed": "miansai|miansai.com",
+      "business_unit": "unreal-media-group",
+      "opportunity_filter": {
+        "include_any": [
+          "product_photography",
+          "product_video"
+        ],
+        "exclude": [
+          "ugc_ad"
+        ]
+      },
+      "approved_origins": [
+        "https://www.miansai.com"
+      ],
+      "robots_policy_urls": [
+        "https://www.miansai.com/robots.txt"
+      ],
+      "sources": [
+        {
+          "url": "https://www.miansai.com/",
+          "source_class": "official brand-owned site"
+        },
+        {
+          "url": "https://www.miansai.com/pages/about",
+          "source_class": "official company and brand information"
+        },
+        {
+          "url": "https://www.miansai.com/collections/new-arrivals-man",
+          "source_class": "official product portfolio"
+        },
+        {
+          "url": "https://www.miansai.com/collections/men",
+          "source_class": "official brand and product portfolio"
+        },
+        {
+          "url": "https://www.miansai.com/collections/women",
+          "source_class": "official brand and product portfolio"
+        }
+      ],
+      "budgets": {
+        "connect_timeout_seconds": 5,
+        "read_timeout_seconds": 8,
+        "request_deadline_seconds": 15,
+        "run_deadline_seconds": 120,
+        "max_redirects_per_source": 3,
+        "max_requests_total": 12,
+        "max_header_bytes": 32768,
+        "max_body_bytes": 1500000,
+        "max_robots_bytes": 262144,
+        "max_extracted_text_bytes": 200000
+      },
+      "source_plan_hash": "3cfcbdf8df08e9aadae4eb9a4575cd941b31d927a93f0f09cf2882efc63d7cf5"
     }
   ]
 }

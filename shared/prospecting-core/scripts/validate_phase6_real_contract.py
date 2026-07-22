@@ -94,6 +94,8 @@ AUTHORIZED_PLAN_HASHES = {
     "phase6-live-proof-jazwares-v1": "4ff2de65b2ffda9d2e0e75ae8821c98eeadbe5a0b46b562dd3c022098d54aaeb",
     "phase6-live-proof-4ocean-v1": "a5f8e5419da79dad34c9686a0bee4588e6c44d1b2bcebe764e0d13f7dbe67b06",
     "phase6-live-proof-badia-v1": "97657c3b4899af8a906314a734d8a89b389ed0367c9845b987713ec8c0ffa533",
+    "phase6-live-proof-tuuci-v1": "bebc6febbce3d5d8b8c74afb5d23142b6aa820dbc287c526af106b20b646ad51",
+    "phase6-live-proof-miansai-v1": "3cfcbdf8df08e9aadae4eb9a4575cd941b31d927a93f0f09cf2882efc63d7cf5",
 }
 _HEX64 = re.compile(r"^[0-9a-f]{64}$")
 _DOMAIN = re.compile(

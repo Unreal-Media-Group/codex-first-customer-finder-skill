@@ -258,12 +258,12 @@ must remain false.
 
 The repository's completed CELSIUS/Jazwares and 4ocean/Badia proof attempts remain recorded by the
 versioned routes in `shared/prospecting-core/manifests/phase6-live-proof-source-plans.json`; all four
-alternatives are terminal without a candidate and none may retry. Manifest presence is not execution
-authority, and the runtime currently exposes no executable real-proof route. No target, URL, source
+alternatives are terminal without a candidate and none may retry. The separately authorized
+`search-real-live-proof-v3` route contains only TUUCI followed by Miansai and is the sole executable
+real-proof route. Manifest presence alone is not execution authority: use only the current route and
+its durable exact-result approval in the repository Mission Control `DossierService`. Never
+synthesize authority or durable state inside an installed skill session. No target, URL, source
 class, retry, or substitute may be added without new exact authorization and a new versioned route.
-Phase 6 execution belongs to the repository Mission Control `DossierService`; never synthesize its
-authority or durable state inside an installed skill session. Until a new route is authorized, stop at
-the exact approval/source-plan handoff.
 
 ## Fail closed
 

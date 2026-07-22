@@ -66,8 +66,15 @@ REAL_PROOF_ROUTES = {
             "phase6-live-proof-badia-v1",
         ),
     },
+    "search-real-live-proof-v3": {
+        "idempotency_identity": "phase6-real:search:umg:live-proof-v3",
+        "source_plan_ids": (
+            "phase6-live-proof-tuuci-v1",
+            "phase6-live-proof-miansai-v1",
+        ),
+    },
 }
-REAL_LATEST_PROOF_REQUEST_ID = "search-real-live-proof-v2"
+REAL_LATEST_PROOF_REQUEST_ID = "search-real-live-proof-v3"
 APPROVAL_LIFETIME = timedelta(days=7)
 IDENTIFIER = re.compile(r"^[a-z0-9][a-z0-9._:-]{0,127}$")
 IDEMPOTENCY = re.compile(r"^[A-Za-z0-9_-]{1,100}$")
@@ -197,7 +204,7 @@ class DossierService:
     _active_lock = threading.RLock()
     _active_runs: dict[str, set[str]] = {}
     _completing_runs: dict[str, set[tuple[str, str, str]]] = {}
-    _real_execution_request_id: str | None = None
+    _real_execution_request_id: str | None = REAL_LATEST_PROOF_REQUEST_ID
 
     def __init__(
         self,

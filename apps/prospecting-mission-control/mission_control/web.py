@@ -850,10 +850,10 @@ class WebApplication:
         if business_unit == "unreal-media-group":
             if not self.dossier.real_execution_available():
                 real_form = """<h2>Exact public-business proof</h2>
-<p class="notice">The authorized 4ocean and Badia attempts are terminal without a candidate and cannot be retried. A new versioned route requires new exact target and source-plan authorization.</p>"""
+<p class="notice">No executable real-proof route is configured. Previously authorized attempts remain durable and cannot be retried. A new versioned route requires new exact target and source-plan authorization.</p>"""
             else:
                 real_form = f"""<h2>Exact authorized public-business proof</h2>
-<p class="notice">This route evaluates only 4ocean then Badia against durable history using the fixed product-photo/video include and UGC-ad exclude filter. It performs no public read until the exact result receives its separately recorded goal authority.</p>
+<p class="notice">This route evaluates only TUUCI then Miansai against durable history using the fixed product-photo/video include and UGC-ad exclude filter. It performs no public read until the exact result receives its separately recorded goal authority.</p>
 <form method="post" action="/phase6-real-searches">{self.hidden(actor, business_unit)}
 <label for="phase6-real-search-key">Real-proof search idempotency key</label><input id="phase6-real-search-key" name="idempotency_key" maxlength="100" required>
 <button type="submit">Evaluate the exact two authorized targets</button></form>"""

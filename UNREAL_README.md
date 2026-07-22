@@ -39,11 +39,13 @@ filters, binds exact source-plan approval, produces immutable eleven-category ca
 one inert local package only after terminal exact-version review. This runtime still does not satisfy
 the full Phase 6 exit gate. A separately authorized additive v2 real-source path uses a bounded
 standard-library public reader, produces a scrubbed pending dossier, and keeps human acceptance as
-the final release gate. Its historical CELSIUS/Jazwares route is exhausted without a candidate and
-cannot retry. The versioned 4ocean/Badia route is also exhausted without a candidate and cannot
-retry. The runtime now has no executable real-proof route. A newly authorized exact target and
-versioned source plan must produce a candidate before automated evidence QA and a genuine exact-
-version human decision can run. Creative generation, outreach, external persistence,
+the final release gate. Its historical CELSIUS/Jazwares and 4ocean/Badia routes are exhausted
+without a candidate and cannot retry. The separately authorized v3 route is limited to TUUCI then
+Miansai and is the only executable real-proof route; its implementation, independent review, and
+loopback browser QA are complete, while commit, push, remote verification, and durable exact-result
+approval remain pre-live gates. No v3 live read has occurred. An exact target must produce a
+candidate before automated evidence QA and a genuine exact-version human decision can run.
+Creative generation, outreach, external persistence,
 orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 ## Local installation

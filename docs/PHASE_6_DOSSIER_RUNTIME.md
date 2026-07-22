@@ -2,8 +2,9 @@
 
 This runtime connects the finalized synthetic Phase 6B contracts to the local Mission Control
 approval and review surface. Synthetic fixtures remain the default. The additive v2 real path retains
-two exhausted pairs of exact user-authorized public-business plans documented in
-`PHASE_6_REAL_PUBLIC_PROOF.md`; it adds no general discovery or crawling capability. Runtime state is
+two exhausted pairs and one current exact user-authorized public-business pair documented in
+`PHASE_6_REAL_PUBLIC_PROOF.md`; only the TUUCI-then-Miansai v3 route is executable, and it adds no
+general discovery or crawling capability. Runtime state is
 local and gitignored. The service never invokes another agent, generates an asset, contacts anyone,
 writes externally, deploys, or modifies Unreal OS.
 
@@ -22,10 +23,10 @@ preflight, final persistence, and visible controls all enforce the same rules.
 The historical v1 route exhausted both exact alternatives without a candidate: Jazwares failed
 closed at robots-policy availability, and the sole CELSIUS infrastructure recovery ended as
 `source_read_failed_no_retry`. The v2 4ocean/Badia route is also terminal without a candidate. Both
-requests and all four source plans remain valid only so durable history can be reopened; none may
-retry, and no executable real-proof route is configured. No additional target, URL, retry, or
-substitution is authorized.
-`PHASE_6_REAL_PUBLIC_PROOF.md` records both route states and the exact remaining gate.
+requests and all four exhausted source plans remain valid only so durable history can be reopened;
+none may retry. The v3 TUUCI/Miansai pair is the only executable real-proof route. No additional
+target, URL, retry, or substitution is authorized.
+`PHASE_6_REAL_PUBLIC_PROOF.md` records all route states and the exact remaining gate.
 
 ## Search and durable history
 
