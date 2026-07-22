@@ -457,10 +457,12 @@ class HttpTests(unittest.TestCase):
         self.assertNotIn("<script>", body)
 
     def test_csrf_method_content_type_size_and_safe_errors(self) -> None:
-        fields = self.campaign_fields(csrf_token="wrong")
+        fields = self.campaign_fields(csrf_token="wrong", actor="rob")
         status, body, _ = self.request("POST", "/campaigns", fields)
         self.assertEqual(status, 403)
         self.assertIn("CSRF validation failed", body)
+        self.assertIn('<option value="rob" selected>', body)
+        self.assertNotIn('<option value="noah" selected>', body)
         status, _, _ = self.request("PUT", "/campaigns", {})
         self.assertEqual(status, 405)
         status, _, _ = self.request("HEAD", "/campaigns")

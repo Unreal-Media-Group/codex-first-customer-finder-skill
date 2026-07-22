@@ -1062,13 +1062,18 @@ def make_handler(app: WebApplication) -> type[BaseHTTPRequestHandler]:
             self.end_headers()
             self.wfile.write(data)
 
-        def _error(self, exc: MissionControlError) -> None:
-            actor, unit = "noah", "unreal-media-group"
-            try:
-                query = parse_qs(urlsplit(self.path).query, keep_blank_values=True, max_num_fields=MAX_FIELDS)
-                actor, unit = app.context(query)
-            except Exception:
-                pass
+        def _error(
+            self,
+            exc: MissionControlError,
+            context: tuple[str, str] | None = None,
+        ) -> None:
+            actor, unit = context or ("noah", "unreal-media-group")
+            if context is None:
+                try:
+                    query = parse_qs(urlsplit(self.path).query, keep_blank_values=True, max_num_fields=MAX_FIELDS)
+                    actor, unit = app.context(query)
+                except Exception:
+                    pass
             self._send(exc.status, page(HTTPStatus(exc.status).phrase, f'<p class="error" role="alert">{e(exc.message)}</p>', actor=actor, business_unit=unit))
 
         def do_GET(self) -> None:
@@ -1086,6 +1091,7 @@ def make_handler(app: WebApplication) -> type[BaseHTTPRequestHandler]:
                 self._error(MissionControlError(500, "The local review request failed safely."))
 
         def do_POST(self) -> None:
+            error_context: tuple[str, str] | None = None
             try:
                 self._validate_envelope()
                 if self.headers.get_content_type() != "application/x-www-form-urlencoded":
@@ -1101,14 +1107,24 @@ def make_handler(app: WebApplication) -> type[BaseHTTPRequestHandler]:
                 if any(len(values) != 1 for values in parsed_form.values()):
                     raise MissionControlError(400, "Repeated form fields are not allowed.")
                 form = {key: values[0] for key, values in parsed_form.items()}
+                try:
+                    error_context = app.context({
+                        "actor": [form.get("actor", "")],
+                        "business_unit": [form.get("business_unit", "")],
+                    })
+                except MissionControlError:
+                    pass
                 status, output = app.post(urlsplit(self.path).path, form)
                 self._send(status, output)
             except (ValueError, UnicodeError):
-                self._error(MissionControlError(400, "Malformed form submission."))
+                self._error(MissionControlError(400, "Malformed form submission."), error_context)
             except MissionControlError as exc:
-                self._error(exc)
+                self._error(exc, error_context)
             except Exception:
-                self._error(MissionControlError(500, "The governed action failed without a partial result."))
+                self._error(
+                    MissionControlError(500, "The governed action failed without a partial result."),
+                    error_context,
+                )
 
         def do_PUT(self) -> None: self._error(MissionControlError(405, "HTTP method not allowed."))
         def do_DELETE(self) -> None: self._error(MissionControlError(405, "HTTP method not allowed."))
