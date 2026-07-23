@@ -16,7 +16,7 @@ It does not generate creative, send outreach, collect private contact data, writ
 Runtime requirements: Git, Node.js, Python 3, and Codex. No package installation or third-party Python runtime dependency is required.
 
 ```bash
-git clone --branch unreal https://github.com/noahbustard/codex-first-customer-finder-skill.git unreal-prospecting-skills
+git clone --branch unreal https://github.com/Unreal-Media-Group/codex-first-customer-finder-skill.git unreal-prospecting-skills
 cd unreal-prospecting-skills
 node scripts/install-unreal.js --skill umg
 ```
