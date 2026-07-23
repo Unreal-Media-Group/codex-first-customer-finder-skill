@@ -4,7 +4,7 @@
 **Repository strategy:** Fork of `Kappaemme-git/codex-first-customer-finder-skill`
 **Downstream compatibility target:** A governed agent graph, including a possible future Unreal OS
 consumer. This repository does not implement or modify Unreal OS.
-**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is independently reviewed and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The exact public-read proof's bounded reader, durable runtime, pre-live independent review, complete test suite, and loopback browser QA pass. Frozen v2 proof artifacts remain readable, and an additive v3 claim-verified contract requires a configured skill/tool projector before search or public reads and independently re-derives claims, gaps, qualification, automated evidence review, and package hashes. CELSIUS/Jazwares and 4ocean/Badia are terminal without a candidate and may not retry. TUUCI is terminal without a candidate; Miansai produced immutable candidate `dcandidate-umg-0001`, whose exact human review recorded `changes_requested` because navigation-heavy summaries did not substantiate broader dossier categories. No package was released. The default runtime is sealed with no executable real-proof route. The exact v4 route contains only Coolibar's committed plan, one attempt, and no fallback, and requires the explicitly configured bounded proof service after review, remote verification, and exact durable approval. The full Phase 6 exit gate requires that attempt to produce a new v3 candidate, receive genuine exact-version human acceptance, and release atomically. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
+**Current program state:** Phase 4 independently reviewed and finalized at current-lineage commit `b7892aed5ad9ab0dcb9d900d95d6971332582ef8`. Phase 5 independently reviewed and finalized at commit `1ddba9037f1db7e1b58098b83f7bf4caeafd7e8d`. Phase 6A's synthetic brief foundation is independently reviewed and finalized at commit `e8d2546647603905c0b97a21f335535b3a98cc17`. Phase 6B contract-first repository work is independently reviewed and finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The exact public-read proof's bounded reader, durable runtime, pre-live independent review, complete test suite, and loopback browser QA pass. Frozen v2 proof artifacts remain readable, and an additive v3 claim-verified contract requires a configured skill/tool projector before search or public reads and independently re-derives claims, gaps, qualification, automated evidence review, and package hashes. CELSIUS/Jazwares and 4ocean/Badia are terminal without a candidate and may not retry. TUUCI is terminal without a candidate; Miansai produced immutable candidate `dcandidate-umg-0001`, whose exact human review recorded `changes_requested` because navigation-heavy summaries did not substantiate broader dossier categories. Coolibar's v4 route consumed its sole attempt and failed closed at claim projection without a candidate. No package was released. The default runtime and all committed real-proof routes are non-executable. The full Phase 6 exit gate requires a newly authorized exact target/source plan and versioned route, a claim-verified v3 candidate, genuine exact-version human acceptance, and atomic local release. Creative generation, outreach, CRM writes, orchestration, and outcome optimization are downstream responsibilities outside this repository.
 
 **Operating principle:** The skills find, qualify, deduplicate, and comprehensively research potential
 customers. Deterministic code validates the evidence and emits a versioned, graph-ready lead-
@@ -518,13 +518,12 @@ review, and inert graph-package release. The additive real-source contract, vers
 versioned manifest, bounded standard-library reader, and result-bound runtime are implemented and
 independently reviewed under separate authorization. CELSIUS/Jazwares and 4ocean/Badia are terminal
 without a candidate and may not retry. TUUCI is terminal without a candidate; Miansai's immutable
-candidate received `changes_requested`, and no package was released. The default runtime has no
-executable real-proof route, and no target, URL, retry, or substitution beyond exact v4 is authorized.
-The exact v4 route contains only Coolibar's committed plan, one attempt, and no fallback; it requires
-the explicitly configured bounded proof service after review, remote verification, and exact durable
-approval. The full Phase 6 exit gate requires that target to produce a v3 candidate
-that passes the implemented automated claim/evidence review, receives genuine exact-version human
-acceptance, and releases its local package atomically.
+candidate received `changes_requested`, and no package was released. Coolibar's exact v4 route then
+consumed its sole attempt and failed closed at claim projection without a candidate; it may not retry.
+The default runtime and all committed real-proof routes are non-executable. The full Phase 6 exit
+gate requires a newly authorized exact target/source plan and versioned route, followed by a v3
+candidate that passes the implemented automated claim/evidence review, receives genuine exact-version
+human acceptance, and releases its local package atomically.
 
 ## Objective
 

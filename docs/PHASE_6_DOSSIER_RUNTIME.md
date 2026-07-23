@@ -1,9 +1,9 @@
 # Phase 6 governed dossier runtime
 
 This runtime connects the finalized synthetic Phase 6B contracts to the local Mission Control
-approval and review surface. Synthetic fixtures remain the default. The real path retains three
-exhausted exact user-authorized routes and one authorized single-target Coolibar v4 route documented
-in `PHASE_6_REAL_PUBLIC_PROOF.md`; the default service still exposes no executable real-proof route
+approval and review surface. Synthetic fixtures remain the default. The real path retains four
+exhausted exact user-authorized routes, including the spent single-target Coolibar v4 route documented
+in `PHASE_6_REAL_PUBLIC_PROOF.md`; the default service exposes no executable real-proof route
 and adds no general discovery or crawling capability. The additive v3 claim-verified contract
 requires a configured repository skill/tool projector
 before search or any public read, then deterministically validates its output. Runtime state is
@@ -33,9 +33,11 @@ retry. Miansai produced one immutable candidate, and the exact human review reco
 dossier categories; no final dossier or package was created. The corrected reader prefers semantic
 main/article paragraph content, suppresses site chrome, and fails closed on weak or unsafe retained
 evidence. Retained source summaries are evidence inventory only and cannot substantiate broader
-category claims without claim-level verification. V4 contains only Coolibar, one attempt, and no
-fallback. No additional target, URL, retry, or substitution beyond its exact plan is authorized.
-`PHASE_6_REAL_PUBLIC_PROOF.md` records all route states and the exact remaining gate.
+category claims without claim-level verification. V4 contained only Coolibar, one attempt, and no
+fallback. That attempt reached the claim projector, failed closed as `source_read_failed_no_retry`
+when no exact retained product premise satisfied the semantic contract, and created no candidate.
+It may not retry. `PHASE_6_REAL_PUBLIC_PROOF.md` records all route states and the exact remaining
+new-target authorization gate.
 
 ## Search and durable history
 

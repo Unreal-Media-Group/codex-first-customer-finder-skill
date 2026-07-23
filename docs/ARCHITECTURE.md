@@ -310,9 +310,9 @@ and emits canonical local packages with all downstream authority flags denied. T
 the exhausted CELSIUS/Jazwares, 4ocean/Badia, and TUUCI/Miansai routes for historical validation.
 TUUCI ended without a candidate; Miansai produced one immutable candidate whose exact human decision
 is `changes_requested`, so no final dossier or package exists. The default service exposes no
-executable real-proof route. The exact v4 route contains only Coolibar's committed plan, one attempt,
-and no fallback; it becomes executable only through the explicitly configured bounded proof service
-after review, remote verification, and exact durable approval. Reader-generated HTML evidence prefers semantic main/article content,
+executable real-proof route. The Coolibar-only v4 route consumed its sole attempt, failed closed at
+claim projection without a candidate, and may not retry. Any future real proof requires a newly
+authorized exact target/source plan and versioned route. Reader-generated HTML evidence prefers semantic main/article content,
 suppresses navigation chrome, and must contain bounded paragraph prose before it can enter the
 evidence inventory. Source class and summary shape never populate broader dossier claims. The
 additive v3 validator requires every nonmechanical category to name its attempted exact sources,

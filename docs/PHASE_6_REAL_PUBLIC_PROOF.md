@@ -33,9 +33,9 @@ The spent `search-real-live-proof-v3` route contains exactly these historical al
 | 1 | The Ultimate Umbrella Company, Inc. / Tuuci | `phase6-live-proof-tuuci-v1` | `bebc6febbce3d5d8b8c74afb5d23142b6aa820dbc287c526af106b20b646ad51` | 1474 | `result-real-v1-f2fd1af5859f5cbec1ef87f5` | `account-v1-319e190f1842af5a8c7c580c` |
 | 2 | Miansai | `phase6-live-proof-miansai-v1` | `3cfcbdf8df08e9aadae4eb9a4575cd941b31d927a93f0f09cf2882efc63d7cf5` | 1382 | `result-real-v1-a70c37b08ed9c9ad23ff2b4a` | `account-v1-b368242de54e01b48b0c0ad3` |
 
-The authorized `search-real-live-proof-v4` route contains exactly one target and one attempt:
+The now-spent `search-real-live-proof-v4` route contained exactly one target and one attempt:
 
-| Authorized order | Organization | Plan | Plan hash | Canonical bytes | Result | Account |
+| Spent order | Organization | Plan | Plan hash | Canonical bytes | Result | Account |
 | --- | --- | --- | --- | ---: | --- | --- |
 | 1 | Coolibar, Inc. | `phase6-live-proof-coolibar-v1` | `11ecd3ca38a6da32235afcef3f7f43e819d480a1183ccb6c4b5a26b1ac3834c3` | 1473 | `result-real-v1-0f4401ad53aadba4d9a7338f` | `account-v1-70f245df6d088152054ae33d` |
 
@@ -45,7 +45,8 @@ UGC aversion. Before a public read, every target passes through the durable iden
 relationship, cooldown, duplicate, and re-engagement classifier. The v3 route permitted TUUCI first
 and Miansai only after TUUCI became terminal without a candidate. A TUUCI candidate would have
 stopped the pair. The v4 route has no alternative or fallback.
-No additional target, URL, retry, or substitution beyond the exact v4 plan is authorized.
+No v4 retry, additional URL, or substitution is authorized. Any further proof requires new exact
+target/source-plan authorization and a new versioned route.
 
 ## Live proof outcome
 
@@ -73,20 +74,22 @@ navigation-heavy and did not substantiate the broader dossier categories. The us
 exact terminal `changes_requested` decision for that candidate. No final dossier or package was
 created.
 
-The v4 Coolibar route is committed but has not yet consumed its single attempt. Before its first
-public request, the reviewed implementation must pass all repository gates, be pushed and verified
-against `origin/unreal`, and receive one exact seven-day result-bound durable approval. It may read
-only its committed robots URL and five exact source URLs under the approved budgets.
+The v4 Coolibar route is spent. After commit `7a3347f54e18b151be7cef1e59facef7af48b11a`
+was pushed and verified against `origin/unreal`, the exact plan was rebound mechanically and approval
+`dapproval-umg-0009` authorized one run. Run `drun-umg-0009` reached the reviewed claim projector,
+which could not establish an exact retained product-fit premise under its category-specific semantic
+contract. The runtime failed closed as `source_read_failed_no_retry` and created no candidate. The
+attempt cannot retry; the bounded research bundle was not persisted.
 
-The preserved gitignored SQLite state now contains three searches, six selected input result records,
-eight approval events, eight runs, one immutable candidate, and one terminal review event. It contains
+The preserved gitignored SQLite state now contains four searches, seven selected input result records,
+nine approval events, nine runs, one immutable candidate, and one terminal review event. It contains
 zero final dossier versions or packages. `PRAGMA integrity_check` returns `ok`, and
 `PRAGMA foreign_key_check` returns no rows. No proof worker, server, or listener remains running.
 
-None of the six attempted targets may retry. The default runtime has no executable real-proof route;
-the exact v4 route becomes executable only through the explicitly configured bounded proof service.
-The full Phase 6 gate still requires the Coolibar attempt to produce a new candidate,
-automated evidence review, genuine exact-version human acceptance, and atomic local release.
+None of the seven attempted targets may retry. The default runtime and all committed real-proof routes
+are non-executable. The full Phase 6 gate now requires a newly authorized exact public business and
+source plan, a new versioned route, a claim-verified candidate, automated evidence review, genuine
+exact-version human acceptance, and atomic local release.
 
 ## Durable authority and execution
 

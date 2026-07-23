@@ -262,10 +262,10 @@ recorded by the versioned routes in
 are terminal without a candidate. TUUCI is terminal without a candidate; Miansai's exact candidate
 received `changes_requested` and no release. None may retry. The default Mission Control
 `DossierService` has no executable real-proof route. Manifest presence alone is not execution
-authority. The separately authorized v4 route contains only Coolibar, one attempt, and no fallback;
-it is executable only by the explicitly configured bounded proof service after its reviewed commit,
-remote verification, and exact durable approval. An interrupted v4 claim consumes that sole attempt
-and receives no recovery authority. Never synthesize authority or durable state inside
+authority. The separately authorized v4 route contained only Coolibar, one attempt, and no fallback.
+That attempt reached claim projection, failed closed as `source_read_failed_no_retry` without a
+candidate, and is now spent; it cannot retry or receive recovery authority. Never synthesize
+authority or durable state inside
 an installed skill session. No target, URL, source class, retry, or substitute may be added beyond
 that exact plan without new exact authorization and a new versioned route.
 
