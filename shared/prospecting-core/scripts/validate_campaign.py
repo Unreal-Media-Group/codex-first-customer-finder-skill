@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate a local Phase 1 campaign configuration."""
+"""Validate a local Unreal prospecting campaign configuration."""
 
 from __future__ import annotations
 
@@ -11,6 +11,7 @@ from common import ValidationError, load_json, parse_date, parse_datetime, requi
 
 BUSINESS_UNITS = {"unreal-media-group", "unreal-talent"}
 OUTPUT_FORMATS = {"json", "markdown", "html"}
+OPPORTUNITY_KINDS = {"product_photography", "product_video", "ugc_ad"}
 ALLOWED_FIELDS = {
     "business_unit", "campaign_name", "discovery_scope", "verticals", "geography", "buyer_types",
     "talent_categories", "rights_territory", "campaign_channels", "target_prospect_count", "deep_research_limit",
@@ -18,6 +19,7 @@ ALLOWED_FIELDS = {
     "include_companies", "exclude_companies", "reengagement_enabled", "cooldown_days",
     "maximum_evidence_age_days", "output_formats", "prospect_history_path", "approved_roster_path",
     "allow_named_talent_recommendations",
+    "opportunity_filter",
 }
 
 
@@ -78,6 +80,35 @@ def _string_list(config: dict[str, Any], key: str) -> list[str]:
     return value
 
 
+def _validate_opportunity_filter(config: dict[str, Any]) -> None:
+    value = config.get("opportunity_filter")
+    if value is None:
+        return
+    if config.get("business_unit") != "unreal-media-group":
+        raise ValidationError("opportunity_filter is available only for Unreal Media Group campaigns.")
+    opportunity_filter = require_object(value, "opportunity_filter")
+    required = {"include_any", "exclude"}
+    missing = sorted(required - set(opportunity_filter))
+    unknown = sorted(set(opportunity_filter) - required)
+    if missing:
+        raise ValidationError(f"opportunity_filter is missing: {', '.join(missing)}.")
+    if unknown:
+        raise ValidationError(f"opportunity_filter contains unsupported fields: {', '.join(unknown)}.")
+    for key in ("include_any", "exclude"):
+        values = opportunity_filter[key]
+        if not isinstance(values, list) or any(not isinstance(item, str) or not item.strip() for item in values):
+            raise ValidationError(f"opportunity_filter {key} must be an array of non-empty strings.")
+        if len(values) != len(set(values)):
+            raise ValidationError(f"opportunity_filter {key} values must be unique.")
+        if any(item not in OPPORTUNITY_KINDS for item in values):
+            raise ValidationError("opportunity_filter uses a value outside the controlled vocabulary.")
+    if not opportunity_filter["include_any"]:
+        raise ValidationError("opportunity_filter include_any must contain at least one value.")
+    overlap = set(opportunity_filter["include_any"]) & set(opportunity_filter["exclude"])
+    if overlap:
+        raise ValidationError(f"opportunity_filter cannot include and exclude the same value: {sorted(overlap)}.")
+
+
 def validate_campaign(config: dict[str, Any], *, require_history_file: bool = True, base_dir: Path | None = None) -> dict[str, Any]:
     required = {
         "business_unit", "campaign_name", "discovery_scope", "target_prospect_count",
@@ -120,6 +151,7 @@ def validate_campaign(config: dict[str, Any], *, require_history_file: bool = Tr
             raise ValidationError("Unreal Talent campaigns require buyer_types.")
         if not _string_list(config, "rights_territory"):
             raise ValidationError("Unreal Talent campaigns require likely rights_territory.")
+    _validate_opportunity_filter(config)
     for key, minimum, maximum in (
         ("target_prospect_count", 1, 100), ("deep_research_limit", 0, 100),
         ("cooldown_days", 0, 3650), ("maximum_evidence_age_days", 1, 3650),

@@ -2,8 +2,8 @@
 
 The loop has one fixed UTC-weekly cadence, one bounded evaluation at a time,
 and delegates execution to the existing RegisteredAgentService. It contains no
-network client, external database, generic cron parser, outreach, or Phase 6
-capability.
+network client, external database, generic cron parser, outreach, or invocation
+of the Phase 6 operational finder.
 """
 
 from __future__ import annotations

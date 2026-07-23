@@ -2,14 +2,7 @@
 
 ## Boundary
 
-This repository owns one upstream role: find, filter, qualify, and research potential customers, then
-emit a reviewed lead-intelligence package for separately governed graph consumers. It does not
-implement or modify Unreal OS, create the larger graph, invoke downstream agents, generate creative,
-or contact anyone.
-
-Phase 1 is the local discovery, history, and validation layer. It prepares stable JSON for later
-research and integration but contains no database, network writer, scheduler, runner, creative
-generator, likeness workflow, CRM, or outreach system.
+Phase 6 is the operational release of the original local research and validation layer. It reuses the frozen Phase 1 JSON contracts and adds one UMG opportunity filter; it contains no live-proof runtime, network writer, creative generator, likeness workflow, CRM, outreach system, or downstream orchestrator.
 
 ```text
 Campaign JSON + local history JSON
@@ -24,6 +17,9 @@ Campaign JSON + local history JSON
  normalize identity -> classify duplicate/relationship/re-engagement
               |
               v
+ optional UMG opportunity filter (evidence-linked include/exclude)
+              |
+              v
  business-specific evidence review + weighted scoring
               |
               v
@@ -36,7 +32,7 @@ Campaign JSON + local history JSON
           human review only
 ```
 
-Phase 3 adds a separate local review surface without changing that frozen Phase 1 pipeline:
+The retained `run_metadata.phase: 1` value is the compatibility version of these original report contracts. Phase 3 adds a separate local review surface without changing the finder pipeline:
 
 ```text
 ordinary loopback POST form
@@ -178,188 +174,16 @@ retry. Noah alone sees
 schedule mutation controls; Rob and Dan receive truthful business-unit-scoped read-only pages. The one
 scheduler thread uses an injected clock and stop event, and is stopped and joined before server
 shutdown completes. It performs no live research, network request, approval, enrichment, creative,
-likeness, advertising, outreach, or Phase 6 action.
+likeness, advertising, outreach, or invocation of the Phase 6 operational finder.
 
-Phase 6A adds a separate manual one-shot service; it does not extend the scheduler or worker:
-
-```text
-pending durable review task + exact fixture result
-           |
-           v
-separate human records append-only, seven-day, result-bound approval
-           |
-           v
-atomic current-leaf + task/run/output/configuration/current-protection recheck
-           |
-           v
-single-use enrichment claim (identical replay is read-only)
-           |
-           v
-validate repository-owned .example metadata (no network fallback)
-           |
-           v
-atomic immutable sources + evidence links + exact-set manifest + BU brief + audit
-           |
-           v
-separate human research-quality review (no generation authority)
-```
-
-`EnrichmentService` is the schema-v3 activation boundary. The finalized Phase 4/5 store initializes
-to version 2 when those services are used alone; every Phase 6A construction path calls the additive
-v3 initializer before its first read or write, and normal `WebApplication` construction always
-activates it. Version 3 adds append-only approval/review events, a one-run-per-approval claim,
-immutable integrity-bound source metadata, immutable brief versions, field-level evidence links,
-an exact ordered-set integrity manifest, complete canonical snapshots/hashes/lengths for every
-authority-bearing approval and review field, and immutability triggers. Earlier tables, rows,
-identifiers, snapshots, and hashes are not rewritten. A pre-correction local v3 fixture file without
-the final authority-event integrity columns is rejected unchanged and must be archived and recreated;
-unverifiable authority history is never silently trusted or backfilled.
-Reopening v3 is idempotent.
-
-The local SQLite file and the OS account that owns it are trusted. These colocated snapshots, hashes,
-and lengths, together with the immutability triggers, detect accidental corruption and inconsistent or
-partial mutation and fail closed for ordinary application access; they are not independent
-authentication of authority. A trusted database owner who disables the triggers can rewrite an event
-(or source, link, brief, or manifest) and recompute its colocated digest, and that self-consistent
-rewrite is accepted by design. Phase 6A does not defend against a malicious local database owner and
-adds no HMAC, signature, secret, key management, second ledger, or external trust service; the
-lead-finder product does not require that resistance. See the trusted local-state boundary in
-`docs/PHASE_6_ENRICHMENT_BRIEF.md`.
-
-The approval is bound to the task, logically linked worker run and output, verified configuration
-hash, exact result bytes/hash, global identity, business unit, current governed protection hash,
-reviewer separation, scope, effective time, and exact seven-day expiry. A stale or unavailable
-process-local governed projection is non-actionable and requires a new worker result. `BEGIN
-IMMEDIATE` serializes approval supersession and enrichment claiming; a process-local active-owner
-registry distinguishes a live synchronous claim from crash recovery only inside the supported single
-Python process and threaded loopback server. It is not an independent-process coordination mechanism;
-multiple processes sharing one state file are unsupported. Rejected or unknown governed decisions
-fail closed, while a valid process-local approval only removes that block and never replaces the
-durable Phase 6A approval. Every synthetic fixture profile is bound to the approved result's exact
-business unit, result ID, global identity, account name, and `.example` domain. Research-field values
-have exact list/text/null rules, and bounded unique evidence identifiers must resolve to declared
-sources before persistence. Brief families are business-unit qualified. `accepted` requires the
-latest ready, conflict-free family version; historical/conflicted versions remain readable and may
-receive non-accepting review events. Approval and review event bindings and same-brief supersession
-chains are revalidated before detail, history, claim, or rendering. Claim-first
-permits only the claimed attempt to finish; revoke-first blocks a claim. There is no automatic retry,
-recurring work, external research client, credential, real data, page-body storage, creative,
-likeness, advertisement, outreach, deployment, or downstream-agent capability. Brief acceptance is
-explicitly research-quality status only. The full contract and independent-review checks are in
-`docs/PHASE_6_ENRICHMENT_BRIEF.md`.
-
-The finalized contract-first portion of Phase 6B defines and validates the dossier and graph-package
-shapes without live reads. The separately authorized exact proof routes follow this governed
-boundary. The additive real v3 path accepts a claim projection only through an injected repository
-skill/tool boundary and validates it deterministically; it is not a downstream worker:
-
-```text
-exact human-approved lead + validated identity/history/protection state
-           |
-           v
-bounded reads from authorized public business source classes
-           |
-           v
-URL/content boundary + untrusted-source extraction
-           |
-           v
-ordered category attempts + exact observed substrings + premise-backed inferences
-           |
-           v
-deterministic claim, freshness, gap, and automated-evidence review
-           |
-           v
-comprehensive customer dossier across the roadmap research categories
-           |
-           v
-stable graph nodes + relationships + evidence lineage
-           |
-           v
-exact-version human research-quality review
-           |
-           v
-local machine-readable lead-intelligence package; stop
-```
-
-The dossier treats public contact research as one category alongside company identity and
-relationships, commercial context, products and services, audiences and markets, brand and campaign
-evidence, public asset references, activity and change signals, opportunities, competitors, risks,
-rights, and history. Each applicable category is populated or carries an explicit gap state. Every
-material value distinguishes observation from inference and carries source lineage, confidence,
-uncertainty, and freshness.
-
-All Phase 6B source material is untrusted data. The additive v2 reader enforces the exact approved
-HTTPS destinations, redirect and robots revalidation, private/internal-address denial, TLS peer and
-hostname binding, and bounded time, headers, body, content type, and extracted text. It retains
-bounded claims and references, not raw page bodies or
-executable content. Source text cannot become a system instruction, tool call, policy override,
-review event, or downstream action.
-
-The graph-ready package is integration-neutral. It can represent organizations, brands, public
-business people or roles, public business contact points, products or services, audiences, campaign
-or asset references, signals, opportunities, restrictions, and evidence, plus their supported
-relationships. The general package carries public contact identities and references, not unrestricted
-contact values; any separately authorized business email, business phone, or equivalent point stays
-in a restricted projection that creative and analytics consumers cannot read. The package contains
-stable identities and versioning, not executable downstream instructions. The Phase 6B contract-first
-schemas, synthetic fixtures, deterministic validator, and tests are independently reviewed and
-finalized at commit `86f83f1a94862d573f30da70a47760556b045309`. The validator reuses the frozen
-Phase 1 campaign/history validation
-and duplicate classifier, applies history protections before opportunity intent and qualification,
-and emits canonical local packages with all downstream authority flags denied. The manifest retains
-the exhausted CELSIUS/Jazwares, 4ocean/Badia, and TUUCI/Miansai routes for historical validation.
-TUUCI ended without a candidate; Miansai produced one immutable candidate whose exact human decision
-is `changes_requested`, so no final dossier or package exists. The default service exposes no
-executable real-proof route. The Coolibar-only v4 route consumed its sole attempt, failed closed at
-claim projection without a candidate, and may not retry. Any future real proof requires a newly
-authorized exact target/source plan and versioned route. Reader-generated HTML evidence prefers semantic main/article content,
-suppresses navigation chrome, and must contain bounded paragraph prose before it can enter the
-evidence inventory. Source class and summary shape never populate broader dossier claims. The
-additive v3 validator requires every nonmechanical category to name its attempted exact sources,
-binds observations to hashed summary substrings, derives product-photo/video fit only from verified
-current premises, and embeds the projection and automated evidence-review attestation for
-standalone package revalidation. Frozen v2 artifacts remain readable. Any future
-source, general discovery reader, or consumer that stores or routes a released package remains
-separate work with separate authority.
-
-The governed dossier runtime connects that frozen contract to local SQLite without changing the v1
-Phase 6B schemas. `DossierService` is the sole schema-v4 activation boundary. It records
-immutable search/history/evaluation snapshots; projects every prior durable search outcome into the
-next history snapshot; derives account identity from canonical domain plus global identity; and
-serializes exact source-plan approval, single-use claims, cancellation, completion, and one terminal
-candidate review. A valid v4 reopen validates exact columns and required indexes/triggers without a
-rewrite. The v3-to-v4 transaction preserves populated Phase 6A bytes and rolls back completely on
-failure.
-
-Runtime identifiers, idempotency namespaces, and dossier-family version sequences are business-unit
-scoped. A process-local active-run registry prevents a second service in the supported threaded server from treating a live claim as a
-crash, while an ownerless committed claim fails closed at restart. Current fixture evidence is
-compared to the immutable approved source plan at claim and completion, but historical approval reads
-do not depend on mutable fixture bytes. Runtime research cutoff and freshness are recomputed before
-contract validation. An accepted review atomically creates the immutable final dossier, one package,
-and audit event; every read recomputes its request fingerprint and revalidates the complete
-run/approval/result/search/candidate/final/package/source-plan chain. Non-accepted terminal reviews
-have no release. The historical real v2 route uses a separate exact manifest and validators. Every
-additive v3 real route also requires the claim projector to be configured before search or reading;
-the reader and projector execute only after a result-bound goal-authority claim and outside SQLite.
-The runtime persists no raw body or extracted text and rejects simulated-actor acceptance. Target progression is monotonic within each
-exact route at authority, claim, read, persistence, and UI boundaries. The CELSIUS/Jazwares and
-4ocean/Badia requests remain reopenable but non-executable. For v1-v3 only, one bounded
-new-approval/new-run recovery exists only when an authorized route's target has a first and
-sole pre-recovery run was a verified startup interruption. Once later authority has progressed, that
-recovery also requires every later alternative to be terminal without a candidate. The exception is
-bound to append-only claim/recovery audit evidence and the absence of any target candidate or
-release. V4 has no recovery exception: an interrupted Coolibar claim consumes its sole attempt. A
-committed claim consumes the target attempt; cancellation may unlock the next exact alternative but
-cannot reauthorize the same target, and source-policy failures never retry.
-See `docs/PHASE_6_DOSSIER_RUNTIME.md` and
-`docs/PHASE_6_REAL_PUBLIC_PROOF.md`.
+The former Phase 6 dossier/live-proof/source-plan/claim-projector/approval/graph experiment was removed. It bypassed the actual finder and made a narrow proof failure terminal for an entire candidate. The release architecture keeps public research in the skill, deterministic safety and validation in the shared core, and durable local prospect history as the deduplication authority.
 
 ## Ownership
 
 | Concern | Canonical location |
 | --- | --- |
 | UMG research judgment | `.agents/skills/unreal-media-brand-prospector/` |
+| Phase 6 opportunity filter and result validation | `shared/prospecting-core/scripts/validate_campaign.py`, `validate_results.py` |
 | Talent/agency/rights judgment | `.agents/skills/unreal-talent-campaign-prospector/` |
 | Deterministic contracts and code | `shared/prospecting-core/` |
 | Synthetic evaluation data | `fixtures/prospecting/` |
@@ -371,20 +195,13 @@ See `docs/PHASE_6_DOSSIER_RUNTIME.md` and
 | Phase 4 local runtime state (gitignored) | `apps/prospecting-mission-control/local_state/` |
 | Phase 5 weekly shadow control plane | `apps/prospecting-mission-control/mission_control/shadow.py`, `store.py` |
 | Phase 5 synthetic history seeds | `fixtures/prospecting/phase5/` |
-| Phase 6A approval, enrichment, brief, and review service | `apps/prospecting-mission-control/mission_control/enrichment.py`, `store.py` |
-| Phase 6A synthetic brief metadata | `fixtures/prospecting/phase6/` |
-| Phase 6B dossier and graph-package contracts | `shared/prospecting-core/schemas/*phase6b*`, `customer-dossier.schema.json`, `lead-intelligence-package.schema.json`, `shared/prospecting-core/scripts/validate_phase6b_contract.py` |
-| Phase 6B synthetic dossier/history fixtures | `fixtures/prospecting/phase6/dossier-*.json` |
-| Phase 6 governed dossier runtime | `apps/prospecting-mission-control/mission_control/dossier.py`, `store.py`, `web.py` |
-| Phase 6 exact public-source contract and manifest | `shared/prospecting-core/schemas/*-real.schema.json`, `shared/prospecting-core/scripts/validate_phase6_real_contract.py`, `shared/prospecting-core/scripts/validate_phase6_claim_projection.py`, `shared/prospecting-core/manifests/phase6-live-proof-source-plans.json` |
-| Phase 6 bounded public reader | `apps/prospecting-mission-control/mission_control/public_reader.py` |
 | Original upstream skill | `first-customer-finder/` |
 
 Skill report scripts are thin delegates. The installer places the shared core once at `unreal-prospecting-core`, preventing two business skills from drifting.
 
 ## Data contracts
 
-Campaign, controlled roster, history, prospect result, and run report schemas separate company identity, discovery event, public signal, score snapshot, duplicate decision, rejection decision, qualified/re-engagement result, and summary. Runtime validators enforce score/freshness, history, source lineage, shortlist eligibility, handoff readiness, roster compatibility, rights-review, privacy, and summary invariants without adding a dependency. That separation maps cleanly to later durable storage without designing or implementing Phase 2.
+Campaign, controlled roster, history, prospect result, and run report schemas separate company identity, discovery event, public signal, evidence-linked opportunity match, score snapshot, duplicate decision, rejection decision, qualified/re-engagement result, and summary. Runtime validators enforce score/freshness, history, source lineage, include/exclude filtering, shortlist eligibility, handoff readiness, roster compatibility, rights-review, privacy, and summary invariants without adding a dependency.
 
 ## Identity limits
 
@@ -392,4 +209,4 @@ The standard library has no public suffix list. Domain normalization handles com
 
 ## Claude compatibility
 
-`.agents/skills/` is canonical. Phase 1 does not create manually duplicated `.claude/skills` copies because that would create drift. A deterministic compatibility generator can be evaluated later if a real Claude installation requirement appears.
+`.agents/skills/` is canonical. The repository does not create manually duplicated `.claude/skills` copies because that would create drift. A deterministic compatibility generator can be evaluated later if a real Claude installation requirement appears.

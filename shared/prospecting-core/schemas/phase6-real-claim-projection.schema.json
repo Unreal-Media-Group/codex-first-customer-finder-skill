@@ -1,6 +1,0 @@
-{
-  "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "$id": "https://unreal.local/schemas/phase6-real-claim-projection.schema.json",
-  "title": "Unreal Phase 6 Real Claim Projection",
-  "$ref": "customer-dossier-real.schema.json#/$defs/claimProjection"
-}

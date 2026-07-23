@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://unreal.local/schemas/prospect-result.schema.json",
-  "title": "Phase 1 Prospect Result Contracts",
+  "title": "Prospect Result (Phase 1 Compatibility Contract)",
   "$defs": {
     "signal": {
       "type": "object",
@@ -42,6 +42,45 @@
         }
       },
       "additionalProperties": false
+    },
+    "opportunity_match": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "kind",
+        "basis",
+        "evidence_urls",
+        "reason"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "product_photography",
+            "product_video",
+            "ugc_ad"
+          ]
+        },
+        "basis": {
+          "enum": [
+            "observed",
+            "inferred_high_confidence",
+            "inferred_low_confidence"
+          ]
+        },
+        "evidence_urls": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "format": "uri"
+          }
+        },
+        "reason": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
     },
     "normalized_identity": {
       "type": "object",
@@ -238,6 +277,12 @@
       "minItems": 1,
       "items": {
         "$ref": "#/$defs/signal"
+      }
+    },
+    "opportunity_matches": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/opportunity_match"
       }
     },
     "score_snapshot": {

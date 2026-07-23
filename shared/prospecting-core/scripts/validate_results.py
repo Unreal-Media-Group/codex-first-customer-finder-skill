@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Validate Phase 1 prospect results and run-report safety invariants."""
+"""Validate prospect results and run-report safety invariants."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ from typing import Any
 
 from common import ValidationError, load_json, parse_date, parse_datetime, require_http_url, require_object, score_talent, score_umg
 from normalize_domain import normalize_domain
-from validate_campaign import load_approved_roster, validate_campaign
+from validate_campaign import OPPORTUNITY_KINDS, load_approved_roster, validate_campaign
 
 ALLOWED_DUPLICATE_STATUSES = {
     "new_prospect", "existing_no_new_trigger", "existing_new_trigger", "existing_active_outreach",
@@ -18,6 +18,8 @@ ALLOWED_DUPLICATE_STATUSES = {
     "distinct_subbrand", "parent_company_relationship", "agency_brand_overlap",
 }
 ELIGIBLE_SHORTLIST_STATUSES = {"new_prospect", "existing_new_trigger", "distinct_subbrand"}
+EVIDENCE_BASES = {"observed", "inferred_high_confidence", "inferred_low_confidence", "unknown", "requires_internal_rights_check"}
+OPPORTUNITY_BASES = {"observed", "inferred_high_confidence", "inferred_low_confidence"}
 EXPECTED_SKILLS = {
     "unreal-media-group": "unreal-media-brand-prospector",
     "unreal-talent": "unreal-talent-campaign-prospector",
@@ -50,6 +52,46 @@ def _category_overlaps(left: list[str], right: list[str]) -> bool:
             if a == b or a in b or b in a:
                 return True
     return False
+
+
+def _validate_opportunity_matches(result: dict[str, Any], campaign: dict[str, Any], signal_urls: set[str]) -> set[str]:
+    opportunity_filter = campaign.get("opportunity_filter")
+    matches = result.get("opportunity_matches")
+    if opportunity_filter is None:
+        if matches is not None:
+            raise ValidationError("opportunity_matches requires a campaign opportunity_filter.")
+        return set()
+    if result.get("business_unit") != "unreal-media-group":
+        raise ValidationError("opportunity_matches is available only for Unreal Media Group results.")
+    if not isinstance(matches, list):
+        raise ValidationError("Results for a filtered opportunity campaign require opportunity_matches.")
+
+    kinds: set[str] = set()
+    required = {"kind", "basis", "evidence_urls", "reason"}
+    for index, raw_match in enumerate(matches):
+        match = require_object(raw_match, f"opportunity match {index}")
+        missing = sorted(required - set(match))
+        unknown = sorted(set(match) - required)
+        if missing:
+            raise ValidationError(f"Opportunity match {index} is missing: {', '.join(missing)}.")
+        if unknown:
+            raise ValidationError(f"Opportunity match {index} contains unsupported fields: {', '.join(unknown)}.")
+        if not isinstance(match["kind"], str) or match["kind"] not in OPPORTUNITY_KINDS:
+            raise ValidationError("Opportunity match kind is outside the controlled vocabulary.")
+        if not isinstance(match["basis"], str) or match["basis"] not in OPPORTUNITY_BASES:
+            raise ValidationError("Opportunity match basis is invalid.")
+        if not isinstance(match["reason"], str) or not match["reason"].strip():
+            raise ValidationError("Opportunity match reason must be a non-empty string.")
+        evidence_urls = match["evidence_urls"]
+        if not isinstance(evidence_urls, list) or not evidence_urls:
+            raise ValidationError("Opportunity match evidence_urls must be a non-empty array.")
+        validated_urls = [require_http_url(url) for url in evidence_urls]
+        if len(validated_urls) != len(set(validated_urls)):
+            raise ValidationError("Opportunity match evidence_urls must be unique.")
+        if not set(validated_urls).issubset(signal_urls):
+            raise ValidationError("Every opportunity match must cite preserved signal evidence.")
+        kinds.add(match["kind"])
+    return kinds
 
 
 def validate_result(result: dict[str, Any], campaign: dict[str, Any], *, base_dir: Path | None = None) -> dict[str, Any]:
@@ -90,7 +132,7 @@ def validate_result(result: dict[str, Any], campaign: dict[str, Any], *, base_di
         signal = require_object(signal, "signal")
         signal_url = require_http_url(signal.get("source_url"))
         signal_urls.add(signal_url)
-        if signal.get("basis") not in {"observed", "inferred_high_confidence", "inferred_low_confidence", "unknown", "requires_internal_rights_check"}:
+        if signal.get("basis") not in EVIDENCE_BASES:
             raise ValidationError("Signal basis is invalid.")
         source_date = parse_date(signal.get("source_date"), "signal source_date")
         if source_date > discovered_date:
@@ -99,6 +141,7 @@ def validate_result(result: dict[str, Any], campaign: dict[str, Any], *, base_di
         official = official or signal.get("official_source") is True
     if not signal_urls.issubset(validated_event_urls):
         raise ValidationError("Every signal source_url must be preserved in discovery_event source_urls.")
+    opportunity_kinds = _validate_opportunity_matches(result, campaign, signal_urls)
 
     rejection = require_object(result["rejection_decision"], "rejection_decision")
     if not isinstance(rejection.get("rejected"), bool) or not isinstance(rejection.get("reasons"), list):
@@ -138,6 +181,13 @@ def validate_result(result: dict[str, Any], campaign: dict[str, Any], *, base_di
         raise ValidationError("Rejected results require at least one rejection reason.")
     if not rejection["rejected"] and rejection["reasons"]:
         raise ValidationError("Non-rejected results cannot include rejection reasons.")
+    opportunity_filter = campaign.get("opportunity_filter")
+    if opportunity_filter and not rejection["rejected"]:
+        if not opportunity_kinds.intersection(opportunity_filter["include_any"]):
+            raise ValidationError("Qualified results require at least one included opportunity match.")
+        excluded = opportunity_kinds.intersection(opportunity_filter["exclude"])
+        if excluded:
+            raise ValidationError(f"Qualified results contain an excluded opportunity match: {sorted(excluded)}.")
     if status not in ELIGIBLE_SHORTLIST_STATUSES and not rejection["rejected"]:
         raise ValidationError(f"Duplicate status {status} is not eligible for qualification and must be rejected.")
     if not str(result["reason_for_qualification"]).strip() or not str(result["important_uncertainty"]).strip() or not str(result["recommended_next_action"]).strip():

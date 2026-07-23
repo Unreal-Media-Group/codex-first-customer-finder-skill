@@ -1,10 +1,11 @@
 # Unreal Media Group Brand Prospecting Skill
 
-**Working name:** `unreal-media-brand-prospector`  
-**Business unit:** Unreal Media Group  
-**Document status:** Product and operating specification  
-**Current build focus:** Phase 1, customize the Codex skill for repeatable lead discovery, qualification, deduplication, filtering, and reporting  
-**Deferred until later phases:** Automated research agents, speculative ad generation, outbound delivery, and reply handling
+**Working name:** `unreal-media-brand-prospector`
+**Business unit:** Unreal Media Group
+**Document status:** Product and operating specification
+**Compatibility baseline:** Phase 1 defines the frozen local campaign, history, result, and report contracts
+**Current release:** Phase 6 adds the operational finder/researcher and controlled product-photo/video filter described in `docs/PHASE_6_OPERATIONAL_FINDER.md`
+**Outside this repository:** Autonomous research scheduling, speculative ad generation, outbound delivery, and reply handling
 
 ---
 

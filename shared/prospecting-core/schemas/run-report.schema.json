@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://unreal.local/schemas/run-report.schema.json",
-  "title": "Phase 1 Run Report",
+  "title": "Run Report (Phase 1 Compatibility Contract)",
   "$defs": {
     "raw_candidate": {
       "type": "object",

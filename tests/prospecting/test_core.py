@@ -189,12 +189,84 @@ class CoreTests(unittest.TestCase):
         for path in sorted((ROOT / "fixtures/prospecting/campaigns").glob("*.json")):
             with self.subTest(path=path.name):
                 validate_campaign(load_json(path), base_dir=path.parent)
+        validate_history(load_json(ROOT / "fixtures/prospecting/history/starter-prospect-history.json"))
 
     def test_open_and_multiple_verticals(self) -> None:
         open_campaign = load_json(ROOT / "fixtures/prospecting/campaigns/umg-open-discovery.json")
         self.assertEqual(validate_campaign(open_campaign, require_history_file=False)["verticals"], [])
         multi = load_json(ROOT / "fixtures/prospecting/campaigns/umg-fitness-activewear.json")
         self.assertEqual(len(validate_campaign(multi, require_history_file=False)["verticals"]), 2)
+
+    def test_umg_opportunity_filter_is_evidence_linked_and_excludes_ugc(self) -> None:
+        report = load_json(ROOT / "fixtures/prospecting/expected/umg-sample-run.json")
+        report["campaign"]["opportunity_filter"] = {
+            "include_any": ["product_photography", "product_video"],
+            "exclude": ["ugc_ad"],
+        }
+        result = report["results"][0]
+        result["opportunity_matches"] = [{
+            "kind": "product_photography",
+            "basis": "inferred_low_confidence",
+            "evidence_urls": [result["signals"][0]["source_url"]],
+            "reason": "The current product launch supports review for product photography.",
+        }]
+        validate_run_report(report)
+
+        missing = copy.deepcopy(report)
+        missing["results"][0]["opportunity_matches"] = []
+        with self.assertRaisesRegex(ValidationError, "included opportunity"):
+            validate_run_report(missing)
+
+        excluded = copy.deepcopy(report)
+        excluded["results"][0]["opportunity_matches"].append({
+            "kind": "ugc_ad",
+            "basis": "observed",
+            "evidence_urls": [result["signals"][0]["source_url"]],
+            "reason": "The source explicitly centers the opportunity on UGC advertising.",
+        })
+        with self.assertRaisesRegex(ValidationError, "excluded opportunity"):
+            validate_run_report(excluded)
+
+        excluded["results"][0]["rejection_decision"] = {
+            "rejected": True,
+            "reasons": ["The evidence matches the campaign UGC-ad exclusion."],
+        }
+        excluded["results"][0]["future_handoff"]["ready"] = False
+        excluded["summary"]["rejections"] = 1
+        excluded["summary"]["qualified_shortlist"] = 0
+        validate_run_report(excluded)
+
+        unlinked = copy.deepcopy(report)
+        unlinked["results"][0]["opportunity_matches"][0]["evidence_urls"] = [
+            "https://unlinked.example/evidence"
+        ]
+        with self.assertRaisesRegex(ValidationError, "signal evidence"):
+            validate_run_report(unlinked)
+
+        unknown_basis = copy.deepcopy(report)
+        unknown_basis["results"][0]["opportunity_matches"][0]["basis"] = "unknown"
+        with self.assertRaisesRegex(ValidationError, "basis"):
+            validate_run_report(unknown_basis)
+
+        invalid_match_type = copy.deepcopy(report)
+        invalid_match_type["results"][0]["opportunity_matches"][0]["kind"] = []
+        with self.assertRaisesRegex(ValidationError, "controlled vocabulary"):
+            validate_run_report(invalid_match_type)
+
+        invalid_campaign = copy.deepcopy(report["campaign"])
+        invalid_campaign["opportunity_filter"]["include_any"] = ["generic_marketing"]
+        with self.assertRaisesRegex(ValidationError, "controlled vocabulary"):
+            validate_campaign(invalid_campaign, require_history_file=False)
+
+        overlapping = copy.deepcopy(report["campaign"])
+        overlapping["opportunity_filter"]["exclude"].append("product_video")
+        with self.assertRaisesRegex(ValidationError, "include and exclude"):
+            validate_campaign(overlapping, require_history_file=False)
+
+        talent_campaign = load_json(ROOT / "fixtures/prospecting/campaigns/talent-open-discovery.json")
+        talent_campaign["opportunity_filter"] = copy.deepcopy(report["campaign"]["opportunity_filter"])
+        with self.assertRaisesRegex(ValidationError, "Unreal Media Group"):
+            validate_campaign(talent_campaign, require_history_file=False)
 
     def test_invalid_campaign(self) -> None:
         campaign = load_json(ROOT / "fixtures/prospecting/campaigns/umg-open-discovery.json")
@@ -333,6 +405,9 @@ class CoreTests(unittest.TestCase):
         self.assertIn("&lt;test&gt;", html)
         self.assertNotIn("<test>", html)
         self.assertIn(r"\<test\>", markdown)
+        self.assertIn("product_photography", html)
+        self.assertIn(r"product\_photography", markdown)
+        self.assertIn("Phase 6", html)
         talent_html = render_html(load_json(ROOT / "fixtures/prospecting/expected/talent-sample-run.json"))
         self.assertIn("Search assumptions", talent_html)
         self.assertIn("requires_internal_rights_check", talent_html)

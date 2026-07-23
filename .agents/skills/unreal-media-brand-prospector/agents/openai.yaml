@@ -1,4 +1,4 @@
 interface:
   display_name: "Unreal Media Brand Prospector"
-  short_description: "Find qualified UMG brand prospects safely"
-  default_prompt: "Use $unreal-media-brand-prospector to run a local evidence-backed brand prospecting campaign without creative generation or outreach."
+  short_description: "Find, filter, and research UMG prospects"
+  default_prompt: "Use $unreal-media-brand-prospector to find, deduplicate, filter, deeply research, and report evidence-backed brand prospects without creative generation or outreach."

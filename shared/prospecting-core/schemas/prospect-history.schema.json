@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://unreal.local/schemas/prospect-history.schema.json",
-  "title": "Local Phase 1 Prospect History",
+  "title": "Local Prospect History (Phase 1 Compatibility Contract)",
   "type": "object",
   "additionalProperties": false,
   "required": ["version", "generated_at", "prospects"],
